@@ -37,15 +37,6 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-// TODO: Change commands to execute the root command then the ones that are supposed to be executed
-// All commands should be written like this!
-// ```
-// _, err := executeCmd(rootCmd, "")
-//
-//	assert.NoError(err)
-//
-// ```
-
 var _ = Describe("JPD Commands", func() {
 
 	assert := assert.New(GinkgoT())
@@ -164,7 +155,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(execCmd, "exec", "--help")
+			output, err := executeCmd(rootCmd, "exec", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Execute packages")
 			assert.Contains(output, "jpd exec")
@@ -190,7 +181,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(updateCmd, "--help")
+			output, err := executeCmd(rootCmd, "update", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Update packages")
 			assert.Contains(output, "jpd update")
@@ -229,7 +220,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(uninstallCmd, "--help")
+			output, err := executeCmd(rootCmd, "uninstall", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Uninstall packages")
 			assert.Contains(output, "jpd uninstall")
@@ -263,7 +254,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(cleanInstallCmd, "--help")
+			output, err := executeCmd(rootCmd, "clean-install", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Clean install")
 			assert.Contains(output, "jpd clean-install")
@@ -282,9 +273,9 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(agentCmd, "--help")
+			output, err := executeCmd(rootCmd, "agent", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Show the detected package manager")
+			assert.Contains(output, "Show information about the detected package manager")
 			assert.Contains(output, "jpd agent")
 		})
 

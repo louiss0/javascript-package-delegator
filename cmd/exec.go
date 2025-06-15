@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -56,6 +57,12 @@ Examples:
 }
 
 func runExec(args []string, cmd *cobra.Command) error {
+
+	if lo.Contains(args, "--help") {
+		cmd.SetArgs(args)
+		return cmd.Execute()
+	}
+
 	pm, err := detectPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
