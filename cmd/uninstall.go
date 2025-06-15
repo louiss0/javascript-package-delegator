@@ -38,9 +38,9 @@ func NewUninstallCmd() *cobra.Command {
 Equivalent to 'nun' command - detects npm, yarn, pnpm, or bun and runs the uninstall command.
 
 Examples:
-  node-package-delegator uninstall lodash       # Uninstall lodash
-  node-package-delegator uninstall lodash react # Uninstall multiple packages
-  node-package-delegator uninstall -g typescript # Uninstall global package`,
+  javascript-package-delegator uninstall lodash       # Uninstall lodash
+  javascript-package-delegator uninstall lodash react # Uninstall multiple packages
+  javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -112,4 +112,3 @@ func runUninstall(packages []string, cmd *cobra.Command) error {
 	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 	return execCmd.Run()
 }
-

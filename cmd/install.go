@@ -36,13 +36,13 @@ func NewInstallCmd() *cobra.Command {
 		Use:   "install [packages...]",
 		Short: "Install packages using the detected package manager",
 		Long: `Install packages using the appropriate package manager based on lock files.
-Equivalent to 'ni' command - detects npm, yarn, pnpm, or bun and runs the appropriate install command.
+Equivalent to 'ni' command - detects npm, yarn, pnpm, bun, or deno and runs the appropriate install command.
 
 Examples:
-  node-package-delegator install           # Install all dependencies
-  node-package-delegator install lodash    # Install lodash
-  node-package-delegator install -D vitest # Install vitest as dev dependency
-  node-package-delegator install -g typescript # Install globally`,
+  jpd install           # Install all dependencies
+  jpd install lodash    # Install lodash
+  jpd install -D vitest # Install vitest as dev dependency
+  jpd install -g typescript # Install globally`,
 		Aliases: []string{"i", "add"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runInstall(args, cmd); err != nil {
@@ -150,6 +150,24 @@ func runInstall(packages []string, cmd *cobra.Command) error {
 			cmdArgs = append(cmdArgs, "--production")
 		}
 
+	case "deno":
+		// Deno doesn't have traditional "install" - it downloads deps on run
+		// But we can cache dependencies
+		if len(packages) == 0 {
+			// Check for deps.ts or mod.ts file to cache
+			if _, err := os.Stat("deps.ts"); err == nil {
+				cmdArgs = []string{"cache", "deps.ts"}
+			} else if _, err := os.Stat("mod.ts"); err == nil {
+				cmdArgs = []string{"cache", "mod.ts"}
+			} else {
+				return fmt.Errorf("deno: no deps.ts or mod.ts file found to cache")
+			}
+		} else {
+			// For specific packages, advise user to add them to imports
+			return fmt.Errorf("deno doesn't support installing packages directly. Add imports to your code or deps.ts file")
+		}
+		// Note: Deno ignores most flags as it doesn't have traditional package management
+
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}
@@ -171,8 +189,11 @@ func detectPackageManager() (string, error) {
 		return "", err
 	}
 
-	// Check for lock files in order of preference
+	// Check for lock files and config files in order of preference
 	lockFiles := map[string]string{
+		"deno.lock":      "deno",
+		"deno.json":      "deno",
+		"deno.jsonc":     "deno",
 		"bun.lockb":      "bun",
 		"pnpm-lock.yaml": "pnpm",
 		"yarn.lock":      "yarn",

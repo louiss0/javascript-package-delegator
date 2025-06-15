@@ -44,10 +44,10 @@ func NewRunCmd() *cobra.Command {
 Equivalent to 'nr' command - detects npm, yarn, pnpm, or bun and runs the script.
 
 Examples:
-  node-package-delegator run             # List available scripts
-  node-package-delegator run dev         # Run dev script
-  node-package-delegator run build --prod # Run build script with args
-  node-package-delegator run test -- --watch # Run test with npm-style args`,
+  javascript-package-delegator run             # List available scripts
+  javascript-package-delegator run dev         # Run dev script
+  javascript-package-delegator run build --prod # Run build script with args
+  javascript-package-delegator run test -- --watch # Run test with npm-style args`,
 		Aliases: []string{"r"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runScript(args, cmd); err != nil {
@@ -183,4 +183,3 @@ func readPackageJSON() (*PackageJSON, error) {
 
 	return &pkg, nil
 }
-

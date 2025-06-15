@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/louiss0/cobra-cli-template/custom_errors"
+	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/samber/lo"
 )
 

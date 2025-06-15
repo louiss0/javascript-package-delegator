@@ -38,10 +38,10 @@ func NewExecCmd() *cobra.Command {
 Equivalent to 'nlx' command - detects npm, yarn, pnpm, or bun and runs npx/yarn dlx/pnpm dlx/bunx.
 
 Examples:
-  node-package-delegator exec create-react-app my-app
-  node-package-delegator exec @angular/cli new my-project
-  node-package-delegator exec typescript --version
-  node-package-delegator exec prettier --check .`,
+  javascript-package-delegator exec create-react-app my-app
+  javascript-package-delegator exec @angular/cli new my-project
+  javascript-package-delegator exec typescript --version
+  javascript-package-delegator exec prettier --check .`,
 		Aliases: []string{"x"},
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -128,4 +128,3 @@ func getYarnVersion() (string, error) {
 	}
 	return strings.TrimSpace(string(output)), nil
 }
-

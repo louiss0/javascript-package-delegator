@@ -38,10 +38,10 @@ func NewUpdateCmd() *cobra.Command {
 Equivalent to 'nup' command - detects npm, yarn, pnpm, or bun and runs the update command.
 
 Examples:
-  node-package-delegator update           # Update all packages
-  node-package-delegator update lodash    # Update specific package
-  node-package-delegator update -i        # Interactive update (where supported)
-  node-package-delegator update -g typescript # Update global package`,
+  javascript-package-delegator update           # Update all packages
+  javascript-package-delegator update lodash    # Update specific package
+  javascript-package-delegator update -i        # Interactive update (where supported)
+  javascript-package-delegator update -g typescript # Update global package`,
 		Aliases: []string{"u", "up", "upgrade"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runUpdate(args, cmd); err != nil {
@@ -173,4 +173,3 @@ func runUpdate(packages []string, cmd *cobra.Command) error {
 	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 	return execCmd.Run()
 }
-

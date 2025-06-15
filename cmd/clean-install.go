@@ -41,7 +41,7 @@ This command is designed for CI environments and production builds where you wan
 exactly what's in the lockfile without updating it.
 
 Examples:
-  node-package-delegator clean-install     # Clean install all dependencies`,
+  javascript-package-delegator clean-install     # Clean install all dependencies`,
 		Aliases: []string{"ci"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runCleanInstall(args, cmd); err != nil {
@@ -98,4 +98,3 @@ func runCleanInstall(args []string, cmd *cobra.Command) error {
 	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 	return execCmd.Run()
 }
-

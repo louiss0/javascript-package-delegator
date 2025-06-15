@@ -40,7 +40,7 @@ Equivalent to 'na' command - detects and displays the package manager being used
 This command shows which package manager would be used based on lock files in the current directory.
 
 Examples:
-  node-package-delegator agent    # Show detected package manager`,
+  javascript-package-delegator agent    # Show detected package manager`,
 		Aliases: []string{"a"},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runAgent(args, cmd); err != nil {
@@ -70,9 +70,9 @@ func runAgent(args []string, cmd *cobra.Command) error {
 
 	// Show which lock file was found
 	lockFiles := map[string]string{
-		"bun.lockb":      "bun",
-		"pnpm-lock.yaml": "pnpm",
-		"yarn.lock":      "yarn",
+		"bun.lockb":         "bun",
+		"pnpm-lock.yaml":    "pnpm",
+		"yarn.lock":         "yarn",
 		"package-lock.json": "npm",
 	}
 
@@ -118,4 +118,3 @@ func getPackageManagerVersion(pm string) (string, error) {
 
 	return string(output), nil
 }
-
