@@ -63,7 +63,7 @@ Examples:
 }
 
 func runInstall(packages []string, cmd *cobra.Command) error {
-	pm, err := detectPackageManager()
+	pm, err := DetectPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}
@@ -182,8 +182,8 @@ func runInstall(packages []string, cmd *cobra.Command) error {
 	return execCmd.Run()
 }
 
-// detectPackageManager detects the package manager based on lock files
-func detectPackageManager() (string, error) {
+// DetectPackageManager detects the package manager based on lock files
+func DetectPackageManager() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", err
@@ -191,12 +191,12 @@ func detectPackageManager() (string, error) {
 
 	// Check for lock files and config files in order of preference
 	lockFiles := map[string]string{
-		"deno.lock":      "deno",
-		"deno.json":      "deno",
-		"deno.jsonc":     "deno",
-		"bun.lockb":      "bun",
-		"pnpm-lock.yaml": "pnpm",
-		"yarn.lock":      "yarn",
+		"deno.lock":         "deno",
+		"deno.json":         "deno",
+		"deno.jsonc":        "deno",
+		"bun.lockb":         "bun",
+		"pnpm-lock.yaml":    "pnpm",
+		"yarn.lock":         "yarn",
 		"package-lock.json": "npm",
 	}
 
@@ -209,4 +209,3 @@ func detectPackageManager() (string, error) {
 	// Default to npm if no lock file is found
 	return "npm", nil
 }
-

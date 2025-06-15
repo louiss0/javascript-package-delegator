@@ -63,7 +63,7 @@ func runExec(args []string, cmd *cobra.Command) error {
 		return cmd.Execute()
 	}
 
-	pm, err := detectPackageManager()
+	pm, err := DetectPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}

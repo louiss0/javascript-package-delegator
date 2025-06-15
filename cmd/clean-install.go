@@ -55,7 +55,7 @@ Examples:
 }
 
 func runCleanInstall(args []string, cmd *cobra.Command) error {
-	pm, err := detectPackageManager()
+	pm, err := DetectPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}
