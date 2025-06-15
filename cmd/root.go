@@ -32,17 +32,17 @@ func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "jpd",
 		Short: "JavaScript Package Delegator - A universal package manager interface",
-		Long: `JavaScript Package Delegator (jpd) - A universal package manager interface that detects 
-and delegates to the appropriate package manager (npm, yarn, pnpm, bun, or deno) based on 
+		Long: `JavaScript Package Delegator (jpd) - A universal package manager interface that detects
+and delegates to the appropriate package manager (npm, yarn, pnpm, bun, or deno) based on
 lock files and config files in your project.
 
-Inspired by @antfu/ni, this tool provides a unified CLI experience across different 
-JavaScript runtimes and package managers, making it easy to work in teams with different 
+Inspired by @antfu/ni, this tool provides a unified CLI experience across different
+JavaScript runtimes and package managers, making it easy to work in teams with different
 preferences or switch between Node.js and Deno projects.
 
 Available commands:
   install    - Install packages (equivalent to 'ni')
-  run        - Run package.json scripts (equivalent to 'nr') 
+  run        - Run package.json scripts (equivalent to 'nr')
   exec       - Execute packages (equivalent to 'nlx')
   update     - Update packages (equivalent to 'nup')
   uninstall  - Uninstall packages (equivalent to 'nun')
