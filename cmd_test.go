@@ -42,14 +42,167 @@ var _ = Describe("JPD Commands", func() {
 
 	assert := assert.New(GinkgoT())
 
-	It("should be able to run", func() {
+	Describe("Root Command", func() {
+		It("should be able to run", func() {
+			_, err := executeCmd(rootCmd, "")
+			assert.NoError(err)
+		})
 
-		// The "" needs to be passed as an argument to the executeCmd function with rootCmd
-		// If not then there will be an error
-		// This is because gingko will pass a flag to the command to indicate that it is running in a test environment
-		_, err := executeCmd(rootCmd, "")
+		It("should show help", func() {
+			output, err := executeCmd(rootCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "JavaScript Package Delegator")
+			assert.Contains(output, "jpd")
+		})
+	})
 
-		assert.NoError(err)
+	Describe("Install Command", func() {
+		var installCmd *cobra.Command
+
+		BeforeEach(func() {
+			installCmd = cmd.NewInstallCmd()
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(installCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Install packages")
+			assert.Contains(output, "jpd install")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(installCmd.Aliases, "i")
+			assert.Contains(installCmd.Aliases, "add")
+		})
+
+		It("should have dev flag", func() {
+			flag := installCmd.Flag("dev")
+			assert.NotNil(flag)
+			assert.Equal("D", flag.Shorthand)
+		})
+
+		It("should have global flag", func() {
+			flag := installCmd.Flag("global")
+			assert.NotNil(flag)
+			assert.Equal("g", flag.Shorthand)
+		})
+
+		It("should have production flag", func() {
+			flag := installCmd.Flag("production")
+			assert.NotNil(flag)
+			assert.Equal("P", flag.Shorthand)
+		})
+
+		It("should have frozen flag", func() {
+			flag := installCmd.Flag("frozen")
+			assert.NotNil(flag)
+		})
+
+		It("should have interactive flag", func() {
+			flag := installCmd.Flag("interactive")
+			assert.NotNil(flag)
+			assert.Equal("i", flag.Shorthand)
+		})
+	})
+
+	Describe("Run Command", func() {
+		var runCmd *cobra.Command
+
+		BeforeEach(func() {
+			runCmd = cmd.NewRunCmd()
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(runCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Run scripts")
+			assert.Contains(output, "jpd run")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(runCmd.Aliases, "r")
+		})
+
+		It("should have if-present flag", func() {
+			flag := runCmd.Flag("if-present")
+			assert.NotNil(flag)
+		})
+	})
+
+	Describe("Exec Command", func() {
+		var execCmd *cobra.Command
+
+		BeforeEach(func() {
+			execCmd = cmd.NewExecCmd()
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(execCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Execute packages")
+			assert.Contains(output, "jpd exec")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(execCmd.Aliases, "x")
+		})
+
+		PIt("should require at least one argument", func() {
+			// assert.Equal(1, int(execCmd.Args(execCmd)))
+		})
+	})
+
+	Describe("Update Command", func() {
+		var updateCmd *cobra.Command
+
+		BeforeEach(func() {
+			updateCmd = cmd.NewUpdateCmd()
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(updateCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Update packages")
+			assert.Contains(output, "jpd update")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(updateCmd.Aliases, "u")
+			assert.Contains(updateCmd.Aliases, "up")
+			assert.Contains(updateCmd.Aliases, "upgrade")
+		})
+
+		It("should have interactive flag", func() {
+			flag := updateCmd.Flag("interactive")
+			assert.NotNil(flag)
+			assert.Equal("i", flag.Shorthand)
+		})
+
+		It("should have global flag", func() {
+			flag := updateCmd.Flag("global")
+			assert.NotNil(flag)
+			assert.Equal("g", flag.Shorthand)
+		})
+
+		It("should have latest flag", func() {
+			flag := updateCmd.Flag("latest")
+			assert.NotNil(flag)
+		})
+	})
+
+	Describe("Uninstall Command", func() {
+		var uninstallCmd *cobra.Command
+
+		BeforeEach(func() {
+			uninstallCmd = cmd.NewUninstallCmd()
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(uninstallCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Uninstall packages")
+			assert.Contains(output, "jpd uninstall")
+		})
 
 		It("should have correct aliases", func() {
 			assert.Contains(uninstallCmd.Aliases, "un")
@@ -202,7 +355,18 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(commandNames, "agent")
 		})
 
-		assert.Equal(number, gofakeit.Number(1, 100))
+		It("should maintain command count", func() {
+			// Ensure we have exactly 7 commands (excluding help/completion)
+			commands := rootCmd.Commands()
+			// Filter out built-in commands like help, completion
+			userCommands := 0
+			for _, cmd := range commands {
+				if cmd.Name() != "help" && cmd.Name() != "completion" {
+					userCommands++
+				}
+			}
+			assert.Equal(7, userCommands)
+		})
 	})
 
 })
