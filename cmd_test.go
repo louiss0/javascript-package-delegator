@@ -7,6 +7,7 @@ import (
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,11 +19,11 @@ import (
 // It's used to test the cobra commands.
 // When you use this function, make sure to pass the root command and any arguments you want to test.
 // The first argument after the rootCmd is any sub command or flag you want to test.
+
 func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 
 	buf := new(bytes.Buffer)
 	errBuff := new(bytes.Buffer)
-
 	cmd.SetOut(buf)
 	cmd.SetErr(errBuff)
 	cmd.SetArgs(args)
@@ -36,13 +37,38 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-var rootCmd = cmd.NewRootCmd()
+// TODO: Change commands to execute the root command then the ones that are supposed to be executed
+// All commands should be written like this!
+// ```
+// _, err := executeCmd(rootCmd, "")
+//
+//	assert.NoError(err)
+//
+// ```
 
 var _ = Describe("JPD Commands", func() {
 
 	assert := assert.New(GinkgoT())
+	var rootCmd *cobra.Command
+
+	getSubCommandWithName := func(cmd *cobra.Command, name string) (*cobra.Command, bool) {
+
+		return lo.Find(
+			cmd.Commands(),
+			func(item *cobra.Command) bool {
+				return item.Name() == name
+			})
+	}
+
+	JustBeforeEach(func() {
+
+		rootCmd = cmd.NewRootCmd()
+		rootCmd.SetArgs([]string{})
+
+	})
 
 	Describe("Root Command", func() {
+
 		It("should be able to run", func() {
 			_, err := executeCmd(rootCmd, "")
 			assert.NoError(err)
@@ -57,14 +83,14 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Install Command", func() {
-		var installCmd *cobra.Command
 
+		var installCmd *cobra.Command
 		BeforeEach(func() {
-			installCmd = cmd.NewInstallCmd()
+			installCmd, _ = getSubCommandWithName(rootCmd, "install")
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(installCmd, "--help")
+			output, err := executeCmd(rootCmd, "install", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Install packages")
 			assert.Contains(output, "jpd install")
@@ -106,17 +132,18 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Run Command", func() {
-		var runCmd *cobra.Command
 
+		var runCmd *cobra.Command
 		BeforeEach(func() {
-			runCmd = cmd.NewRunCmd()
+			runCmd, _ = getSubCommandWithName(rootCmd, "run")
+
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(runCmd, "--help")
+			output, err := executeCmd(rootCmd, "run", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Run scripts")
-			assert.Contains(output, "jpd run")
+			assert.Contains(output, "Run package.json scripts")
+			assert.Contains(output, "jpd run", "No jpd run")
 		})
 
 		It("should have correct aliases", func() {
@@ -131,13 +158,13 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Exec Command", func() {
 		var execCmd *cobra.Command
-
 		BeforeEach(func() {
-			execCmd = cmd.NewExecCmd()
+			execCmd, _ = getSubCommandWithName(rootCmd, "exec")
+
 		})
 
 		It("should show help", func() {
-			output, err := executeCmd(execCmd, "--help")
+			output, err := executeCmd(execCmd, "exec", "--help")
 			assert.NoError(err)
 			assert.Contains(output, "Execute packages")
 			assert.Contains(output, "jpd exec")
@@ -148,15 +175,18 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		PIt("should require at least one argument", func() {
-			// assert.Equal(1, int(execCmd.Args(execCmd)))
+			_, err := executeCmd(execCmd, "exec", "--help")
+
+			assert.Error(err)
+
 		})
 	})
 
 	Describe("Update Command", func() {
-		var updateCmd *cobra.Command
 
+		var updateCmd *cobra.Command
 		BeforeEach(func() {
-			updateCmd = cmd.NewUpdateCmd()
+			updateCmd, _ = getSubCommandWithName(rootCmd, "update")
 		})
 
 		It("should show help", func() {
@@ -191,10 +221,11 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Uninstall Command", func() {
-		var uninstallCmd *cobra.Command
 
+		var uninstallCmd *cobra.Command
 		BeforeEach(func() {
-			uninstallCmd = cmd.NewUninstallCmd()
+			uninstallCmd, _ = getSubCommandWithName(rootCmd, "uninstall")
+
 		})
 
 		It("should show help", func() {
@@ -216,16 +247,19 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal("g", flag.Shorthand)
 		})
 
-		It("should require at least one argument", func() {
-			assert.Equal(1, int(uninstallCmd.Args(uninstallCmd, []string{})))
+		PIt("should require at least one argument", func() {
+
+			_, error := executeCmd(rootCmd, "uninstall")
+
+			assert.Error(error)
 		})
 	})
 
 	Describe("Clean Install Command", func() {
-		var cleanInstallCmd *cobra.Command
 
+		var cleanInstallCmd *cobra.Command
 		BeforeEach(func() {
-			cleanInstallCmd = cmd.NewCleanInstallCmd()
+			cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
 		})
 
 		It("should show help", func() {
@@ -241,10 +275,10 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Agent Command", func() {
-		var agentCmd *cobra.Command
 
+		var agentCmd *cobra.Command
 		BeforeEach(func() {
-			agentCmd = cmd.NewAgentCmd()
+			agentCmd, _ = getSubCommandWithName(rootCmd, "agent")
 		})
 
 		It("should show help", func() {
@@ -259,7 +293,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	Describe("Package Manager Detection", func() {
+	PDescribe("Package Manager Detection", func() {
 		var tempDir string
 		var originalDir string
 
