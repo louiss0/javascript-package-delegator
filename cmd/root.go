@@ -30,18 +30,36 @@ import (
 func NewRootCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "cli",
-		Short: "A brief description of your application",
-		Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+		Use:   "node-package-delegator",
+		Short: "A universal package manager interface for Node.js projects",
+		Long: `A universal package manager interface that detects and delegates to the appropriate 
+package manager (npm, yarn, pnpm, or bun) based on lock files in your project.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Inspired by @antfu/ni, this tool provides a unified CLI experience across different 
+JavaScript package managers, making it easy to work in teams with different preferences 
+or switch between projects using different package managers.
+
+Available commands:
+  install    - Install packages (equivalent to 'ni')
+  run        - Run package.json scripts (equivalent to 'nr') 
+  exec       - Execute packages (equivalent to 'nlx')
+  update     - Update packages (equivalent to 'nup')
+  uninstall  - Uninstall packages (equivalent to 'nun')
+  clean-install - Clean install with frozen lockfile (equivalent to 'nci')
+  agent      - Show detected package manager (equivalent to 'na')`,
 		// Uncomment the following line if your bare application
 		// has an action associated with it:
 		// Run: func(cmd *cobra.Command, args []string) { },
 	}
+
+	// Add all subcommands
+	cmd.AddCommand(NewInstallCmd())
+	cmd.AddCommand(NewRunCmd())
+	cmd.AddCommand(NewExecCmd())
+	cmd.AddCommand(NewUpdateCmd())
+	cmd.AddCommand(NewUninstallCmd())
+	cmd.AddCommand(NewCleanInstallCmd())
+	cmd.AddCommand(NewAgentCmd())
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
