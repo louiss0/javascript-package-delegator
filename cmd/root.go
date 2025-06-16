@@ -31,7 +31,7 @@ func NewRootCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
-		Version: "0.0.1",
+		Version: "0.0.0",
 		Short:   "JavaScript Package Delegator - A universal package manager interface",
 		Long: `JavaScript Package Delegator (jpd) - A universal package manager interface that detects
 and delegates to the appropriate package manager (npm, yarn, pnpm, bun, or deno) based on
