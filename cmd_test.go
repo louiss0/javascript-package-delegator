@@ -165,8 +165,8 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(execCmd.Aliases, "x")
 		})
 
-		PIt("should require at least one argument", func() {
-			_, err := executeCmd(execCmd, "exec", "--help")
+		It("should require at least one argument", func() {
+			_, err := executeCmd(rootCmd, "exec")
 
 			assert.Error(err)
 
@@ -238,7 +238,7 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal("g", flag.Shorthand)
 		})
 
-		PIt("should require at least one argument", func() {
+		It("should require at least one argument", func() {
 
 			_, error := executeCmd(rootCmd, "uninstall")
 
