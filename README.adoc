@@ -1,42 +1,28 @@
-# cobra-cli-template
+# javascript-package-delegator
 
-This template provides a starting point for creating a CLI application using the Cobra library in Go.
-It makes it easy to create a CLI application with subcommands, flags, and arguments.
-It's a TDD centered approach to building CLI applications. It encourages the use of tests to ensure the correctness of the application's behavior.
+This project is called javascript-package-delegator.
+It's a CLI that allows the user to exec javascript package manager commands based on the lock files associated with the project.
+This CLI is written in Go. It's released by using Go Releaser.
+
+// The user can download it using brew,scoop, winget or chocolatey.
 
 .Tools
 |===
 | type | name
-
+|
 | utilities | samber/lo
 | test runner | onsi/ginkgo
 | assertion | testify/assert
-| fake data | brianvoe/gofakeit/v7
 |===
 
 
 ## Usage
 
 [NOTE]
-.To use this template you can use git to clone it. 
-====
-```sh
-git clone https://github.com/louiss0/cobra-cli-template .
-```
+.This is a TDD project which means you test commands by running a test suite.
 ====
 
 
-[NOTE]
-.Or you could use `gh cli`
-====
-```sh
-gh repo create {project name} --template louiss0/cobra-cli-template --public --clone
-```
-====
-
-[NOTE]
-.This is a TDD template which means you test commands by running a test suite.
-====
 To test commands, you can run the following command:
 
 ```sh
@@ -58,7 +44,7 @@ When you create a new command, you should follow these steps:
 . In the file, make a called New{CommandName}Cmd function that returns the command you see after using `cobra-cli add`.
 . In the `init()` 's `rootCmd.AddCommand()` Use the function you created in step 2.
 . In the function write the flags and arguments for the command after the variable creation.
-. Write tests for the command in the `cmd` directory.
+. Write tests for the command in the `javascript-package-delegator_suite_test.go` file.
 
 TIP: Use the `cobra-cli add` command to create a new command.
 
@@ -82,12 +68,14 @@ CAUTION: Gingko will run tests in parallel by default.
 ├── go.sum
 ├── LICENSE
 ├── main.go
+├── README.adoc
+|-- goreleaser.yaml
 ```
 
 This project has the cmd package and two other packages.
-The `custom_errors` and `custom_flags` package. 
+The `custom_errors` and `custom_flags` package.
 The custom errors package was created to created named errors.
-The custom flags package is created for generic flags. 
+The custom flags package is created for generic flags.
 
 The custom_flags is filled with flags that are meant to be used in cobra's `cmd.Flags().Var()` methods.
 To use them you must create each struct in a variable then use each variable as a reference to each function.
