@@ -1,0 +1,20 @@
+version: 2
+project_name: javascript-package-delegator
+builds:
+  - main: ./main.go
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+checksum:
+  name_template: "checksums.txt"
+release:
+  github:
+    owner: louiss0
+    name: javascript-package-delegator
