@@ -9,7 +9,7 @@ This CLI is written in Go. It's released by using Go Releaser.
 .Tools
 |===
 | type | name
-|
+
 | utilities | samber/lo
 | test runner | onsi/ginkgo
 | assertion | testify/assert
