@@ -371,18 +371,16 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal(pkg, "npm")
 		})
 
-		PIt("should prioritize deno over other package managers", func() {
+		It("should prioritize deno over other package managers", func() {
 			// Create multiple lock files
 			os.WriteFile("deno.json", []byte(`{}`), 0644)
 			os.WriteFile("package-lock.json", []byte(`{}`), 0644)
 			os.WriteFile("yarn.lock", []byte(``), 0644)
-			// Should detect deno first
-			assert.True(true) // Placeholder
-		})
+			pkg, error := cmd.DetectPackageManager()
 
-		PIt("should prioritize according to order: deno > bun > pnpm > yarn > npm", func() {
-			// Test priority order when multiple files exist
-			assert.True(true) // Placeholder
+			assert.NoError(error)
+
+			assert.Equal(pkg, "deno")
 		})
 	})
 
