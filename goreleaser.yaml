@@ -125,7 +125,7 @@ winget:
       name: javascript-package-delegator
 
       git:
-        url: git@github.com:louiss0/javascript-package-delegator
+        url: ssh://git@github.com:louiss0/javascript-package-delegator.git
 
 homebrew_casks:
   - # Name of the cask
@@ -230,4 +230,86 @@ scoops:
       branch: main
 
       git:
-        url: git@github.com:louiss0/javascript-package-delegator
+        url: ssh://git@github.com:louiss0/javascript-package-delegator.git
+
+nix:
+  - #
+    # Name of the recipe
+    #
+    # Default: the project name.
+    # Templates: allowed.
+    name: javascript-package-delegator
+
+    # GOAMD64 to specify which amd64 version to use if there are multiple
+    # versions from the build section.
+    #
+    # Default: v1.
+    goamd64: v1
+
+    # Git author used to commit to the repository.
+    # Templates: allowed.
+    commit_author:
+      name: louiss0
+      email: louisshelton0@gmail.com
+
+    # The project name and current git tag are used in the format string.
+    #
+    # Templates: allowed.
+    commit_msg_template: "{{ .ProjectName }}: {{ .Tag }}"
+
+    # Path for the file inside the repository.
+    #
+    # Default: pkgs/<name>/default.nix.
+    # Templates: allowed.
+    path: "pkgs/{{ .ProjectName }}/default.nix"
+
+    # Your app's homepage.
+    #
+    # Templates: allowed.
+    # Default: inferred from global metadata.
+    # homepage: "https://example.com/"
+
+    # Your app's description.
+    #
+    # Templates: allowed.
+    # Default: inferred from global metadata.
+    description: "A CLI for executing Javascript Package Manager Commands based on lock files. Supported's deno,bun, and all node package managers"
+
+    # License name.
+    #
+    # Default: inferred from global metadata.
+    license: "mit"
+
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # package - instead, it will be stored on the dist directory only,
+    # leaving the responsibility of publishing it to the user.
+    #
+    # If set to auto, the release will not be uploaded to the repository
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    #
+    # Templates: allowed.
+    skip_upload: true
+
+    # Repository to push the generated files to.
+    repository:
+      # Repository owner.
+      #
+      # Templates: allowed.
+      owner: louiss0
+
+      # Repository name.
+      #
+      # Templates: allowed.
+      name: javascript-package-delegator
+
+      # Optionally a branch can be provided.
+      #
+      # Default: default repository  branch.
+      # Templates: allowed.
+      branch: main
+
+      git:
+        # The Git URL to push.
+        #
+        # Templates: allowed.
+        url: "ssh://git@github.com:louiss0/javascript-package-delegator.git"
