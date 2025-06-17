@@ -17,31 +17,35 @@ func JSPackageManager() (string, error) {
 		return "", err
 	}
 
-	lockFiles := map[string]string{
-		"deno.lock":         "deno",
-		"deno.json":         "deno",
-		"deno.jsonc":        "deno",
-		"bun.lockb":         "bun",
-		"pnpm-lock.yaml":    "pnpm",
-		"yarn.lock":         "yarn",
-		"package-lock.json": "npm",
+	lockFiles := [7][2]string{
+		{"deno.lock", "deno"},
+		{"deno.json", "deno"},
+		{"deno.jsonc", "deno"},
+		{"bun.lockb", "bun"},
+		{"pnpm-lock.yaml", "pnpm"},
+		{"yarn.lock", "yarn"},
+		{"package-lock.json", "npm"},
 	}
 
 	// Check for lock files and config files in order of preference
 
-	for lockFile, pm := range lockFiles {
+	for _, lockFileAndPakageName := range lockFiles {
+
+		lockFile := lockFileAndPakageName[0]
+		fileName := lockFileAndPakageName[1]
+
 		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
-			return pm, nil
+			return fileName, nil
 		}
 	}
 
 	// Default to npm if no lock file is found
+
 	return "npm", nil
 }
 
 // Detects one of the packages supported by this library
 func SupportedOperatingSystemPackageManager() (string, error) {
-
 	supportedOperatingSystemPackageManagers := []string{
 		"winget",
 		"nix",
