@@ -114,6 +114,9 @@ func runExec(args []string, cmd *cobra.Command) error {
 		cmdArgs = []string{packageName}
 		cmdArgs = append(cmdArgs, packageArgs...)
 
+	case "deno":
+		return fmt.Errorf("Deno doesn't have a dlx or x like the others")
+
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}

@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -122,6 +123,16 @@ func runScript(args []string, cmd *cobra.Command) error {
 		cmdArgs = []string{"run", scriptName}
 		cmdArgs = append(cmdArgs, scriptArgs...)
 
+	case "deno":
+		cmdArgs = []string{"task", scriptName}
+
+		if lo.Contains(scriptArgs, "--eval") {
+
+			return fmt.Errorf("Don't pass %s  here use the exce command instead", "--eval")
+		}
+
+		cmdArgs = append(cmdArgs, scriptArgs...)
+
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)
 	}
@@ -137,6 +148,7 @@ func runScript(args []string, cmd *cobra.Command) error {
 }
 
 func listScripts() error {
+
 	pkg, err := readPackageJSON()
 	if err != nil {
 		return err

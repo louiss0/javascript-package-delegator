@@ -45,7 +45,7 @@ Examples:
   javascript-package-delegator clean-install     # Clean install all dependencies`,
 		Aliases: []string{"ci"},
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := runCleanInstall(args, cmd); err != nil {
+			if err := runCleanInstall(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -55,7 +55,7 @@ Examples:
 	return cmd
 }
 
-func runCleanInstall(args []string, cmd *cobra.Command) error {
+func runCleanInstall() error {
 	pm, err := detect.JSPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
@@ -85,6 +85,10 @@ func runCleanInstall(args []string, cmd *cobra.Command) error {
 
 	case "bun":
 		cmdArgs = []string{"install", "--frozen-lockfile"}
+
+	case "deno":
+
+		return fmt.Errorf("%s doesn't support this command", "deno")
 
 	default:
 		return fmt.Errorf("unsupported package manager: %s", pm)

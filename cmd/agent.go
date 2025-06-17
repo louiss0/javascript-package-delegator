@@ -44,7 +44,7 @@ Examples:
   javascript-package-delegator agent    # Show detected package manager`,
 		Aliases: []string{"a"},
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := runAgent(args, cmd); err != nil {
+			if err := runAgent(args); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -54,8 +54,9 @@ Examples:
 	return cmd
 }
 
-func runAgent(args []string, cmd *cobra.Command) error {
+func runAgent(args []string) error {
 	pm, err := detect.JSPackageManager()
+
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}
@@ -70,16 +71,14 @@ func runAgent(args []string, cmd *cobra.Command) error {
 	fmt.Printf("Working directory: %s\n", cwd)
 
 	// Show which lock file was found
-	lockFiles := map[string]string{
-		"bun.lockb":         "bun",
-		"pnpm-lock.yaml":    "pnpm",
-		"yarn.lock":         "yarn",
-		"package-lock.json": "npm",
-	}
 
 	foundLockFile := "none (defaulting to npm)"
-	for lockFile, pmName := range lockFiles {
-		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil && pmName == pm {
+	for _, lockFileAndPackageName := range detect.LOCKFILES {
+
+		lockFile := lockFileAndPackageName[0]
+		packageName := lockFileAndPackageName[1]
+
+		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil && packageName == pm {
 			foundLockFile = lockFile
 			break
 		}
@@ -87,35 +86,11 @@ func runAgent(args []string, cmd *cobra.Command) error {
 
 	fmt.Printf("Lock file: %s\n", foundLockFile)
 
-	// Show version if available
-	if version, err := getPackageManagerVersion(pm); err == nil {
-		fmt.Printf("Version: %s\n", version)
-	} else {
-		fmt.Printf("Version: unable to detect (%v)\n", err)
-	}
+	commmand := exec.Command(pm, args...)
 
-	return nil
-}
+	commmand.Stderr = os.Stderr
+	commmand.Stdin = os.Stdin
+	commmand.Stdout = os.Stdout
 
-func getPackageManagerVersion(pm string) (string, error) {
-	var cmd *exec.Cmd
-	switch pm {
-	case "npm":
-		cmd = exec.Command("npm", "--version")
-	case "yarn":
-		cmd = exec.Command("yarn", "--version")
-	case "pnpm":
-		cmd = exec.Command("pnpm", "--version")
-	case "bun":
-		cmd = exec.Command("bun", "--version")
-	default:
-		return "", fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	return string(output), nil
+	return commmand.Run()
 }

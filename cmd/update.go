@@ -129,7 +129,9 @@ func runUpdate(packages []string, cmd *cobra.Command) error {
 			if len(packages) > 0 {
 				cmdArgs = append(cmdArgs, packages...)
 			}
+
 		} else {
+
 			if len(packages) == 0 {
 				cmdArgs = []string{"update"}
 			} else {
@@ -137,6 +139,7 @@ func runUpdate(packages []string, cmd *cobra.Command) error {
 				cmdArgs = append(cmdArgs, packages...)
 			}
 		}
+
 		if global {
 			cmdArgs = append(cmdArgs, "--global")
 		}
@@ -148,17 +151,46 @@ func runUpdate(packages []string, cmd *cobra.Command) error {
 		if interactive {
 			return fmt.Errorf("bun does not support interactive updates")
 		}
+
 		if len(packages) == 0 {
 			cmdArgs = []string{"update"}
 		} else {
 			cmdArgs = []string{"update"}
 			cmdArgs = append(cmdArgs, packages...)
 		}
+
 		if global {
 			cmdArgs = append(cmdArgs, "--global")
 		}
 		if latest {
 			cmdArgs = append(cmdArgs, "--latest")
+		}
+
+	case "deno":
+		cmdArgs = []string{"oudated"}
+
+		if interactive {
+			cmdArgs = append(cmdArgs, "-i")
+		}
+
+		if global {
+			cmdArgs = append(cmdArgs, "--global")
+
+		}
+
+		if latest {
+
+			if len(packages) > 0 {
+
+				cmdArgs = append(cmdArgs, "--latest")
+
+				cmdArgs = append(cmdArgs, packages...)
+
+			} else {
+				cmdArgs = append(cmdArgs, "--latest")
+
+			}
+
 		}
 
 	default:

@@ -10,6 +10,16 @@ import (
 	"github.com/samber/lo"
 )
 
+var LOCKFILES = [7][2]string{
+	{"deno.lock", "deno"},
+	{"deno.json", "deno"},
+	{"deno.jsonc", "deno"},
+	{"bun.lockb", "bun"},
+	{"pnpm-lock.yaml", "pnpm"},
+	{"yarn.lock", "yarn"},
+	{"package-lock.json", "npm"},
+}
+
 // JSPackageManager detects the package manager based on lock files
 func JSPackageManager() (string, error) {
 	cwd, err := os.Getwd()
@@ -17,19 +27,9 @@ func JSPackageManager() (string, error) {
 		return "", err
 	}
 
-	lockFiles := [7][2]string{
-		{"deno.lock", "deno"},
-		{"deno.json", "deno"},
-		{"deno.jsonc", "deno"},
-		{"bun.lockb", "bun"},
-		{"pnpm-lock.yaml", "pnpm"},
-		{"yarn.lock", "yarn"},
-		{"package-lock.json", "npm"},
-	}
-
 	// Check for lock files and config files in order of preference
 
-	for _, lockFileAndPakageName := range lockFiles {
+	for _, lockFileAndPakageName := range LOCKFILES {
 
 		lockFile := lockFileAndPakageName[0]
 		fileName := lockFileAndPakageName[1]
