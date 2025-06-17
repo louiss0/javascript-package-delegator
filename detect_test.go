@@ -109,8 +109,26 @@ var _ = Describe("Detect", func() {
 
 			assert.NoError(error)
 
-			assert.Equal(pkg, "deno")
+			assert.Equal("deno", pkg)
 		})
+	})
+
+	Describe("SupportedOSPackageManager", func() {
+
+		// I'm using Linux with my own package manager nix!
+		// So I decided to do this test only!
+		It("detect's nix", func() {
+
+			supported_package, error := detect.SupportedOperatingSystemPackageManager()
+
+			assert.NoError(error)
+
+			assert.NotEmpty(supported_package)
+
+			assert.Equal("nix", supported_package)
+
+		})
+
 	})
 
 })
