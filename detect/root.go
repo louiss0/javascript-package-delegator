@@ -58,7 +58,7 @@ func SupportedOperatingSystemPackageManager() (string, error) {
 
 		_, error := exec.LookPath(path)
 
-		return error != nil
+		return error == nil
 
 	})
 
