@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
 )
 
@@ -55,7 +56,7 @@ Examples:
 }
 
 func runCleanInstall(args []string, cmd *cobra.Command) error {
-	pm, err := DetectPackageManager()
+	pm, err := detect.JSPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}

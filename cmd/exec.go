@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -63,7 +64,7 @@ func runExec(args []string, cmd *cobra.Command) error {
 		return cmd.Execute()
 	}
 
-	pm, err := DetectPackageManager()
+	pm, err := detect.JSPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}

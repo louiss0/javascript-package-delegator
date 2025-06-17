@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +65,7 @@ Examples:
 }
 
 func runScript(args []string, cmd *cobra.Command) error {
-	pm, err := DetectPackageManager()
+	pm, err := detect.JSPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}

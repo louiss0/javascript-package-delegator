@@ -25,9 +25,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
 )
 
@@ -63,7 +63,7 @@ Examples:
 }
 
 func runInstall(packages []string, cmd *cobra.Command) error {
-	pm, err := DetectPackageManager()
+	pm, err := detect.JSPackageManager()
 	if err != nil {
 		return fmt.Errorf("failed to detect package manager: %w", err)
 	}
@@ -180,32 +180,4 @@ func runInstall(packages []string, cmd *cobra.Command) error {
 
 	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 	return execCmd.Run()
-}
-
-// DetectPackageManager detects the package manager based on lock files
-func DetectPackageManager() (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// Check for lock files and config files in order of preference
-	lockFiles := map[string]string{
-		"deno.lock":         "deno",
-		"deno.json":         "deno",
-		"deno.jsonc":        "deno",
-		"bun.lockb":         "bun",
-		"pnpm-lock.yaml":    "pnpm",
-		"yarn.lock":         "yarn",
-		"package-lock.json": "npm",
-	}
-
-	for lockFile, pm := range lockFiles {
-		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
-			return pm, nil
-		}
-	}
-
-	// Default to npm if no lock file is found
-	return "npm", nil
 }
