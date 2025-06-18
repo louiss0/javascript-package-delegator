@@ -22,10 +22,18 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slog"
 )
+
+const _LOCKFILE = "lockfile"
+const _PACKAGE_NAME = "package-name"
 
 func NewRootCmd() *cobra.Command {
 
@@ -49,9 +57,52 @@ Available commands:
   uninstall  - Uninstall packages (equivalent to 'nun')
   clean-install - Clean install with frozen lockfile (equivalent to 'nci')
   agent      - Show detected package manager (equivalent to 'na')`,
-		// Uncomment the following line if your bare application
-		// has an action associated with it:
-		// Run: func(cmd *cobra.Command, args []string) { },
+
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+
+			var LOCKFILES = [7][2]string{
+				{"deno.lock", "deno"},
+				{"deno.json", "deno"},
+				{"deno.jsonc", "deno"},
+				{"bun.lockb", "bun"},
+				{"pnpm-lock.yaml", "pnpm"},
+				{"yarn.lock", "yarn"},
+				{"package-lock.json", "npm"},
+			}
+
+			cwd, err := os.Getwd()
+
+			if err != nil {
+				return err
+			}
+
+			// Check for lock files and config files in order of preference
+			cmdContext := cmd.Context()
+			for _, lockFileAndPakageName := range LOCKFILES {
+
+				lockFile := lockFileAndPakageName[0]
+				packageName := lockFileAndPakageName[1]
+
+				if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
+
+					slog.Info(fmt.Sprintf("Found lock file %s", lockFile))
+
+					cmdContext = context.WithValue(
+						cmdContext,
+						_PACKAGE_NAME,
+						packageName,
+					)
+
+					cmd.SetContext(cmdContext)
+
+					return nil
+
+				}
+			}
+
+			return nil
+
+		},
 	}
 
 	// Add all subcommands
@@ -77,9 +128,26 @@ Available commands:
 
 var rootCmd = NewRootCmd()
 
+func getPackageNameFromCommandContext(cmd cobra.Command) string {
+
+	ctx := cmd.Context()
+
+	value, ok := ctx.Value(_PACKAGE_NAME).(string)
+
+	if !ok {
+		return "npm"
+
+	}
+
+	return value
+
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+
+	rootCmd.ExecuteContext(context.Background())
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
