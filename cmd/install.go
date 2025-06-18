@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
@@ -44,11 +44,121 @@ Examples:
   jpd install -D vitest # Install vitest as dev dependency
   jpd install -g typescript # Install globally`,
 		Aliases: []string{"i", "add"},
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := runInstall(args, cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pm := getPackageNameFromCommandContext(cmd)
+
+			log.Infof("Using %s\n", pm)
+
+			// Build command based on package manager and flags
+			var cmdArgs []string
+			switch pm {
+			case "npm":
+				if len(args) == 0 {
+					cmdArgs = []string{"install"}
+				} else {
+					cmdArgs = []string{"install"}
+					cmdArgs = append(cmdArgs, args...)
+				}
+				if dev, _ := cmd.Flags().GetBool("dev"); dev {
+					cmdArgs = append(cmdArgs, "--save-dev")
+				}
+				if global, _ := cmd.Flags().GetBool("global"); global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+				if production, _ := cmd.Flags().GetBool("production"); production {
+					cmdArgs = append(cmdArgs, "--omit=dev")
+				}
+				if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
+					cmdArgs = append(cmdArgs, "--package-lock-only")
+				}
+
+			case "yarn":
+				if len(args) == 0 {
+					cmdArgs = []string{"install"}
+				} else {
+					cmdArgs = []string{"add"}
+					cmdArgs = append(cmdArgs, args...)
+				}
+				if dev, _ := cmd.Flags().GetBool("dev"); dev {
+					cmdArgs = append(cmdArgs, "--dev")
+				}
+				if global, _ := cmd.Flags().GetBool("global"); global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+				if production, _ := cmd.Flags().GetBool("production"); production {
+					cmdArgs = append(cmdArgs, "--production")
+				}
+				if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
+					cmdArgs = append(cmdArgs, "--frozen-lockfile")
+				}
+
+			case "pnpm":
+				if len(args) == 0 {
+					cmdArgs = []string{"install"}
+				} else {
+					cmdArgs = []string{"add"}
+					cmdArgs = append(cmdArgs, args...)
+				}
+				if dev, _ := cmd.Flags().GetBool("dev"); dev {
+					cmdArgs = append(cmdArgs, "--save-dev")
+				}
+				if global, _ := cmd.Flags().GetBool("global"); global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+				if production, _ := cmd.Flags().GetBool("production"); production {
+					cmdArgs = append(cmdArgs, "--prod")
+				}
+				if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
+					cmdArgs = append(cmdArgs, "--frozen-lockfile")
+				}
+
+			case "bun":
+				if len(args) == 0 {
+					cmdArgs = []string{"install"}
+				} else {
+					cmdArgs = []string{"add"}
+					cmdArgs = append(cmdArgs, args...)
+				}
+				if dev, _ := cmd.Flags().GetBool("dev"); dev {
+					cmdArgs = append(cmdArgs, "--development")
+				}
+				if global, _ := cmd.Flags().GetBool("global"); global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+				if production, _ := cmd.Flags().GetBool("production"); production {
+					cmdArgs = append(cmdArgs, "--production")
+				}
+
+			case "deno":
+				// Deno doesn't have traditional "install" - it downloads deps on run
+				// But we can cache dependencies
+				if len(args) == 0 {
+					// Check for deps.ts or mod.ts file to cache
+					if _, err := os.Stat("deps.ts"); err == nil {
+						cmdArgs = []string{"cache", "deps.ts"}
+					} else if _, err := os.Stat("mod.ts"); err == nil {
+						cmdArgs = []string{"cache", "mod.ts"}
+					} else {
+						return fmt.Errorf("deno: no deps.ts or mod.ts file found to cache")
+					}
+				} else {
+					// For specific packages, advise user to add them to imports
+					return fmt.Errorf("deno doesn't support installing packages directly. Add imports to your code or deps.ts file")
+				}
+				// Note: Deno ignores most flags as it doesn't have traditional package management
+
+			default:
+				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
+
+			// Execute the command
+			execCmd := exec.Command(pm, cmdArgs...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+			execCmd.Stdin = os.Stdin
+
+			log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+			return execCmd.Run()
 		},
 	}
 
@@ -60,124 +170,4 @@ Examples:
 	cmd.Flags().BoolP("interactive", "i", false, "Interactive package selection")
 
 	return cmd
-}
-
-func runInstall(packages []string, cmd *cobra.Command) error {
-	pm, err := detect.JSPackageManager()
-	if err != nil {
-		return fmt.Errorf("failed to detect package manager: %w", err)
-	}
-
-	fmt.Printf("Using %s\n", pm)
-
-	// Build command based on package manager and flags
-	var cmdArgs []string
-	switch pm {
-	case "npm":
-		if len(packages) == 0 {
-			cmdArgs = []string{"install"}
-		} else {
-			cmdArgs = []string{"install"}
-			cmdArgs = append(cmdArgs, packages...)
-		}
-		if dev, _ := cmd.Flags().GetBool("dev"); dev {
-			cmdArgs = append(cmdArgs, "--save-dev")
-		}
-		if global, _ := cmd.Flags().GetBool("global"); global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-		if production, _ := cmd.Flags().GetBool("production"); production {
-			cmdArgs = append(cmdArgs, "--omit=dev")
-		}
-		if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
-			cmdArgs = append(cmdArgs, "--package-lock-only")
-		}
-
-	case "yarn":
-		if len(packages) == 0 {
-			cmdArgs = []string{"install"}
-		} else {
-			cmdArgs = []string{"add"}
-			cmdArgs = append(cmdArgs, packages...)
-		}
-		if dev, _ := cmd.Flags().GetBool("dev"); dev {
-			cmdArgs = append(cmdArgs, "--dev")
-		}
-		if global, _ := cmd.Flags().GetBool("global"); global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-		if production, _ := cmd.Flags().GetBool("production"); production {
-			cmdArgs = append(cmdArgs, "--production")
-		}
-		if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
-			cmdArgs = append(cmdArgs, "--frozen-lockfile")
-		}
-
-	case "pnpm":
-		if len(packages) == 0 {
-			cmdArgs = []string{"install"}
-		} else {
-			cmdArgs = []string{"add"}
-			cmdArgs = append(cmdArgs, packages...)
-		}
-		if dev, _ := cmd.Flags().GetBool("dev"); dev {
-			cmdArgs = append(cmdArgs, "--save-dev")
-		}
-		if global, _ := cmd.Flags().GetBool("global"); global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-		if production, _ := cmd.Flags().GetBool("production"); production {
-			cmdArgs = append(cmdArgs, "--prod")
-		}
-		if frozen, _ := cmd.Flags().GetBool("frozen"); frozen {
-			cmdArgs = append(cmdArgs, "--frozen-lockfile")
-		}
-
-	case "bun":
-		if len(packages) == 0 {
-			cmdArgs = []string{"install"}
-		} else {
-			cmdArgs = []string{"add"}
-			cmdArgs = append(cmdArgs, packages...)
-		}
-		if dev, _ := cmd.Flags().GetBool("dev"); dev {
-			cmdArgs = append(cmdArgs, "--development")
-		}
-		if global, _ := cmd.Flags().GetBool("global"); global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-		if production, _ := cmd.Flags().GetBool("production"); production {
-			cmdArgs = append(cmdArgs, "--production")
-		}
-
-	case "deno":
-		// Deno doesn't have traditional "install" - it downloads deps on run
-		// But we can cache dependencies
-		if len(packages) == 0 {
-			// Check for deps.ts or mod.ts file to cache
-			if _, err := os.Stat("deps.ts"); err == nil {
-				cmdArgs = []string{"cache", "deps.ts"}
-			} else if _, err := os.Stat("mod.ts"); err == nil {
-				cmdArgs = []string{"cache", "mod.ts"}
-			} else {
-				return fmt.Errorf("deno: no deps.ts or mod.ts file found to cache")
-			}
-		} else {
-			// For specific packages, advise user to add them to imports
-			return fmt.Errorf("deno doesn't support installing packages directly. Add imports to your code or deps.ts file")
-		}
-		// Note: Deno ignores most flags as it doesn't have traditional package management
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	// Execute the command
-	execCmd := exec.Command(pm, cmdArgs...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
-
-	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-	return execCmd.Run()
 }

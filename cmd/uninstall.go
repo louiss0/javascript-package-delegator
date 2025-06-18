@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
@@ -44,11 +44,57 @@ Examples:
   javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
 		Args:    cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := runUninstall(args, cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pm := getPackageNameFromCommandContext(cmd)
+
+			log.Infof("Using %s\n", pm)
+
+			// Get flags
+			global, _ := cmd.Flags().GetBool("global")
+
+			// Build command based on package manager and flags
+			var cmdArgs []string
+			switch pm {
+			case "npm":
+				cmdArgs = []string{"uninstall"}
+				cmdArgs = append(cmdArgs, args...)
+				if global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+
+			case "yarn":
+				cmdArgs = []string{"remove"}
+				cmdArgs = append(cmdArgs, args...)
+				if global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+
+			case "pnpm":
+				cmdArgs = []string{"remove"}
+				cmdArgs = append(cmdArgs, args...)
+				if global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+
+			case "bun":
+				cmdArgs = []string{"remove"}
+				cmdArgs = append(cmdArgs, args...)
+				if global {
+					cmdArgs = append(cmdArgs, "--global")
+				}
+
+			default:
+				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
+
+			// Execute the command
+			execCmd := exec.Command(pm, cmdArgs...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+			execCmd.Stdin = os.Stdin
+
+			log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+			return execCmd.Run()
 		},
 	}
 
@@ -56,60 +102,4 @@ Examples:
 	cmd.Flags().BoolP("global", "g", false, "Uninstall global packages")
 
 	return cmd
-}
-
-func runUninstall(packages []string, cmd *cobra.Command) error {
-	pm, err := detect.JSPackageManager()
-	if err != nil {
-		return fmt.Errorf("failed to detect package manager: %w", err)
-	}
-
-	fmt.Printf("Using %s\n", pm)
-
-	// Get flags
-	global, _ := cmd.Flags().GetBool("global")
-
-	// Build command based on package manager and flags
-	var cmdArgs []string
-	switch pm {
-	case "npm":
-		cmdArgs = []string{"uninstall"}
-		cmdArgs = append(cmdArgs, packages...)
-		if global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-
-	case "yarn":
-		cmdArgs = []string{"remove"}
-		cmdArgs = append(cmdArgs, packages...)
-		if global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-
-	case "pnpm":
-		cmdArgs = []string{"remove"}
-		cmdArgs = append(cmdArgs, packages...)
-		if global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-
-	case "bun":
-		cmdArgs = []string{"remove"}
-		cmdArgs = append(cmdArgs, packages...)
-		if global {
-			cmdArgs = append(cmdArgs, "--global")
-		}
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	// Execute the command
-	execCmd := exec.Command(pm, cmdArgs...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
-
-	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-	return execCmd.Run()
 }

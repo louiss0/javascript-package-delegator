@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -46,96 +46,76 @@ Examples:
   javascript-package-delegator exec prettier --check .`,
 		Aliases: []string{"x"},
 		Args:    cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := runExec(args, cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if lo.Contains(args, "--help") {
+				cmd.SetArgs(args)
+				return cmd.Execute()
 			}
+
+			pm := getPackageNameFromCommandContext(cmd)
+
+			packageName := args[0]
+			packageArgs := args[1:]
+
+			log.Infof("Using %s\n", pm)
+
+			// Build command based on package manager
+			var execCommand string
+			var cmdArgs []string
+
+			switch pm {
+			case "npm":
+				execCommand = "npx"
+				cmdArgs = []string{packageName}
+				cmdArgs = append(cmdArgs, packageArgs...)
+
+			case "yarn":
+				// Check if it's Yarn v1 or v2+
+				yarnVersion, err := getYarnVersion()
+				if err != nil {
+					// Fallback to yarn v1 style
+					execCommand = "yarn"
+					cmdArgs = []string{packageName}
+					cmdArgs = append(cmdArgs, packageArgs...)
+				} else if strings.HasPrefix(yarnVersion, "1.") {
+					// Yarn v1
+					execCommand = "yarn"
+					cmdArgs = []string{packageName}
+					cmdArgs = append(cmdArgs, packageArgs...)
+				} else {
+					// Yarn v2+
+					execCommand = "yarn"
+					cmdArgs = []string{"dlx", packageName}
+					cmdArgs = append(cmdArgs, packageArgs...)
+				}
+
+			case "pnpm":
+				execCommand = "pnpm"
+				cmdArgs = []string{"dlx", packageName}
+				cmdArgs = append(cmdArgs, packageArgs...)
+
+			case "bun":
+				execCommand = "bunx"
+				cmdArgs = []string{packageName}
+				cmdArgs = append(cmdArgs, packageArgs...)
+
+			case "deno":
+				return fmt.Errorf("Deno doesn't have a dlx or x like the others")
+
+			default:
+				return fmt.Errorf("unsupported package manager: %s", pm)
+			}
+
+			// Execute the command
+			execCmd := exec.Command(execCommand, cmdArgs...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+			execCmd.Stdin = os.Stdin
+
+			log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
+			return execCmd.Run()
 		},
 	}
 
 	return cmd
-}
-
-func runExec(args []string, cmd *cobra.Command) error {
-
-	if lo.Contains(args, "--help") {
-		cmd.SetArgs(args)
-		return cmd.Execute()
-	}
-
-	pm, err := detect.JSPackageManager()
-	if err != nil {
-		return fmt.Errorf("failed to detect package manager: %w", err)
-	}
-
-	packageName := args[0]
-	packageArgs := args[1:]
-
-	fmt.Printf("Using %s\n", pm)
-
-	// Build command based on package manager
-	var execCommand string
-	var cmdArgs []string
-
-	switch pm {
-	case "npm":
-		execCommand = "npx"
-		cmdArgs = []string{packageName}
-		cmdArgs = append(cmdArgs, packageArgs...)
-
-	case "yarn":
-		// Check if it's Yarn v1 or v2+
-		yarnVersion, err := getYarnVersion()
-		if err != nil {
-			// Fallback to yarn v1 style
-			execCommand = "yarn"
-			cmdArgs = []string{packageName}
-			cmdArgs = append(cmdArgs, packageArgs...)
-		} else if strings.HasPrefix(yarnVersion, "1.") {
-			// Yarn v1
-			execCommand = "yarn"
-			cmdArgs = []string{packageName}
-			cmdArgs = append(cmdArgs, packageArgs...)
-		} else {
-			// Yarn v2+
-			execCommand = "yarn"
-			cmdArgs = []string{"dlx", packageName}
-			cmdArgs = append(cmdArgs, packageArgs...)
-		}
-
-	case "pnpm":
-		execCommand = "pnpm"
-		cmdArgs = []string{"dlx", packageName}
-		cmdArgs = append(cmdArgs, packageArgs...)
-
-	case "bun":
-		execCommand = "bunx"
-		cmdArgs = []string{packageName}
-		cmdArgs = append(cmdArgs, packageArgs...)
-
-	case "deno":
-		return fmt.Errorf("Deno doesn't have a dlx or x like the others")
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	// Execute the command
-	execCmd := exec.Command(execCommand, cmdArgs...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
-
-	fmt.Printf("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
-	return execCmd.Run()
-}
-
-func getYarnVersion() (string, error) {
-	cmd := exec.Command("yarn", "--version")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
 }

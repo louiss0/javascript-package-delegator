@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -51,11 +51,98 @@ Examples:
   javascript-package-delegator run build --prod # Run build script with args
   javascript-package-delegator run test -- --watch # Run test with npm-style args`,
 		Aliases: []string{"r"},
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := runScript(args, cmd); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pm := getPackageNameFromCommandContext(cmd)
+
+			// If no script name provided, list available scripts
+			if len(args) == 0 {
+				pkg, err := readPackageJSON()
+				if err != nil {
+					return err
+				}
+
+				if len(pkg.Scripts) == 0 {
+					fmt.Println("No scripts found in package.json")
+					return nil
+				}
+
+				fmt.Println("Available scripts:")
+				for name, command := range pkg.Scripts {
+					fmt.Printf("  %s: %s\n", name, command)
+				}
+				return nil
 			}
+
+			scriptName := args[0]
+			scriptArgs := args[1:]
+
+			// Check if script exists when --if-present flag is used
+			ifPresent, _ := cmd.Flags().GetBool("if-present")
+			if ifPresent {
+				pkg, err := readPackageJSON()
+				if err != nil {
+					return err
+				}
+				if _, exists := pkg.Scripts[scriptName]; !exists {
+					fmt.Printf("Script '%s' not found, skipping\n", scriptName)
+					return nil
+				}
+			}
+
+			log.Infof("Using %s\n", pm)
+
+			// Build command based on package manager
+			var cmdArgs []string
+			switch pm {
+			case "npm":
+				cmdArgs = []string{"run", scriptName}
+				if len(scriptArgs) > 0 {
+					cmdArgs = append(cmdArgs, "--")
+					cmdArgs = append(cmdArgs, scriptArgs...)
+				}
+				if ifPresent {
+					cmdArgs = append([]string{"run", "--if-present", scriptName}, scriptArgs...)
+				}
+
+			case "yarn":
+				cmdArgs = []string{"run", scriptName}
+				cmdArgs = append(cmdArgs, scriptArgs...)
+
+			case "pnpm":
+				cmdArgs = []string{"run", scriptName}
+				if len(scriptArgs) > 0 {
+					cmdArgs = append(cmdArgs, "--")
+					cmdArgs = append(cmdArgs, scriptArgs...)
+				}
+				if ifPresent {
+					cmdArgs = append([]string{"run", "--if-present", scriptName}, scriptArgs...)
+				}
+
+			case "bun":
+				cmdArgs = []string{"run", scriptName}
+				cmdArgs = append(cmdArgs, scriptArgs...)
+
+			case "deno":
+				cmdArgs = []string{"task", scriptName}
+
+				if lo.Contains(scriptArgs, "--eval") {
+					return fmt.Errorf("Don't pass %s  here use the exec command instead", "--eval")
+				}
+
+				cmdArgs = append(cmdArgs, scriptArgs...)
+
+			default:
+				return fmt.Errorf("unsupported package manager: %s", pm)
+			}
+
+			// Execute the command
+			execCmd := exec.Command(pm, cmdArgs...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+			execCmd.Stdin = os.Stdin
+
+			log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+			return execCmd.Run()
 		},
 	}
 
@@ -63,118 +150,6 @@ Examples:
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
 
 	return cmd
-}
-
-func runScript(args []string, cmd *cobra.Command) error {
-	pm, err := detect.JSPackageManager()
-	if err != nil {
-		return fmt.Errorf("failed to detect package manager: %w", err)
-	}
-
-	// If no script name provided, list available scripts
-	if len(args) == 0 {
-		return listScripts()
-	}
-
-	scriptName := args[0]
-	scriptArgs := args[1:]
-
-	// Check if script exists when --if-present flag is used
-	ifPresent, _ := cmd.Flags().GetBool("if-present")
-	if ifPresent {
-		if exists, err := scriptExists(scriptName); err != nil {
-			return err
-		} else if !exists {
-			fmt.Printf("Script '%s' not found, skipping\n", scriptName)
-			return nil
-		}
-	}
-
-	fmt.Printf("Using %s\n", pm)
-
-	// Build command based on package manager
-	var cmdArgs []string
-	switch pm {
-	case "npm":
-		cmdArgs = []string{"run", scriptName}
-		if len(scriptArgs) > 0 {
-			cmdArgs = append(cmdArgs, "--")
-			cmdArgs = append(cmdArgs, scriptArgs...)
-		}
-		if ifPresent {
-			cmdArgs = append([]string{"run", "--if-present", scriptName}, scriptArgs...)
-		}
-
-	case "yarn":
-		cmdArgs = []string{"run", scriptName}
-		cmdArgs = append(cmdArgs, scriptArgs...)
-
-	case "pnpm":
-		cmdArgs = []string{"run", scriptName}
-		if len(scriptArgs) > 0 {
-			cmdArgs = append(cmdArgs, "--")
-			cmdArgs = append(cmdArgs, scriptArgs...)
-		}
-		if ifPresent {
-			cmdArgs = append([]string{"run", "--if-present", scriptName}, scriptArgs...)
-		}
-
-	case "bun":
-		cmdArgs = []string{"run", scriptName}
-		cmdArgs = append(cmdArgs, scriptArgs...)
-
-	case "deno":
-		cmdArgs = []string{"task", scriptName}
-
-		if lo.Contains(scriptArgs, "--eval") {
-
-			return fmt.Errorf("Don't pass %s  here use the exce command instead", "--eval")
-		}
-
-		cmdArgs = append(cmdArgs, scriptArgs...)
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	// Execute the command
-	execCmd := exec.Command(pm, cmdArgs...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
-
-	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-	return execCmd.Run()
-}
-
-func listScripts() error {
-
-	pkg, err := readPackageJSON()
-	if err != nil {
-		return err
-	}
-
-	if len(pkg.Scripts) == 0 {
-		fmt.Println("No scripts found in package.json")
-		return nil
-	}
-
-	fmt.Println("Available scripts:")
-	for name, command := range pkg.Scripts {
-		fmt.Printf("  %s: %s\n", name, command)
-	}
-
-	return nil
-}
-
-func scriptExists(scriptName string) (bool, error) {
-	pkg, err := readPackageJSON()
-	if err != nil {
-		return false, err
-	}
-
-	_, exists := pkg.Scripts[scriptName]
-	return exists, nil
 }
 
 func readPackageJSON() (*PackageJSON, error) {

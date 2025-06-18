@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
@@ -44,62 +44,59 @@ exactly what's in the lockfile without updating it.
 Examples:
   javascript-package-delegator clean-install     # Clean install all dependencies`,
 		Aliases: []string{"ci"},
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := runCleanInstall(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			pm := getPackageNameFromCommandContext(cmd)
+
+			// Build command based on package manager
+			var cmdArgs []string
+			switch pm {
+			case "npm":
+				cmdArgs = []string{"ci"}
+
+			case "yarn":
+				// Yarn v1 uses install --frozen-lockfile, v2+ uses install --immutable
+				yarnVersion, err := getYarnVersion()
+				if err != nil || strings.HasPrefix(yarnVersion, "1.") {
+					// Yarn v1 or unknown version
+					cmdArgs = []string{"install", "--frozen-lockfile"}
+				} else {
+					// Yarn v2+
+					cmdArgs = []string{"install", "--immutable"}
+				}
+
+			case "pnpm":
+				cmdArgs = []string{"install", "--frozen-lockfile"}
+
+			case "bun":
+				cmdArgs = []string{"install", "--frozen-lockfile"}
+
+			case "deno":
+				return fmt.Errorf("%s doesn't support this command", "deno")
+
+			default:
+				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
+
+			// Execute the command
+			execCmd := exec.Command(pm, cmdArgs...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+			execCmd.Stdin = os.Stdin
+
+			log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+			return execCmd.Run()
 		},
 	}
 
 	return cmd
 }
 
-func runCleanInstall() error {
-	pm, err := detect.JSPackageManager()
+func getYarnVersion() (string, error) {
+	cmd := exec.Command("yarn", "--version")
+	output, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed to detect package manager: %w", err)
+		return "", err
 	}
-
-	fmt.Printf("Using %s\n", pm)
-
-	// Build command based on package manager
-	var cmdArgs []string
-	switch pm {
-	case "npm":
-		cmdArgs = []string{"ci"}
-
-	case "yarn":
-		// Yarn v1 uses install --frozen-lockfile, v2+ uses install --immutable
-		yarnVersion, err := getYarnVersion()
-		if err != nil || strings.HasPrefix(yarnVersion, "1.") {
-			// Yarn v1 or unknown version
-			cmdArgs = []string{"install", "--frozen-lockfile"}
-		} else {
-			// Yarn v2+
-			cmdArgs = []string{"install", "--immutable"}
-		}
-
-	case "pnpm":
-		cmdArgs = []string{"install", "--frozen-lockfile"}
-
-	case "bun":
-		cmdArgs = []string{"install", "--frozen-lockfile"}
-
-	case "deno":
-
-		return fmt.Errorf("%s doesn't support this command", "deno")
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", pm)
-	}
-
-	// Execute the command
-	execCmd := exec.Command(pm, cmdArgs...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
-
-	fmt.Printf("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-	return execCmd.Run()
+	return strings.TrimSpace(string(output)), nil
 }

@@ -127,7 +127,7 @@ Available commands:
 
 var rootCmd = NewRootCmd()
 
-func getPackageNameFromCommandContext(cmd cobra.Command) string {
+func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
 	ctx := cmd.Context()
 
