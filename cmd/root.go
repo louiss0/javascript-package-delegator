@@ -29,7 +29,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
 )
 
 const _LOCKFILE = "lockfile"
