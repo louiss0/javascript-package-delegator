@@ -42,7 +42,8 @@ This command shows which package manager would be used based on lock files in th
 
 Examples:
   javascript-package-delegator agent    # Show detected package manager`,
-		Aliases: []string{"a"},
+		Aliases:            []string{"a"},
+		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runAgent(args); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
