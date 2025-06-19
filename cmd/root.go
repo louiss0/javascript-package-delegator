@@ -23,11 +23,9 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"os"
-	"path/filepath"
 
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
 )
 
@@ -59,45 +57,22 @@ Available commands:
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			var LOCKFILES = [7][2]string{
-				{"deno.lock", "deno"},
-				{"deno.json", "deno"},
-				{"deno.jsonc", "deno"},
-				{"bun.lockb", "bun"},
-				{"pnpm-lock.yaml", "pnpm"},
-				{"yarn.lock", "yarn"},
-				{"package-lock.json", "npm"},
-			}
-
-			cwd, err := os.Getwd()
-
-			if err != nil {
-				return err
-			}
-
-			// Check for lock files and config files in order of preference
 			cmdContext := cmd.Context()
-			for _, lockFileAndPakageName := range LOCKFILES {
 
-				lockFile := lockFileAndPakageName[0]
-				packageName := lockFileAndPakageName[1]
+			packageName, error := detect.DetectJSPacakgeManager()
 
-				if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
+			if error != nil {
 
-					slog.Info(fmt.Sprintf("Found lock file %s", lockFile))
-
-					cmdContext = context.WithValue(
-						cmdContext,
-						_PACKAGE_NAME,
-						packageName,
-					)
-
-					cmd.SetContext(cmdContext)
-
-					return nil
-
-				}
+				return error
 			}
+
+			cmdContext = context.WithValue(
+				cmdContext,
+				_PACKAGE_NAME,
+				packageName,
+			)
+
+			cmd.SetContext(cmdContext)
 
 			return nil
 
@@ -131,14 +106,7 @@ func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
 	ctx := cmd.Context()
 
-	value, ok := ctx.Value(_PACKAGE_NAME).(string)
-
-	if !ok {
-		return "npm"
-
-	}
-
-	return value
+	return ctx.Value(_PACKAGE_NAME).(string)
 
 }
 
