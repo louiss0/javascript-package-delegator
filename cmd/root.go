@@ -143,7 +143,8 @@ Available commands:
 
 					var selectedJSPkgManager string
 
-					error := huh.NewSelect[string]().Title("Choose JS package manager").
+					error := huh.NewSelect[string]().
+						Title("Choose JS package manager").
 						Options(huh.NewOptions(choices[:]...)...).
 						Value(&selectedJSPkgManager).
 						Run()
@@ -246,6 +247,39 @@ func getAppEnvFromCommandContext(cmd *cobra.Command) AppEnv {
 func installJSManager(jsPkgMgr, osPkgMgr string) error {
 	var cmd *exec.Cmd
 
+	supportedNixInstallationChoices := [2]string{"profiles", "env"}
+	promptUserToSelectNixEnvORProfile := func() (string, error) {
+
+		var selection string
+
+		error := huh.NewSelect[string]().
+			Options(huh.NewOptions(supportedNixInstallationChoices[:]...)...).
+			Value(&selection).
+			Run()
+
+		if error != nil {
+
+			return "", error
+		}
+
+		return selection, nil
+	}
+
+	constructNixProfileCommandBasedOnProfileChoice := func(jsPkgMgr string) *exec.Cmd {
+		var profile string
+
+		error := huh.NewText().
+			Value(&profile).
+			Run()
+
+		if profile == "" || error != nil {
+
+			return exec.Command("nix profile", "install", fmt.Sprintf("nixpkgs#%s", jsPkgMgr))
+		}
+
+		return exec.Command("nix profile", "install", profile, fmt.Sprintf("nixpkgs#%s", jsPkgMgr))
+	}
+
 	switch jsPkgMgr {
 	case "deno":
 		switch osPkgMgr {
@@ -256,7 +290,21 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		case "scoop", "choco":
 			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
 		case "nix":
+			answer, error := promptUserToSelectNixEnvORProfile()
+
+			if error != nil {
+
+				return error
+			}
+
+			if answer == supportedNixInstallationChoices[0] {
+
+				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				break
+			}
+
 			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 		}
@@ -278,7 +326,20 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		case "scoop", "choco":
 			cmd = exec.Command(osPkgMgr, "install", "nodejs-lts")
 		case "nix":
-			cmd = exec.Command("nix-env", "-iA", "nixpkgs.nodejs")
+			answer, error := promptUserToSelectNixEnvORProfile()
+
+			if error != nil {
+
+				return error
+			}
+
+			if answer == supportedNixInstallationChoices[0] {
+
+				cmd = constructNixProfileCommandBasedOnProfileChoice("node")
+				break
+			}
+
+			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 		}
@@ -291,6 +352,19 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		case "scoop", "choco":
 			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
 		case "nix":
+			answer, error := promptUserToSelectNixEnvORProfile()
+
+			if error != nil {
+
+				return error
+			}
+
+			if answer == supportedNixInstallationChoices[0] {
+
+				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				break
+			}
+
 			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
@@ -304,6 +378,19 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		case "scoop", "choco":
 			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
 		case "nix":
+			answer, error := promptUserToSelectNixEnvORProfile()
+
+			if error != nil {
+
+				return error
+			}
+
+			if answer == supportedNixInstallationChoices[0] {
+
+				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				break
+			}
+
 			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
