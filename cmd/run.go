@@ -146,7 +146,8 @@ Examples:
 			execCmd.Stderr = os.Stderr
 			execCmd.Stdin = os.Stdin
 
-			if appEnv == _DEV {
+			if appEnv != _DEV {
+
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 
 			}
