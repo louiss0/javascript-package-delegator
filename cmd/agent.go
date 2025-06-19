@@ -47,8 +47,13 @@ Examples:
 
 			pm := getPackageNameFromCommandContext(cmd)
 
+			appEnv := getAppEnvFromCommandContext(cmd)
+
+			if appEnv != "development" {
+				log.Infof("Detected package manager, now executing command: %s\n", pm)
+
+			}
 			// Show detailed information
-			log.Infof("Detected package manager, now executing command: %s\n", pm)
 
 			commmand := exec.Command(pm, args...)
 			commmand.Stderr = os.Stderr

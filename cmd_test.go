@@ -241,6 +241,7 @@ var _ = Describe("JPD Commands", func() {
 
 			_, error := executeCmd(rootCmd, "uninstall")
 
+			fmt.Print(error)
 			assert.Error(error)
 		})
 	})

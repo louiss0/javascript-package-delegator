@@ -47,7 +47,12 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm := getPackageNameFromCommandContext(cmd)
 
-			log.Infof("Using %s\n", pm)
+			appEnv := getAppEnvFromCommandContext(cmd)
+
+			if appEnv != _DEV {
+				log.Infof("Using %s\n", pm)
+
+			}
 
 			// Get flags
 			global, _ := cmd.Flags().GetBool("global")
@@ -93,7 +98,10 @@ Examples:
 			execCmd.Stderr = os.Stderr
 			execCmd.Stdin = os.Stdin
 
-			log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+			if appEnv != _DEV {
+				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+
+			}
 			return execCmd.Run()
 		},
 	}

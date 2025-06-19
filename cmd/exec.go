@@ -53,11 +53,15 @@ Examples:
 			}
 
 			pm := getPackageNameFromCommandContext(cmd)
+			appEnv := getAppEnvFromCommandContext(cmd)
 
 			packageName := args[0]
 			packageArgs := args[1:]
 
-			log.Infof("Using %s\n", pm)
+			if appEnv != _DEV {
+
+				log.Infof("Using %s\n", pm)
+			}
 
 			// Build command based on package manager
 			var execCommand string
@@ -112,7 +116,10 @@ Examples:
 			execCmd.Stderr = os.Stderr
 			execCmd.Stdin = os.Stdin
 
-			log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
+			if appEnv != _DEV {
+				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
+
+			}
 			return execCmd.Run()
 		},
 	}

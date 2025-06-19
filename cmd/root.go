@@ -23,14 +23,28 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const _LOCKFILE = "lockfile"
 const _PACKAGE_NAME = "package-name"
+const _APP_ENV_KEY = "app_env"
+
+type AppEnv string
+
+const _DEV = AppEnv("development")
+const _PROD = AppEnv("production")
+
+type jpdConfig struct {
+	js_package_manager string
+	os_package_manager string
+}
 
 func NewRootCmd() *cobra.Command {
 
@@ -57,7 +71,23 @@ Available commands:
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			cmdContext := cmd.Context()
+			ve := viper.New()
+			ve.SetEnvPrefix("APP")
+			ve.AutomaticEnv()
+			ve.BindEnv(_APP_ENV_KEY)
+
+			appEnv := ve.GetString(_APP_ENV_KEY)
+
+			allowedAppEnvValues := []string{string(_DEV), string(_PROD)}
+
+			if appEnv != "" && !lo.Contains(allowedAppEnvValues, appEnv) {
+
+				return fmt.Errorf(
+					"The APP_ENV variable can only be %v",
+					allowedAppEnvValues,
+				)
+
+			}
 
 			packageName, error := detect.DetectJSPacakgeManager()
 
@@ -66,11 +96,23 @@ Available commands:
 				return error
 			}
 
-			cmdContext = context.WithValue(
-				cmdContext,
-				_PACKAGE_NAME,
-				packageName,
-			)
+			cmdContext := cmd.Context()
+
+			lo.ForEach([][2]string{
+				{_APP_ENV_KEY, appEnv},
+				{_PACKAGE_NAME, packageName},
+			}, func(item [2]string, index int) {
+
+				key := item[0]
+				value := item[1]
+
+				cmdContext = context.WithValue(
+					cmdContext,
+					key,
+					value,
+				)
+
+			})
 
 			cmd.SetContext(cmdContext)
 
@@ -107,6 +149,14 @@ func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 	ctx := cmd.Context()
 
 	return ctx.Value(_PACKAGE_NAME).(string)
+
+}
+
+func getAppEnvFromCommandContext(cmd *cobra.Command) AppEnv {
+
+	ctx := cmd.Context()
+
+	return ctx.Value(_APP_ENV_KEY).(AppEnv)
 
 }
 

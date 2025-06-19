@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 )
 
@@ -36,8 +35,6 @@ func DetectJSPacakgeManager() (string, error) {
 		packageName := lockFileAndPakageName[1]
 
 		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
-
-			log.Infof("Found lock file %s", lockFile)
 
 			return packageName, nil
 
