@@ -139,7 +139,7 @@ Available commands:
 
 				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig == "" {
 
-					choices := detect.SupportedJSPackageMamagers
+					choices := detect.SupportedJSPackageManagers
 
 					var selectedJSPkgManager string
 

@@ -10,18 +10,18 @@ import (
 	"github.com/samber/lo"
 )
 
-var SupportedJSPackageMamagers = [5]string{"deno", "bun", "npm", "pnpm", "yarn"}
+var SupportedJSPackageManagers = [5]string{"deno", "bun", "npm", "pnpm", "yarn"}
 
 func DetectJSPacakgeManager() (string, error) {
 
 	var LOCKFILES = [7][2]string{
-		{"deno.lock", SupportedJSPackageMamagers[0]},
-		{"deno.json", SupportedJSPackageMamagers[0]},
-		{"deno.jsonc", SupportedJSPackageMamagers[0]},
-		{"bun.lockb", SupportedJSPackageMamagers[1]},
-		{"pnpm-lock.yaml", SupportedJSPackageMamagers[3]},
-		{"yarn.lock", SupportedJSPackageMamagers[4]},
-		{"package-lock.json", SupportedJSPackageMamagers[2]},
+		{"deno.lock", SupportedJSPackageManagers[0]},
+		{"deno.json", SupportedJSPackageManagers[0]},
+		{"deno.jsonc", SupportedJSPackageManagers[0]},
+		{"bun.lockb", SupportedJSPackageManagers[1]},
+		{"pnpm-lock.yaml", SupportedJSPackageManagers[3]},
+		{"yarn.lock", SupportedJSPackageManagers[4]},
+		{"package-lock.json", SupportedJSPackageManagers[2]},
 	}
 
 	cwd, err := os.Getwd()
@@ -58,7 +58,7 @@ var SupportedOperatingSystemPackageManagers = [5]string{
 // Detects one of the packages supported by this library
 func SupportedOperatingSystemPackageManager() (string, error) {
 
-	detectedPackageManager, ok := lo.Find(SupportedJSPackageMamagers[:], func(path string) bool {
+	detectedPackageManager, ok := lo.Find(SupportedOperatingSystemPackageManagers[:], func(path string) bool {
 
 		_, error := exec.LookPath(path)
 
