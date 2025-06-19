@@ -53,6 +53,9 @@ var _ = Describe("JPD Commands", func() {
 	JustBeforeEach(func() {
 
 		rootCmd = cmd.NewRootCmd()
+		// This needs to be set becuase Ginkgo will pass a --test.timeout flag to the root command
+		// The test.timeout flag will get in the way
+		// If the args are empty before they are set by executeCommand the right args can be passed
 		rootCmd.SetArgs([]string{})
 
 	})
