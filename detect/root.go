@@ -10,16 +10,18 @@ import (
 	"github.com/samber/lo"
 )
 
+var SupportedJSPackageMamagers = [5]string{"deno", "bun", "npm", "pnpm", "yarn"}
+
 func DetectJSPacakgeManager() (string, error) {
 
 	var LOCKFILES = [7][2]string{
-		{"deno.lock", "deno"},
-		{"deno.json", "deno"},
-		{"deno.jsonc", "deno"},
-		{"bun.lockb", "bun"},
-		{"pnpm-lock.yaml", "pnpm"},
-		{"yarn.lock", "yarn"},
-		{"package-lock.json", "npm"},
+		{"deno.lock", SupportedJSPackageMamagers[0]},
+		{"deno.json", SupportedJSPackageMamagers[0]},
+		{"deno.jsonc", SupportedJSPackageMamagers[0]},
+		{"bun.lockb", SupportedJSPackageMamagers[1]},
+		{"pnpm-lock.yaml", SupportedJSPackageMamagers[3]},
+		{"yarn.lock", SupportedJSPackageMamagers[4]},
+		{"package-lock.json", SupportedJSPackageMamagers[2]},
 	}
 
 	cwd, err := os.Getwd()
@@ -45,17 +47,18 @@ func DetectJSPacakgeManager() (string, error) {
 
 }
 
+var SupportedOperatingSystemPackageManagers = [5]string{
+	"winget",
+	"nix",
+	"scoop",
+	"choco",
+	"brew",
+}
+
 // Detects one of the packages supported by this library
 func SupportedOperatingSystemPackageManager() (string, error) {
-	supportedOperatingSystemPackageManagers := []string{
-		"winget",
-		"nix",
-		"scoop",
-		"choco",
-		"brew",
-	}
 
-	detectedPackageManager, ok := lo.Find(supportedOperatingSystemPackageManagers, func(path string) bool {
+	detectedPackageManager, ok := lo.Find(SupportedJSPackageMamagers[:], func(path string) bool {
 
 		_, error := exec.LookPath(path)
 
@@ -67,7 +70,7 @@ func SupportedOperatingSystemPackageManager() (string, error) {
 
 		return "", fmt.Errorf(
 			"You don't have one of the suppoted package managers installed: %s",
-			strings.Join(supportedOperatingSystemPackageManagers, " , "),
+			strings.Join(SupportedOperatingSystemPackageManagers[:], " , "),
 		)
 	}
 

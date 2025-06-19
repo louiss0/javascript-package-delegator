@@ -25,7 +25,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
+	"github.com/charmbracelet/huh"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -41,10 +43,9 @@ type AppEnv string
 const _DEV = AppEnv("development")
 const _PROD = AppEnv("production")
 
-type jpdConfig struct {
-	js_package_manager string
-	os_package_manager string
-}
+const _JS_PACKAGE_MANAGER_KEY = "js_pkm"
+
+const _OS_PACKAGE_MANAGER_KEY = "os_pkm"
 
 func NewRootCmd() *cobra.Command {
 
@@ -92,6 +93,88 @@ Available commands:
 			packageName, error := detect.DetectJSPacakgeManager()
 
 			if error != nil {
+
+				vf := viper.New()
+
+				homeDir, error := os.UserHomeDir()
+
+				if error != nil {
+
+					return error
+				}
+
+				vf.AddConfigPath(
+					fmt.Sprintf("%s/.config/", homeDir),
+				)
+
+				vf.AddConfigPath(
+					fmt.Sprintf("%s/.local/share/", homeDir),
+				)
+
+				vf.SetConfigName("jpd.config")
+
+				vf.SetConfigType("toml")
+
+				jsPackageManagerFromConfig := vf.GetString(_JS_PACKAGE_MANAGER_KEY)
+				osPackageManagerFromConfig := vf.GetString(_OS_PACKAGE_MANAGER_KEY)
+
+				if jsPackageManagerFromConfig != "" && osPackageManagerFromConfig == "" {
+
+					detectedOSManager, error := detect.SupportedOperatingSystemPackageManager()
+
+					if error != nil {
+
+						return error
+					}
+
+					error = installJSManager(jsPackageManagerFromConfig, detectedOSManager)
+
+					if error != nil {
+						return fmt.Errorf("Something went wrong with the command from what you have chosen %v", error)
+					}
+
+					return nil
+
+				}
+
+				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig == "" {
+
+					choices := detect.SupportedJSPackageMamagers
+
+					var selectedJSPkgManager string
+
+					error := huh.NewSelect[string]().Title("Choose JS package manager").
+						Options(huh.NewOptions(choices[:]...)...).
+						Value(&selectedJSPkgManager).
+						Run()
+
+					if error != nil {
+
+						return fmt.Errorf("Well there's nothing else to do If you have a JS Package Manager you'd like to use please use it")
+					}
+
+					error = installJSManager(selectedJSPkgManager, osPackageManagerFromConfig)
+
+					if error != nil {
+						return fmt.Errorf("Something went wrong with the command from what you have chosen %v", error)
+					}
+
+					return nil
+
+				}
+
+				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig != "" {
+					// This assumes that both are filled!
+					error := installJSManager(jsPackageManagerFromConfig, osPackageManagerFromConfig)
+
+					if error != nil {
+
+						return error
+					}
+
+					return nil
+
+				}
 
 				return error
 			}
@@ -158,6 +241,84 @@ func getAppEnvFromCommandContext(cmd *cobra.Command) AppEnv {
 
 	return ctx.Value(_APP_ENV_KEY).(AppEnv)
 
+}
+
+func installJSManager(jsPkgMgr, osPkgMgr string) error {
+	var cmd *exec.Cmd
+
+	switch jsPkgMgr {
+	case "deno":
+		switch osPkgMgr {
+		case "brew":
+			cmd = exec.Command("brew", "install", jsPkgMgr)
+		case "winget":
+			cmd = exec.Command("winget", "install", "--id", "DenoLand.Deno", "-e")
+		case "scoop", "choco":
+			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+		case "nix":
+			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+		default:
+			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
+		}
+	case "bun":
+		switch osPkgMgr {
+		case "brew":
+			cmd = exec.Command("sh", "-c", "curl -fsSL https://bun.sh/install | bash")
+		case "scoop":
+			cmd = exec.Command("scoop", "install", jsPkgMgr)
+		default:
+			return fmt.Errorf("bun not supported on %s", osPkgMgr)
+		}
+	case "npm":
+		switch osPkgMgr {
+		case "brew":
+			cmd = exec.Command("brew", "install", "node")
+		case "winget":
+			cmd = exec.Command("winget", "install", "Node.js")
+		case "scoop", "choco":
+			cmd = exec.Command(osPkgMgr, "install", "nodejs-lts")
+		case "nix":
+			cmd = exec.Command("nix-env", "-iA", "nixpkgs.nodejs")
+		default:
+			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
+		}
+	case "pnpm":
+		switch osPkgMgr {
+		case "brew":
+			cmd = exec.Command("brew", "install", jsPkgMgr)
+		case "winget":
+			cmd = exec.Command("winget", "install", "-e", "--id", "pnpm.pnpm")
+		case "scoop", "choco":
+			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+		case "nix":
+			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+		default:
+			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
+		}
+	case "yarn":
+		switch osPkgMgr {
+		case "brew":
+			cmd = exec.Command("brew", "install", jsPkgMgr)
+		case "winget":
+			cmd = exec.Command("winget", "install", "--id", "Yarn.Yarn", "-e")
+		case "scoop", "choco":
+			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+		case "nix":
+			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+		default:
+			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
+		}
+	default:
+		return fmt.Errorf("unsupported JS package manager: %s", jsPkgMgr)
+	}
+
+	err := cmd.Run()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
