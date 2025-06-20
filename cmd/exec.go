@@ -53,12 +53,12 @@ Examples:
 			}
 
 			pm := getPackageNameFromCommandContext(cmd)
-			appEnv := getAppEnvFromCommandContext(cmd)
+			goMode := getGoModeFromCommandContext(cmd)
 
 			packageName := args[0]
 			packageArgs := args[1:]
 
-			if appEnv != _DEV {
+			if goMode != _DEV {
 
 				log.Infof("Using %s\n", pm)
 			}
@@ -116,7 +116,7 @@ Examples:
 			execCmd.Stderr = os.Stderr
 			execCmd.Stdin = os.Stdin
 
-			if appEnv != _DEV {
+			if goMode != _DEV {
 				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
 
 			}

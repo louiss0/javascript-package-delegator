@@ -47,7 +47,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			pm := getPackageNameFromCommandContext(cmd)
-			appEnv := getAppEnvFromCommandContext(cmd)
+			goMode := getGoModeFromCommandContext(cmd)
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -84,7 +84,7 @@ Examples:
 			execCmd.Stderr = os.Stderr
 			execCmd.Stdin = os.Stdin
 
-			if appEnv != _DEV {
+			if goMode != _DEV {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 
 			}

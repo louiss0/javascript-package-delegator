@@ -47,9 +47,9 @@ Examples:
 
 			pm := getPackageNameFromCommandContext(cmd)
 
-			appEnv := getAppEnvFromCommandContext(cmd)
+			goMode := getGoModeFromCommandContext(cmd)
 
-			if appEnv != "development" {
+			if goMode != "development" {
 				log.Infof("Detected package manager, now executing command: %s\n", pm)
 
 			}

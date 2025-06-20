@@ -30,6 +30,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/joho/godotenv"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -38,7 +39,8 @@ import (
 
 const _LOCKFILE = "lockfile"
 const _PACKAGE_NAME = "package-name"
-const _APP_ENV_KEY = "app_env"
+const _GO_MODE_KEY = "go_mode"
+const GO_MODE_ENV_KEY = "GO_MODE"
 
 type AppEnv string
 
@@ -80,17 +82,19 @@ Available commands:
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			homeDir, error := os.UserHomeDir()
+			error := godotenv.Load()
 
 			if error != nil {
 
 				return error
 			}
 
-			ve := viper.New()
-			ve.SetEnvPrefix("APP")
-			ve.AutomaticEnv()
-			ve.BindEnv(_APP_ENV_KEY)
+			homeDir, error := os.UserHomeDir()
+
+			if error != nil {
+
+				return error
+			}
 
 			var supportedConfigPaths []string
 
@@ -110,11 +114,11 @@ Available commands:
 
 			vf.SetConfigType("toml")
 
-			appEnv := ve.GetString(_APP_ENV_KEY)
+			goMode := os.Getenv(GO_MODE_ENV_KEY)
 
 			allowedAppEnvValues := []string{string(_DEV), string(_PROD)}
 
-			if appEnv != "" && !lo.Contains(allowedAppEnvValues, appEnv) {
+			if goMode != "" && !lo.Contains(allowedAppEnvValues, goMode) {
 
 				return fmt.Errorf(
 					"The APP_ENV variable can only be %v",
@@ -195,7 +199,7 @@ Available commands:
 			cmdContext := cmd.Context()
 
 			lo.ForEach([][2]any{
-				{_APP_ENV_KEY, appEnv},
+				{_GO_MODE_KEY, goMode},
 				{_PACKAGE_NAME, packageName},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
@@ -324,11 +328,12 @@ func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
 }
 
-func getAppEnvFromCommandContext(cmd *cobra.Command) AppEnv {
+func getGoModeFromCommandContext(cmd *cobra.Command) AppEnv {
 
 	ctx := cmd.Context()
+	value := ctx.Value(_GO_MODE_KEY).(string)
 
-	return ctx.Value(_APP_ENV_KEY).(AppEnv)
+	return AppEnv(value)
 
 }
 

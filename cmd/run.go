@@ -54,7 +54,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm := getPackageNameFromCommandContext(cmd)
 
-			appEnv := getAppEnvFromCommandContext(cmd)
+			appEnv := getGoModeFromCommandContext(cmd)
 
 			// If no script name provided, list available scripts
 			if len(args) == 0 {
