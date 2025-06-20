@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -141,17 +140,13 @@ Examples:
 			}
 
 			// Execute the command
-			execCmd := exec.Command(pm, cmdArgs...)
-			execCmd.Stdout = os.Stdout
-			execCmd.Stderr = os.Stderr
-			execCmd.Stdin = os.Stdin
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			cmdRunner.Command(pm, cmdArgs...)
 
 			if appEnv != _DEV {
-
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-
 			}
-			return execCmd.Run()
+			return cmdRunner.Run()
 		},
 	}
 

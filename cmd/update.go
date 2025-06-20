@@ -23,8 +23,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -184,15 +182,12 @@ Examples:
 			}
 
 			// Execute the command
-			execCmd := exec.Command(pm, cmdArgs...)
-			execCmd.Stdout = os.Stdout
-			execCmd.Stderr = os.Stderr
-			execCmd.Stdin = os.Stdin
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			cmdRunner.Command(pm, cmdArgs...)
 			if goMode != _DEV {
-
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 			}
-			return execCmd.Run()
+			return cmdRunner.Run()
 		},
 	}
 

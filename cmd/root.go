@@ -57,7 +57,37 @@ const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"
 
 const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance"
 
-func NewRootCmd() *cobra.Command {
+const _COMMAND_RUNNER_KEY = "command_runner"
+
+type CommandRunner interface {
+	Command(string, ...string)
+	Run() error
+}
+
+type _ExecCommandFunc func(string, ...string) *exec.Cmd
+
+type executor struct {
+	execCommandFunc _ExecCommandFunc
+	cmd             *exec.Cmd
+}
+
+func newExecutor(execCommandFunc _ExecCommandFunc) *executor {
+	return &executor{
+		execCommandFunc: execCommandFunc,
+	}
+}
+
+func (e *executor) Command(name string, args ...string) {
+
+	e.cmd = e.execCommandFunc(name, args...)
+
+}
+
+func (e executor) Run() error {
+	return e.cmd.Run()
+}
+
+func NewRootCmd(commandRunner CommandRunner) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -203,6 +233,7 @@ Available commands:
 				{_PACKAGE_NAME, packageName},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
+				{_COMMAND_RUNNER_KEY, commandRunner},
 			}, func(item [2]any, index int) {
 
 				key := item[0]
@@ -318,7 +349,7 @@ Available commands:
 	return cmd
 }
 
-var rootCmd = NewRootCmd()
+var rootCmd = NewRootCmd(newExecutor(exec.Command))
 
 func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
@@ -351,8 +382,16 @@ func getViperInstanceFronCommandContext(cmd *cobra.Command) *viper.Viper {
 	return ctx.Value(_VIPER_CONFIG_INSTANCE_KEY).(*viper.Viper)
 }
 
+func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
+	ctx := cmd.Context()
+
+	return ctx.Value(_COMMAND_RUNNER_KEY).(CommandRunner)
+}
+
 func installJSManager(jsPkgMgr, osPkgMgr string) error {
-	var cmd *exec.Cmd
+	cmdRunner := newExecutor(exec.Command)
+	var cmdName string
+	var cmdArgs []string
 
 	supportedNixInstallationChoices := [2]string{"profiles", "env"}
 	promptUserToSelectNixEnvORProfile := func() (string, error) {
@@ -372,7 +411,7 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		return selection, nil
 	}
 
-	constructNixProfileCommandBasedOnProfileChoice := func(jsPkgMgr string) *exec.Cmd {
+	constructNixProfileCommand := func(jsPkgMgr string) (string, []string) {
 		var profile string
 
 		error := huh.NewText().
@@ -380,37 +419,38 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 			Run()
 
 		if profile == "" || error != nil {
-
-			return exec.Command("nix profile", "install", fmt.Sprintf("nixpkgs#%s", jsPkgMgr))
+			return "nix profile", []string{"install", fmt.Sprintf("nixpkgs#%s", jsPkgMgr)}
 		}
 
-		return exec.Command("nix profile", "install", profile, fmt.Sprintf("nixpkgs#%s", jsPkgMgr))
+		return "nix profile", []string{"install", profile, fmt.Sprintf("nixpkgs#%s", jsPkgMgr)}
 	}
 
 	switch jsPkgMgr {
 	case "deno":
 		switch osPkgMgr {
 		case "brew":
-			cmd = exec.Command("brew", "install", jsPkgMgr)
+			cmdName = "brew"
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "winget":
-			cmd = exec.Command("winget", "install", "--id", "DenoLand.Deno", "-e")
+			cmdName = "winget"
+			cmdArgs = []string{"install", "--id", "DenoLand.Deno", "-e"}
 		case "scoop", "choco":
-			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+			cmdName = osPkgMgr
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "nix":
 			answer, error := promptUserToSelectNixEnvORProfile()
 
 			if error != nil {
-
 				return error
 			}
 
 			if answer == supportedNixInstallationChoices[0] {
-
-				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 				break
 			}
 
-			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+			cmdName = "nix-env"
+			cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
@@ -418,87 +458,95 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 	case "bun":
 		switch osPkgMgr {
 		case "brew":
-			cmd = exec.Command("sh", "-c", "curl -fsSL https://bun.sh/install | bash")
+			cmdName = "sh"
+			cmdArgs = []string{"-c", "curl -fsSL https://bun.sh/install | bash"}
 		case "scoop":
-			cmd = exec.Command("scoop", "install", jsPkgMgr)
+			cmdName = "scoop"
+			cmdArgs = []string{"install", jsPkgMgr}
 		default:
 			return fmt.Errorf("bun not supported on %s", osPkgMgr)
 		}
 	case "npm":
 		switch osPkgMgr {
 		case "brew":
-			cmd = exec.Command("brew", "install", "node")
+			cmdName = "brew"
+			cmdArgs = []string{"install", "node"}
 		case "winget":
-			cmd = exec.Command("winget", "install", "Node.js")
+			cmdName = "winget"
+			cmdArgs = []string{"install", "Node.js"}
 		case "scoop", "choco":
-			cmd = exec.Command(osPkgMgr, "install", "nodejs-lts")
+			cmdName = osPkgMgr
+			cmdArgs = []string{"install", "nodejs-lts"}
 		case "nix":
 			answer, error := promptUserToSelectNixEnvORProfile()
 
 			if error != nil {
-
 				return error
 			}
 
 			if answer == supportedNixInstallationChoices[0] {
-
-				cmd = constructNixProfileCommandBasedOnProfileChoice("node")
+				cmdName, cmdArgs = constructNixProfileCommand("node")
 				break
 			}
 
-			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+			cmdName = "nix-env"
+			cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 		}
 	case "pnpm":
 		switch osPkgMgr {
 		case "brew":
-			cmd = exec.Command("brew", "install", jsPkgMgr)
+			cmdName = "brew"
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "winget":
-			cmd = exec.Command("winget", "install", "-e", "--id", "pnpm.pnpm")
+			cmdName = "winget"
+			cmdArgs = []string{"install", "-e", "--id", "pnpm.pnpm"}
 		case "scoop", "choco":
-			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+			cmdName = osPkgMgr
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "nix":
 			answer, error := promptUserToSelectNixEnvORProfile()
 
 			if error != nil {
-
 				return error
 			}
 
 			if answer == supportedNixInstallationChoices[0] {
-
-				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 				break
 			}
 
-			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+			cmdName = "nix-env"
+			cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 		}
 	case "yarn":
 		switch osPkgMgr {
 		case "brew":
-			cmd = exec.Command("brew", "install", jsPkgMgr)
+			cmdName = "brew"
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "winget":
-			cmd = exec.Command("winget", "install", "--id", "Yarn.Yarn", "-e")
+			cmdName = "winget"
+			cmdArgs = []string{"install", "--id", "Yarn.Yarn", "-e"}
 		case "scoop", "choco":
-			cmd = exec.Command(osPkgMgr, "install", jsPkgMgr)
+			cmdName = osPkgMgr
+			cmdArgs = []string{"install", jsPkgMgr}
 		case "nix":
 			answer, error := promptUserToSelectNixEnvORProfile()
 
 			if error != nil {
-
 				return error
 			}
 
 			if answer == supportedNixInstallationChoices[0] {
-
-				cmd = constructNixProfileCommandBasedOnProfileChoice(jsPkgMgr)
+				cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 				break
 			}
 
-			cmd = exec.Command("nix-env", "-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr))
+			cmdName = "nix-env"
+			cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 		default:
 			return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 		}
@@ -506,7 +554,8 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 		return fmt.Errorf("unsupported JS package manager: %s", jsPkgMgr)
 	}
 
-	err := cmd.Run()
+	cmdRunner.Command(cmdName, cmdArgs...)
+	err := cmdRunner.Run()
 
 	if err != nil {
 		return err

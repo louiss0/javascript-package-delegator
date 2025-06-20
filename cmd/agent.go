@@ -22,9 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-	"os/exec"
-
 	// "log/slog"
 
 	"github.com/charmbracelet/log"
@@ -54,13 +51,10 @@ Examples:
 
 			}
 			// Show detailed information
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			cmdRunner.Command(pm, args...)
 
-			commmand := exec.Command(pm, args...)
-			commmand.Stderr = os.Stderr
-			commmand.Stdin = os.Stdin
-			commmand.Stdout = os.Stdout
-
-			return commmand.Run()
+			return cmdRunner.Run()
 		},
 	}
 
