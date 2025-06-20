@@ -26,8 +26,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -46,6 +48,12 @@ const _PROD = AppEnv("production")
 const _JS_PACKAGE_MANAGER_KEY = "js_pkm"
 
 const _OS_PACKAGE_MANAGER_KEY = "os_pkm"
+
+const _INTERACTIVE_FLAG = "interactive"
+
+const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"
+
+const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance"
 
 func NewRootCmd() *cobra.Command {
 
@@ -72,10 +80,35 @@ Available commands:
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
+			homeDir, error := os.UserHomeDir()
+
+			if error != nil {
+
+				return error
+			}
+
 			ve := viper.New()
 			ve.SetEnvPrefix("APP")
 			ve.AutomaticEnv()
 			ve.BindEnv(_APP_ENV_KEY)
+
+			var supportedConfigPaths []string
+
+			vf := viper.New()
+
+			supportedConfigPaths = []string{
+				fmt.Sprintf("%s/.config/", homeDir),
+				fmt.Sprintf("%s/.local/share/", homeDir),
+			}
+
+			lo.ForEach(supportedConfigPaths, func(path string, index int) {
+
+				vf.AddConfigPath(path)
+			})
+
+			vf.SetConfigName("jpd.config")
+
+			vf.SetConfigType("toml")
 
 			appEnv := ve.GetString(_APP_ENV_KEY)
 
@@ -93,27 +126,6 @@ Available commands:
 			packageName, error := detect.DetectJSPacakgeManager()
 
 			if error != nil {
-
-				vf := viper.New()
-
-				homeDir, error := os.UserHomeDir()
-
-				if error != nil {
-
-					return error
-				}
-
-				vf.AddConfigPath(
-					fmt.Sprintf("%s/.config/", homeDir),
-				)
-
-				vf.AddConfigPath(
-					fmt.Sprintf("%s/.local/share/", homeDir),
-				)
-
-				vf.SetConfigName("jpd.config")
-
-				vf.SetConfigType("toml")
 
 				jsPackageManagerFromConfig := vf.GetString(_JS_PACKAGE_MANAGER_KEY)
 				osPackageManagerFromConfig := vf.GetString(_OS_PACKAGE_MANAGER_KEY)
@@ -182,10 +194,12 @@ Available commands:
 
 			cmdContext := cmd.Context()
 
-			lo.ForEach([][2]string{
+			lo.ForEach([][2]any{
 				{_APP_ENV_KEY, appEnv},
 				{_PACKAGE_NAME, packageName},
-			}, func(item [2]string, index int) {
+				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
+				{_VIPER_CONFIG_INSTANCE_KEY, vf},
+			}, func(item [2]any, index int) {
 
 				key := item[0]
 				value := item[1]
@@ -203,6 +217,75 @@ Available commands:
 			return nil
 
 		},
+		Run: func(cmd *cobra.Command, args []string) {
+
+			interactiveFlag, error := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
+
+			if error != nil {
+
+				log.Error(error.Error())
+
+			}
+
+			var Form struct {
+				OS_PackageManager string
+				JS_PackageManager string
+				ConfigPath        string
+			}
+
+			if interactiveFlag {
+
+				supportedConfigPaths := getSupportedPathsFromCommandContext(cmd)
+
+				error := huh.NewForm(
+					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("OS Package Manager").
+							Description("Pick from the selected packaa ...anyge managers").
+							Options(huh.NewOptions(detect.SupportedOperatingSystemPackageManagers[:]...)...).
+							Value(&Form.OS_PackageManager),
+						huh.NewSelect[string]().
+							Title("JS Package Manager").
+							Description("Pick from the selected package managers").
+							Options(huh.NewOptions(detect.SupportedJSPackageManagers[:]...)...).
+							Value(&Form.JS_PackageManager),
+						huh.NewSelect[string]().
+							Title("Config File Path").
+							Description("Pick the path you want to use for the config").
+							Options(huh.NewOptions(supportedConfigPaths...)...).
+							Value(&Form.ConfigPath),
+					).
+						Title("Javascript Package Delegator Setup").
+						Description("This form is supposed to help you setup JPD according to your preferences ").
+						WithTheme(huh.ThemeDracula()),
+				).Run()
+
+				if error != nil {
+
+					log.Error(error.Error())
+
+				}
+
+				vf := getViperInstanceFronCommandContext(cmd)
+
+				vf.Set(_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager)
+				vf.Set(_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager)
+
+				configFilePath := filepath.Join(Form.ConfigPath, "jpd.config.toml")
+
+				vf.WriteConfigAs(configFilePath)
+
+				log.Infof("Your config file was created at this path %s", configFilePath)
+
+				log.Info(
+					"It has these values",
+					_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager,
+					_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager,
+				)
+
+			}
+
+		},
 	}
 
 	// Add all subcommands
@@ -218,7 +301,12 @@ Available commands:
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.mini-clis.yaml)")
+	cmd.Flags().BoolP(
+		"interactive",
+		"i",
+		false,
+		"Allows the user to setup the config file for jpd",
+	)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -242,6 +330,20 @@ func getAppEnvFromCommandContext(cmd *cobra.Command) AppEnv {
 
 	return ctx.Value(_APP_ENV_KEY).(AppEnv)
 
+}
+
+func getSupportedPathsFromCommandContext(cmd *cobra.Command) []string {
+
+	ctx := cmd.Context()
+
+	return ctx.Value(_SUPPORTED_CONFIG_PATHS_KEY).([]string)
+
+}
+
+func getViperInstanceFronCommandContext(cmd *cobra.Command) *viper.Viper {
+	ctx := cmd.Context()
+
+	return ctx.Value(_VIPER_CONFIG_INSTANCE_KEY).(*viper.Viper)
 }
 
 func installJSManager(jsPkgMgr, osPkgMgr string) error {
@@ -411,9 +513,7 @@ func installJSManager(jsPkgMgr, osPkgMgr string) error {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-
-	rootCmd.ExecuteContext(context.Background())
-	err := rootCmd.Execute()
+	err := rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		os.Exit(1)
 	}
