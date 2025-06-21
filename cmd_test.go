@@ -736,7 +736,7 @@ var _ = Describe("JPD Commands", func() {
 			_, err := executeCmd(generateRootCommandWithPackageManagerDetector(
 				mockRunner,
 				"foo",
-				fmt.Errorf("unsuppo rted package manager")),
+				fmt.Errorf("unsupported package manager")),
 				"uninstall",
 				"lodash",
 			)
