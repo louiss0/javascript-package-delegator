@@ -87,7 +87,7 @@ func (e executor) Run() error {
 	return e.cmd.Run()
 }
 
-func NewRootCmd(commandRunner CommandRunner) *cobra.Command {
+func NewRootCmd(commandRunner CommandRunner, jsPackageManagerDetector func() (string, error)) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -157,7 +157,7 @@ Available commands:
 
 			}
 
-			packageName, error := detect.DetectJSPacakgeManager()
+			packageName, error := jsPackageManagerDetector()
 
 			if error != nil {
 
@@ -349,7 +349,7 @@ Available commands:
 	return cmd
 }
 
-var rootCmd = NewRootCmd(newExecutor(exec.Command))
+var rootCmd = NewRootCmd(newExecutor(exec.Command), detect.DetectJSPacakgeManager)
 
 func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
