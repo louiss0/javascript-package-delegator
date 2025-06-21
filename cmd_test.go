@@ -573,7 +573,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should run npm update with no args", func() {
 
-			_, err := executeCmd(rootCmd)
+			_, err := executeCmd(rootCmd, "update")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
