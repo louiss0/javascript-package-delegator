@@ -820,7 +820,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should pass arguments to package manager", func() {
 			mockRunner.Reset()
-			_, err := executeCmd(rootCmd, "agent", "--version")
+			_, err := executeCmd(rootCmd, "agent", "--", "--version")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
@@ -832,7 +832,7 @@ var _ = Describe("JPD Commands", func() {
 			setupCommandContext(rootCmd, "yarn")
 			_, err := executeCmd(rootCmd, "agent", "--version")
 			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal(2, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 			assert.Equal([]string{"--version"}, mockRunner.CommandCalls[0].Args)
 			setupCommandContext(rootCmd, "npm")
