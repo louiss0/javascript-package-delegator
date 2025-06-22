@@ -116,11 +116,6 @@ Available commands:
 				return error
 			}
 
-			if error != nil {
-
-				return error
-			}
-
 			homeDir, error := os.UserHomeDir()
 
 			if error != nil {
