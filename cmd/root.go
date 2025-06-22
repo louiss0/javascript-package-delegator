@@ -52,7 +52,10 @@ const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"
 const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance"
 
 const _COMMAND_RUNNER_KEY = "command_runner"
+
 const _GO_ENV = "go_env"
+
+const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter"
 
 type CommandRunner interface {
 	Command(string, ...string)
@@ -82,7 +85,13 @@ func (e executor) Run() error {
 	return e.cmd.Run()
 }
 
-func NewRootCmd(commandRunner CommandRunner, jsPackageManagerDetector func() (string, error)) *cobra.Command {
+type Dependencies struct {
+	CommandRunner
+	JS_PackageManagerDetector func() (string, error)
+	detect.YarnCommandVersionOutputter
+}
+
+func NewRootCmd(dependencies Dependencies) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -141,7 +150,7 @@ Available commands:
 
 			vf.SetConfigType("toml")
 
-			packageName, error := jsPackageManagerDetector()
+			packageName, error := dependencies.JS_PackageManagerDetector()
 
 			if error != nil {
 
@@ -212,12 +221,15 @@ Available commands:
 
 			cmdContext := cmd.Context()
 
+			// Register dependencies
+
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
 				{_PACKAGE_NAME, packageName},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
-				{_COMMAND_RUNNER_KEY, commandRunner},
+				{_COMMAND_RUNNER_KEY, dependencies.CommandRunner},
+				{_YARN_VERSION_OUTPUTTER, dependencies.YarnCommandVersionOutputter},
 			}, func(item [2]any, index int) {
 
 				key := item[0]
@@ -333,7 +345,20 @@ Available commands:
 	return cmd
 }
 
-var rootCmd = NewRootCmd(newExecutor(exec.Command), detect.DetectJSPacakgeManager)
+var rootCmd = NewRootCmd(
+	Dependencies{
+		CommandRunner:               newExecutor(exec.Command),
+		JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
+		YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+	},
+)
+
+func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {
+
+	ctx := cmd.Context()
+
+	return ctx.Value(_YARN_VERSION_OUTPUTTER).(detect.YarnCommandVersionOutputter)
+}
 
 func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 

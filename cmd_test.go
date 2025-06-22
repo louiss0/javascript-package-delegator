@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
+	"regexp"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
+	"github.com/louiss0/javascript-package-delegator/env"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -35,6 +38,41 @@ func NewMockCommandRunner() *MockCommandRunner {
 		InvalidCommands: []string{},
 		CurrentCommand:  CommandCall{},
 	}
+}
+
+type MockYarnCommandVersionOutputer struct {
+	version string
+	goEnv   env.GoEnv
+}
+
+func (my MockYarnCommandVersionOutputer) Output() (string, error) {
+
+	if my.goEnv.IsDevelopmentMode() {
+
+		match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
+
+		if error != nil {
+
+			return "", error
+		}
+
+		if !match {
+
+			return "", fmt.Errorf("invalid version format you must use semver versioning")
+		}
+
+		return my.version, nil
+	}
+
+	output, error := exec.Command("yarn", "--version").Output()
+
+	if error != nil {
+
+		return "", error
+	}
+
+	return string(output), nil
+
 }
 
 // Command records the command that would be executed
@@ -155,7 +193,14 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	generateRootCommandWithPackageManagerDetector := func(mockRunner *MockCommandRunner, packageManager string, err error) *cobra.Command {
-		return cmd.NewRootCmd(mockRunner, func() (string, error) { return packageManager, err })
+		return cmd.NewRootCmd(
+			cmd.Dependencies{
+				CommandRunner: mockRunner,
+				JS_PackageManagerDetector: func() (string, error) {
+
+					return packageManager, err
+				},
+			})
 	}
 
 	createRootCommandWithBunAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
@@ -164,9 +209,40 @@ var _ = Describe("JPD Commands", func() {
 	createRootCommandWithDenoAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
 		return generateRootCommandWithPackageManagerDetector(mockRunner, "deno", err)
 	}
-	createRootCommandWithYarnAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
-		return generateRootCommandWithPackageManagerDetector(mockRunner, "yarn", err)
+
+	createRootCommandWithYarnTwoAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
+		goEnv, _ := env.NewGoEnv()
+
+		return cmd.NewRootCmd(
+			cmd.Dependencies{
+				CommandRunner: mockRunner,
+				JS_PackageManagerDetector: func() (string, error) {
+
+					return "yarn", err
+				},
+				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
+					version: "2.0.0",
+					goEnv:   goEnv,
+				},
+			})
 	}
+
+	createRootCommandWithYarnOneAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
+		goEnv, _ := env.NewGoEnv()
+		return cmd.NewRootCmd(
+			cmd.Dependencies{
+				CommandRunner: mockRunner,
+				JS_PackageManagerDetector: func() (string, error) {
+
+					return "yarn", err
+				},
+				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
+					version: "1.0.0",
+					goEnv:   goEnv,
+				},
+			})
+	}
+
 	createRootCommandWithPnpmAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
 		return generateRootCommandWithPackageManagerDetector(mockRunner, "pnpm", err)
 	}
@@ -294,7 +370,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should run yarn add with dev flag", func() {
 
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--dev", "typescript")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "install", "--dev", "typescript")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -321,7 +397,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle global flag with yarn", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--global", "typescript")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "install", "--global", "typescript")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -353,7 +429,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle production flag with yarn", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--production")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "install", "--production")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -385,7 +461,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle frozen flag with yarn", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--frozen")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "install", "--frozen")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -485,7 +561,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle yarn classic with dependencies", func() {
-			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			rootCmd.SetArgs([]string{})
 
 			_, err := executeCmd(rootCmd, "install", "lodash")
@@ -498,7 +574,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle yarn modern with dependencies", func() {
 			// Test yarn version 2+ path
-			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			rootCmd.SetArgs([]string{})
 
 			_, err := executeCmd(rootCmd, "install", "--dev", "typescript")
@@ -604,7 +680,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should run yarn run with script name", func() {
 
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "run", "test")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "run", "test")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -716,7 +792,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle yarn version detection error", func() {
 			// This will test the yarn version detection fallback
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "exec", "create-react-app", "my-app")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "exec", "create-react-app", "my-app")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -772,11 +848,11 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should execute yarn with package name", func() {
 
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "exec", "create-react-app")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "exec", "create-react-app")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"create-react-app"}, mockRunner.CommandCalls[0].Args)
+			assert.Equal([]string{"dlx", "create-react-app"}, mockRunner.CommandCalls[0].Args)
 			// Reset to npm for other tests
 		})
 
@@ -894,7 +970,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle yarn with specific packages", func() {
-			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			rootCmd.SetArgs([]string{})
 
 			_, err := executeCmd(rootCmd, "update", "lodash")
@@ -948,7 +1024,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle interactive flag with yarn", func() {
-			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			rootCmd.SetArgs([]string{})
 
 			_, err := executeCmd(rootCmd, "update", "--interactive")
@@ -958,7 +1034,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle latest flag with yarn", func() {
-			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			rootCmd.SetArgs([]string{})
 
 			_, err := executeCmd(rootCmd, "update", "--latest")
@@ -1035,7 +1111,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle interactive flag for yarn", func() {
 
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--interactive")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--interactive")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1044,7 +1120,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle yarn with latest flag", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--latest")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--latest")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1052,14 +1128,14 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should handle yarn with both interactive and latest flags", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--interactive", "--latest")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--interactive", "--latest")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 		})
 
 		It("should handle yarn package-specific updates", func() {
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "lodash")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "lodash")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1068,7 +1144,7 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle latest flag for yarn", func() {
 
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--latest", "lodash")
+			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--latest", "lodash")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1105,7 +1181,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should handle yarn uninstall", func() {
 
-				rootCmd := createRootCommandWithYarnAsDefault(
+				rootCmd := createRootCommandWithYarnTwoAsDefault(
 					mockRunner,
 					nil,
 				)
@@ -1186,7 +1262,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run yarn remove with package name", func() {
 
-				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "uninstall", "lodash")
+				_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "uninstall", "lodash")
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1268,7 +1344,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run yarn install with frozen lockfile", func() {
 
-				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "clean-install")
+				_, err := executeCmd(createRootCommandWithYarnOneAsDefault(mockRunner, nil), "clean-install")
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1302,11 +1378,11 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should handle yarn v2+ with immutable flag", func() {
 				// Mock yarn version to return v2+
-				rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+				rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 
 				_, err := executeCmd(rootCmd, "clean-install")
 				assert.NoError(err)
-				assert.Equal(2, len(mockRunner.CommandCalls))
+				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 				// This test will cover both paths since getYarnVersion might return different results
 			})
@@ -1349,7 +1425,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should execute yarn with arguments", func() {
 
-				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "agent", "--", "--version")
+				_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "agent", "--", "--version")
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)

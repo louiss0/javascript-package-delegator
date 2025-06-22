@@ -23,10 +23,10 @@ package cmd
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
 )
 
@@ -47,6 +47,8 @@ Examples:
 
 			pm := getPackageNameFromCommandContext(cmd)
 			goEnv := getGoEnvFromCommandContext(cmd)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -55,7 +57,10 @@ Examples:
 
 			case "yarn":
 				// Yarn v1 uses install --frozen-lockfile, v2+ uses install --immutable
-				yarnVersion, err := getYarnVersion()
+				yarnVersion, err := detect.DetectYarnVersion(
+					getYarnVersionRunnerCommandContext(cmd),
+				)
+
 				if err != nil || strings.HasPrefix(yarnVersion, "1.") {
 					// Yarn v1 or unknown version
 					cmdArgs = []string{"install", "--frozen-lockfile"}
@@ -77,8 +82,6 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
@@ -91,14 +94,4 @@ Examples:
 	}
 
 	return cmd
-}
-
-func getYarnVersion() (string, error) {
-
-	cmd := exec.Command("yarn", "--version")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", nil
-	}
-	return strings.TrimSpace(string(output)), nil
 }

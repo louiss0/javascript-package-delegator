@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -73,7 +74,10 @@ Examples:
 
 			case "yarn":
 				// Check if it's Yarn v1 or v2+
-				yarnVersion, err := getYarnVersion()
+				yarnVersion, err := detect.DetectYarnVersion(
+					getYarnVersionRunnerCommandContext(cmd),
+				)
+
 				if err != nil {
 					// Fallback to yarn v1 style
 					execCommand = "yarn"

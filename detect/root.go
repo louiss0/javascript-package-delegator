@@ -77,3 +77,44 @@ func SupportedOperatingSystemPackageManager() (string, error) {
 	return detectedPackageManager, nil
 
 }
+
+type YarnCommandVersionOutputter interface {
+	Output() (string, error)
+}
+
+type RealYarnCommandVersionRunner struct {
+	cmd *exec.Cmd
+}
+
+func NewRealYarnCommandVersionRunner() RealYarnCommandVersionRunner {
+
+	return RealYarnCommandVersionRunner{
+		cmd: exec.Command("yarn", "--version"),
+	}
+}
+
+func (r RealYarnCommandVersionRunner) Output() (string, error) {
+
+	output, error := r.cmd.Output()
+
+	if error != nil {
+
+		return "", error
+	}
+
+	return string(output), nil
+
+}
+
+func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, error) {
+
+	result, error := yarnVersionRunner.Output()
+
+	if error != nil {
+
+		return "", error
+	}
+
+	return result, nil
+
+}
