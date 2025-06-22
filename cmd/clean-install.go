@@ -92,7 +92,11 @@ Examples:
 }
 
 func getYarnVersion() (string, error) {
-	// This would need to be refactored to use CommandRunner in a real implementation
-	// For now, we'll just return a mock version for compatibility
-	return "1.22.19", nil
+
+	cmd := exec.Command("yarn", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(string(output)), nil
 }
