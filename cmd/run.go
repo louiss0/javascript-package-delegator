@@ -33,10 +33,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type PackageJSON struct {
-	Scripts map[string]string `json:"scripts"`
-}
-
 func NewRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [script] [args...]",
@@ -56,22 +52,50 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 
 			// If no script name provided, list available scripts
-			if len(args) == 0 {
-				pkg, err := readPackageJSON()
-				if err != nil {
-					return err
-				}
 
-				if len(pkg.Scripts) == 0 {
-					fmt.Println("No scripts found in package.json")
+			if pm == "deno" {
+
+				if len(args) == 0 {
+					pkg, err := readDenoJSON()
+
+					if err != nil {
+						return err
+					}
+
+					if len(pkg.Tasks) == 0 {
+						fmt.Println("No tasks found in deno.json")
+						return nil
+					}
+
+					fmt.Println("Available tasks:")
+					for name, command := range pkg.Tasks {
+						fmt.Printf("  %s: %s\n", name, command)
+					}
+
 					return nil
 				}
 
-				fmt.Println("Available scripts:")
-				for name, command := range pkg.Scripts {
-					fmt.Printf("  %s: %s\n", name, command)
+			} else {
+
+				if len(args) == 0 {
+					pkg, err := readPackageJSON()
+
+					if err != nil {
+						return err
+					}
+
+					if len(pkg.Scripts) == 0 {
+						fmt.Println("No scripts found in package.json")
+						return nil
+					}
+
+					fmt.Println("Available scripts:")
+					for name, command := range pkg.Scripts {
+						fmt.Printf("  %s: %s\n", name, command)
+					}
+					return nil
 				}
-				return nil
+
 			}
 
 			scriptName := args[0]
@@ -85,7 +109,9 @@ Examples:
 					return err
 				}
 				if _, exists := pkg.Scripts[scriptName]; !exists {
-					fmt.Printf("Script '%s' not found, skipping\n", scriptName)
+					goEnv.ExecuteIfModeIsProduction(func() {
+						fmt.Printf("Script '%s' not found, skipping\n", scriptName)
+					})
 					return nil
 				}
 			}
@@ -129,7 +155,9 @@ Examples:
 				cmdArgs = []string{"task", scriptName}
 
 				if lo.Contains(scriptArgs, "--eval") {
-					return fmt.Errorf("Don't pass %s  here use the exec command instead", "--eval")
+
+					return fmt.Errorf("Don't pass %s here use the exec command instead", "--eval")
+
 				}
 
 				cmdArgs = append(cmdArgs, scriptArgs...)
@@ -156,6 +184,10 @@ Examples:
 	return cmd
 }
 
+type PackageJSON struct {
+	Scripts map[string]string `json:"scripts"`
+}
+
 func readPackageJSON() (*PackageJSON, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -171,6 +203,30 @@ func readPackageJSON() (*PackageJSON, error) {
 	var pkg PackageJSON
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return nil, fmt.Errorf("failed to parse package.json: %w", err)
+	}
+
+	return &pkg, nil
+}
+
+type DenoJSON struct {
+	Tasks map[string]string `json:"tasks"`
+}
+
+func readDenoJSON() (*DenoJSON, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	denoJSONPath := filepath.Join(cwd, "deno.json")
+	data, err := os.ReadFile(denoJSONPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read deno.json: %w", err)
+	}
+
+	var pkg DenoJSON
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, fmt.Errorf("failed to parse deno.json: %w", err)
 	}
 
 	return &pkg, nil

@@ -511,8 +511,122 @@ var _ = Describe("JPD Commands", func() {
 	Describe("Run Command", func() {
 
 		var runCmd *cobra.Command
+
 		BeforeEach(func() {
 			runCmd, _ = getSubCommandWithName(rootCmd, "run")
+		})
+
+		PIt(
+			"Should output a message with a list of scripts when there is no script name provided",
+			func() {
+
+				cwd, _ := os.Getwd()
+				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+				os.Chdir(jpdDir)
+
+				os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
+
+				defer os.Chdir(cwd)
+				defer os.RemoveAll(jpdDir)
+
+			},
+		)
+
+		PIt(
+			"Should output a message with a list of scripts when there is no script name provided",
+			func() {
+
+				cwd, _ := os.Getwd()
+				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+				os.Chdir(jpdDir)
+
+				os.WriteFile("package.json", []byte(`{"scripts": {}}`), 0644)
+
+				defer os.Chdir(cwd)
+				defer os.RemoveAll(jpdDir)
+
+			},
+		)
+
+		It("should return an error if deno is the package manager and the eval flag is passed",
+			func() {
+
+				rootCmdWithDenoAsDefault := createRootCommandWithDenoAsDefault(
+					mockRunner,
+					nil,
+				)
+
+				rootCmdWithDenoAsDefault.SetArgs([]string{})
+
+				cwd, _ := os.Getwd()
+				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+				os.Chdir(jpdDir)
+
+				os.WriteFile(
+					"deno.json",
+					[]byte(
+						`{
+							"tasks": {
+								"test": "vitest"
+							}
+					}`),
+					0644,
+				)
+
+				defer os.Chdir(cwd)
+				defer os.RemoveAll(jpdDir)
+
+				_, err := executeCmd(
+					rootCmdWithDenoAsDefault,
+					"run",
+					"--",
+					"test",
+					"--eval",
+				)
+
+				assert.Error(err)
+
+				assert.Contains(
+					err.Error(),
+					fmt.Sprintf(
+						"Don't pass %s here use the exec command instead",
+						"--eval",
+					),
+				)
+
+			},
+		)
+
+		It("should a pnpm script using the if-present flag", func() {
+
+			cwd, _ := os.Getwd()
+			jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+			os.Chdir(jpdDir)
+
+			os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
+
+			defer os.Chdir(cwd)
+			defer os.RemoveAll(jpdDir)
+
+			rootCmd := createRootCommandWithPnpmAsDefault(
+				mockRunner,
+				nil,
+			)
+
+			_, err := executeCmd(rootCmd, "run", "--if-present", "test")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "test")
+			assert.Equal(
+				mockRunner.CommandCalls[0].Args,
+				[]string{"run", "--if-present", "test"},
+			)
+
 		})
 
 		It("should return error when command runner fails", func() {
@@ -528,7 +642,6 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle if-present flag with non-existent script", func() {
 			rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
 
 			// Create a package.json without the script
 			packageJson := `{"name": "test", "scripts": {}}`
@@ -1055,7 +1168,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should handle pnpm update", func() {
 
 				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update")
-				fmt.Print("CommandCalls", mockRunner.CommandCalls)
+
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
