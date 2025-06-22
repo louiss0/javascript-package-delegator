@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
-	"github.com/louiss0/javascript-package-delegator/env"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -107,36 +105,23 @@ func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
 
 type MockYarnCommandVersionOutputer struct {
 	version string
-	goEnv   env.GoEnv
 }
 
 func (my MockYarnCommandVersionOutputer) Output() (string, error) {
 
-	if my.goEnv.IsDevelopmentMode() {
-
-		match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
-
-		if error != nil {
-
-			return "", error
-		}
-
-		if !match {
-
-			return "", fmt.Errorf("invalid version format you must use semver versioning")
-		}
-
-		return my.version, nil
-	}
-
-	output, error := exec.Command("yarn", "--version").Output()
+	match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
 
 	if error != nil {
 
 		return "", error
 	}
 
-	return string(output), nil
+	if !match {
+
+		return "", fmt.Errorf("invalid version format you must use semver versioning")
+	}
+
+	return my.version, nil
 
 }
 
@@ -211,7 +196,6 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	createRootCommandWithYarnTwoAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
-		goEnv, _ := env.NewGoEnv()
 
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
@@ -222,13 +206,11 @@ var _ = Describe("JPD Commands", func() {
 				},
 				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
 					version: "2.0.0",
-					goEnv:   goEnv,
 				},
 			})
 	}
 
 	createRootCommandWithYarnOneAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
-		goEnv, _ := env.NewGoEnv()
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
 				CommandRunner: mockRunner,
@@ -238,8 +220,19 @@ var _ = Describe("JPD Commands", func() {
 				},
 				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
 					version: "1.0.0",
-					goEnv:   goEnv,
 				},
+			})
+	}
+
+	createRootCommandWithNoYarnVersion := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
+		return cmd.NewRootCmd(
+			cmd.Dependencies{
+				CommandRunner: mockRunner,
+				JS_PackageManagerDetector: func() (string, error) {
+
+					return "yarn", err
+				},
+				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{},
 			})
 	}
 
@@ -705,7 +698,7 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("deno", mockRunner.CommandCalls[0].Name)
 			assert.Equal([]string{"task", "test"}, mockRunner.CommandCalls[0].Args)
-			// Reset to npm for other tests
+
 		})
 
 		It("should handle package.json reading error", func() {
@@ -792,10 +785,33 @@ var _ = Describe("JPD Commands", func() {
 
 		It("should handle yarn version detection error", func() {
 			// This will test the yarn version detection fallback
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "exec", "create-react-app", "my-app")
+			rootYarnCommandWhereVersionRunnerErrors := createRootCommandWithNoYarnVersion(mockRunner, nil)
+
+			_, err := executeCmd(
+				rootYarnCommandWhereVersionRunnerErrors,
+				"exec",
+				"create-react-app",
+			)
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
 			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+
+		})
+
+		It("should handle yarn version one", func() {
+			// This will test the yarn version detection fallback
+			rootYarnCommandWhereVersionRunnerErrors := createRootCommandWithYarnOneAsDefault(mockRunner, nil)
+
+			_, err := executeCmd(
+				rootYarnCommandWhereVersionRunnerErrors,
+				"exec",
+				"fooo",
+			)
+
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+
 		})
 
 		It("should handle help flag correctly", func() {
