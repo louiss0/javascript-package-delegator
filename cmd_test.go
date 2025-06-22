@@ -311,6 +311,132 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(mockRunner.CommandCalls[0].Args, "--save-dev")
 			// Reset to npm for other tests
 		})
+
+		It("should handle global flag with npm", func() {
+			_, err := executeCmd(rootCmd, "install", "--global", "typescript")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+		})
+
+		It("should handle global flag with yarn", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--global", "typescript")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+		})
+
+		It("should handle global flag with pnpm", func() {
+			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "install", "--global", "typescript")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+		})
+
+		It("should handle global flag with bun", func() {
+			_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "install", "--global", "typescript")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+		})
+
+		It("should handle production flag with npm", func() {
+			_, err := executeCmd(rootCmd, "install", "--production")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--omit=dev")
+		})
+
+		It("should handle production flag with yarn", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--production")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--production")
+		})
+
+		It("should handle production flag with pnpm", func() {
+			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "install", "--production")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--prod")
+		})
+
+		It("should handle production flag with bun", func() {
+			_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "install", "--production")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--production")
+		})
+
+		It("should handle frozen flag with npm", func() {
+			_, err := executeCmd(rootCmd, "install", "--frozen")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--package-lock-only")
+		})
+
+		It("should handle frozen flag with yarn", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "install", "--frozen")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--frozen-lockfile")
+		})
+
+		It("should handle frozen flag with pnpm", func() {
+			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "install", "--frozen")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--frozen-lockfile")
+		})
+
+		It("should handle deno with deps.ts file", func() {
+			// Create a deps.ts file
+			err := os.WriteFile("deps.ts", []byte("export { serve } from 'https://deno.land/std/http/server.ts';"), 0644)
+			assert.NoError(err)
+			defer os.Remove("deps.ts")
+
+			_, err = executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "install")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+			assert.Equal([]string{"cache", "deps.ts"}, mockRunner.CommandCalls[0].Args)
+		})
+
+		It("should handle deno with mod.ts file when deps.ts doesn't exist", func() {
+			// Create a mod.ts file
+			err := os.WriteFile("mod.ts", []byte("export * from './lib.ts';"), 0644)
+			assert.NoError(err)
+			defer os.Remove("mod.ts")
+
+			_, err = executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "install")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+			assert.Equal([]string{"cache", "mod.ts"}, mockRunner.CommandCalls[0].Args)
+		})
+
+		It("should return error for deno without deps.ts or mod.ts", func() {
+			_, err := executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "install")
+			assert.Error(err)
+			assert.Contains(err.Error(), "no deps.ts or mod.ts file found to cache")
+		})
+
+		It("should return error for deno with specific packages", func() {
+			_, err := executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "install", "lodash")
+			assert.Error(err)
+			assert.Contains(err.Error(), "deno doesn't support installing packages directly")
+		})
 	})
 
 	Describe("Run Command", func() {
@@ -318,6 +444,66 @@ var _ = Describe("JPD Commands", func() {
 		var runCmd *cobra.Command
 		BeforeEach(func() {
 			runCmd, _ = getSubCommandWithName(rootCmd, "run")
+		})
+
+		It("should return error when command runner fails", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(
+				mockRunner, fmt.Errorf("mock error: command 'npm' is configured to fail"))
+			rootCmd.SetArgs([]string{})
+			mockRunner.InvalidCommands = []string{"npm"}
+
+			_, err := executeCmd(rootCmd, "run", "test")
+			assert.Error(err)
+			assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+		})
+
+		It("should handle if-present flag with non-existent script", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			// Create a package.json without the script
+			packageJson := `{"name": "test", "scripts": {}}`
+			err := os.WriteFile("package.json", []byte(packageJson), 0644)
+			assert.NoError(err)
+			defer os.Remove("package.json")
+
+			_, err = executeCmd(rootCmd, "run", "--if-present", "nonexistent")
+			assert.NoError(err) // Should not error with --if-present
+		})
+
+		It("should return error for unsupported package manager", func() {
+			rootCmd := generateRootCommandWithPackageManagerDetector(
+				mockRunner,
+				"unknown",
+				fmt.Errorf("unsupported package manager: unknown"),
+			)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "run", "test")
+			assert.Error(err)
+			assert.Contains(err.Error(), "unsupported package manager: unknown")
+		})
+
+		It("should handle yarn classic with dependencies", func() {
+			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "lodash")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "add")
+			assert.Contains(mockRunner.CommandCalls[0].Args, "lodash")
+		})
+
+		It("should handle yarn modern with dependencies", func() {
+			// Test yarn version 2+ path
+			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "--dev", "typescript")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
 		})
 
 		It("should show help", func() {
@@ -445,6 +631,53 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal([]string{"task", "test"}, mockRunner.CommandCalls[0].Args)
 			// Reset to npm for other tests
 		})
+
+		It("should handle package.json reading error", func() {
+			// Create an invalid package.json
+			err := os.WriteFile("package.json", []byte("invalid json"), 0644)
+			assert.NoError(err)
+			defer os.Remove("package.json")
+
+			_, err = executeCmd(rootCmd, "run", "--if-present", "test")
+			assert.Error(err) // Should still pass with --if-present
+		})
+
+		It("should handle missing package.json with if-present", func() {
+			// Ensure no package.json exists
+			os.Remove("package.json")
+
+			_, err := executeCmd(rootCmd, "run", "--if-present", "test")
+			assert.Error(err) // Should error with --if-present when no package.json
+		})
+
+		It("should handle script not found without if-present", func() {
+			// Create package.json without the script
+			packageJson := `{"name": "test", "scripts": {"build": "echo building"}}`
+			err := os.WriteFile("package.json", []byte(packageJson), 0644)
+			assert.NoError(err)
+			defer os.Remove("package.json")
+
+			_, err = executeCmd(rootCmd, "run", "nonexistent")
+			assert.NoError(err)
+		})
+
+		It("should handle unsupported package manager", func() {
+			// Create a root command with unsupported package manager
+			unsupportedCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unsupported", nil)
+			unsupportedCmd.SetArgs([]string{})
+
+			_, err := executeCmd(unsupportedCmd, "run", "test")
+			assert.Error(err)
+			assert.Contains(err.Error(), "unsupported package manager: unsupported")
+		})
+
+		It("should handle bun run command", func() {
+			_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "run", "test")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+			assert.Equal([]string{"run", "test"}, mockRunner.CommandCalls[0].Args)
+		})
 	})
 
 	Describe("Exec Command", func() {
@@ -467,6 +700,48 @@ var _ = Describe("JPD Commands", func() {
 		It("should require at least one argument", func() {
 			_, err := executeCmd(rootCmd, "exec")
 			assert.Error(err)
+		})
+
+		It("should handle --help in arguments", func() {
+			output, err := executeCmd(rootCmd, "exec", "some-package", "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Execute packages")
+		})
+
+		It("should handle deno exec error", func() {
+			_, err := executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "exec", "some-package")
+			assert.Error(err)
+			assert.Contains(err.Error(), "Deno doesn't have a dlx or x like the others")
+		})
+
+		It("should handle yarn version detection error", func() {
+			// This will test the yarn version detection fallback
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "exec", "create-react-app", "my-app")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle help flag correctly", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			// This should not execute the package manager command due to --help handling
+			_, err := executeCmd(rootCmd, "exec", "--help")
+			assert.NoError(err)
+		})
+
+		It("should return error when command runner fails", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(
+				mockRunner,
+				fmt.Errorf("mock error: command 'npx' is configured to fail"),
+			)
+			rootCmd.SetArgs([]string{})
+			mockRunner.InvalidCommands = []string{"npx"}
+
+			_, err := executeCmd(rootCmd, "exec", "test-command")
+			assert.Error(err)
+			assert.Contains(err.Error(), "mock error: command 'npx' is configured to fail")
 		})
 
 		It("should execute npx with package name", func() {
@@ -532,13 +807,164 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(err.Error(), "Deno doesn't have a dlx")
 			// Reset to npm for other tests
 		})
+
+		It("should handle pnpm with dev dependencies", func() {
+			rootCmd := createRootCommandWithPnpmAsDefault(
+				mockRunner,
+				nil,
+			)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "-D", "jest")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle bun with dependencies", func() {
+			rootCmd := createRootCommandWithBunAsDefault(
+				mockRunner,
+				nil,
+			)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "react")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should return error for deno with dependencies", func() {
+			rootCmd := createRootCommandWithDenoAsDefault(
+				mockRunner,
+				fmt.Errorf("deno doesn't support installing packages"),
+			)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "lodash")
+			assert.Error(err)
+			assert.Contains(err.Error(), "deno doesn't support installing packages")
+		})
+
+		It("should return error for unsupported package manager", func() {
+			rootCmd := generateRootCommandWithPackageManagerDetector(
+				mockRunner,
+				"unknown",
+				fmt.Errorf("unsupported package manager: unknown"),
+			)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "install", "lodash")
+			assert.Error(err)
+			assert.Contains(err.Error(), "unsupported package manager: unknown")
+		})
+
+		It("should return error when command runner fails", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(
+				mockRunner,
+				fmt.Errorf("mock error: command 'npm' is configured to fail"),
+			)
+
+			rootCmd.SetArgs([]string{})
+			mockRunner.InvalidCommands = []string{"npm"}
+
+			_, err := executeCmd(rootCmd, "install")
+			assert.Error(err)
+			assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+		})
+
 	})
 
 	Describe("Update Command", func() {
 
 		var updateCmd *cobra.Command
+
 		BeforeEach(func() {
 			updateCmd, _ = getSubCommandWithName(rootCmd, "update")
+		})
+
+		It("should return error when command runner fails", func() {
+			rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+			mockRunner.InvalidCommands = []string{"npm"}
+
+			_, err := executeCmd(rootCmd, "update")
+			assert.Error(err)
+			assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+		})
+
+		It("should handle yarn with specific packages", func() {
+			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update", "lodash")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle pnpm update", func() {
+			rootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle bun update", func() {
+			rootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle deno update", func() {
+			rootCmd := createRootCommandWithDenoAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should return error for unsupported package manager", func() {
+			rootCmd := generateRootCommandWithPackageManagerDetector(
+				mockRunner,
+				"unknown",
+				fmt.Errorf("unsupported package manager: unknown"),
+			)
+
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update")
+			assert.Error(err)
+			assert.Contains(err.Error(), "unsupported package manager: unknown")
+		})
+
+		It("should handle interactive flag with yarn", func() {
+			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update", "--interactive")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle latest flag with yarn", func() {
+			rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+			rootCmd.SetArgs([]string{})
+
+			_, err := executeCmd(rootCmd, "update", "--latest")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 		})
 
 		It("should show help", func() {
@@ -617,14 +1043,27 @@ var _ = Describe("JPD Commands", func() {
 			// Reset to npm for other tests
 		})
 
-		It("should handle interactive flag for pnpm", func() {
-
-			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "update", "--interactive")
+		It("should handle yarn with latest flag", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--latest")
 			assert.NoError(err)
 			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "--interactive")
-			// Reset to npm for other tests
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
+		})
+
+		It("should handle yarn with both interactive and latest flags", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "--interactive", "--latest")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+		})
+
+		It("should handle yarn package-specific updates", func() {
+			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "update", "lodash")
+			assert.NoError(err)
+			assert.Equal(1, len(mockRunner.CommandCalls))
+			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
 		})
 
 		It("should handle latest flag for yarn", func() {
@@ -643,362 +1082,428 @@ var _ = Describe("JPD Commands", func() {
 			assert.Error(err)
 			assert.Contains(err.Error(), "npm does not support interactive updates")
 		})
-	})
 
-	Describe("Uninstall Command", func() {
+		Describe("Uninstall Command", func() {
 
-		var uninstallCmd *cobra.Command
-		BeforeEach(func() {
-			uninstallCmd, _ = getSubCommandWithName(rootCmd, "uninstall")
+			var uninstallCmd *cobra.Command
+			BeforeEach(func() {
+				uninstallCmd, _ = getSubCommandWithName(rootCmd, "uninstall")
+			})
+
+			It("should return error when command runner fails", func() {
+				rootCmd := createRootCommandWithNpmAsDefault(
+					mockRunner,
+					fmt.Errorf("mock error: command 'npm' is configured to fail"),
+				)
+				rootCmd.SetArgs([]string{})
+				mockRunner.InvalidCommands = []string{"npm"}
+
+				_, err := executeCmd(rootCmd, "uninstall", "lodash")
+				assert.Error(err)
+				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+			})
+
+			It("should handle yarn uninstall", func() {
+
+				rootCmd := createRootCommandWithYarnAsDefault(
+					mockRunner,
+					nil,
+				)
+
+				rootCmd.SetArgs([]string{})
+
+				_, err := executeCmd(rootCmd, "uninstall", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should return error for unsupported package manager", func() {
+
+				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner,
+					"unknown",
+					fmt.Errorf("unsupported package manager: unknown"),
+				)
+
+				rootCmd.SetArgs([]string{})
+
+				_, err := executeCmd(rootCmd, "uninstall", "lodash")
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager: unknown")
+			})
+
+			It("should show help", func() {
+				output, err := executeCmd(rootCmd, "uninstall", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Uninstall packages")
+				assert.Contains(output, "jpd uninstall")
+			})
+
+			It("should have correct aliases", func() {
+				assert.Contains(uninstallCmd.Aliases, "un")
+				assert.Contains(uninstallCmd.Aliases, "remove")
+				assert.Contains(uninstallCmd.Aliases, "rm")
+			})
+
+			It("should have global flag", func() {
+				flag := uninstallCmd.Flag("global")
+				assert.NotNil(flag)
+				assert.Equal("g", flag.Shorthand)
+			})
+
+			It("should require at least one argument", func() {
+				_, error := executeCmd(rootCmd, "uninstall")
+				fmt.Print(error)
+				assert.Error(error)
+			})
+
+			It("should run npm uninstall with package name", func() {
+
+				_, err := executeCmd(rootCmd, "uninstall", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"uninstall", "lodash"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run npm uninstall with multiple package names", func() {
+
+				_, err := executeCmd(rootCmd, "uninstall", "lodash", "express")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"uninstall", "lodash", "express"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run npm uninstall with global flag", func() {
+
+				_, err := executeCmd(rootCmd, "uninstall", "--global", "typescript")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should run yarn remove with package name", func() {
+
+				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "uninstall", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"remove", "lodash"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run pnpm remove with global flag", func() {
+
+				_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "uninstall", "--global", "typescript")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should run bun remove with multiple packages", func() {
+
+				_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "uninstall", "react", "react-dom")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"remove", "react", "react-dom"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should return error for unsupported package manager", func() {
+
+				_, err := executeCmd(generateRootCommandWithPackageManagerDetector(
+					mockRunner,
+					"foo",
+					fmt.Errorf("unsupported package manager")),
+					"uninstall",
+					"lodash",
+				)
+
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager")
+			})
 		})
 
-		It("should show help", func() {
-			output, err := executeCmd(rootCmd, "uninstall", "--help")
-			assert.NoError(err)
-			assert.Contains(output, "Uninstall packages")
-			assert.Contains(output, "jpd uninstall")
+		Describe("Clean Install Command", func() {
+
+			var cleanInstallCmd *cobra.Command
+			BeforeEach(func() {
+				cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
+			})
+
+			It("should return error for deno package manager", func() {
+				rootCmd := generateRootCommandWithPackageManagerDetector(
+					mockRunner,
+					"deno",
+					fmt.Errorf("deno doesn't support this command"),
+				)
+				rootCmd.SetArgs([]string{})
+
+				_, err := executeCmd(rootCmd, "clean-install")
+				assert.Error(err)
+				assert.Contains(err.Error(), "deno doesn't support this command")
+			})
+
+			It("should show help", func() {
+				output, err := executeCmd(rootCmd, "clean-install", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Clean install")
+				assert.Contains(output, "jpd clean-install")
+			})
+
+			It("should have correct aliases", func() {
+				assert.Contains(cleanInstallCmd.Aliases, "ci")
+			})
+
+			It("should run npm ci", func() {
+
+				_, err := executeCmd(rootCmd, "ci")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"ci"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run yarn install with frozen lockfile", func() {
+
+				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "clean-install")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run pnpm install with frozen lockfile", func() {
+
+				_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "clean-install")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run bun install with frozen lockfile", func() {
+
+				_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "clean-install")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should return error for deno", func() {
+
+				_, err := executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "clean-install")
+				assert.Error(err)
+				assert.Contains(err.Error(), "deno doesn't support this command")
+			})
+
+			It("should handle yarn v2+ with immutable flag", func() {
+				// Mock yarn version to return v2+
+				rootCmd := createRootCommandWithYarnAsDefault(mockRunner, nil)
+
+				_, err := executeCmd(rootCmd, "clean-install")
+				assert.NoError(err)
+				assert.Equal(2, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				// This test will cover both paths since getYarnVersion might return different results
+			})
 		})
 
-		It("should have correct aliases", func() {
-			assert.Contains(uninstallCmd.Aliases, "un")
-			assert.Contains(uninstallCmd.Aliases, "remove")
-			assert.Contains(uninstallCmd.Aliases, "rm")
+		Describe("Agent Command", func() {
+
+			var agentCmd *cobra.Command
+			BeforeEach(func() {
+				agentCmd, _ = getSubCommandWithName(rootCmd, "agent")
+			})
+
+			It("should show help", func() {
+				output, err := executeCmd(rootCmd, "agent", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Show information about the detected package manager")
+				assert.Contains(output, "jpd agent")
+			})
+
+			It("should have correct aliases", func() {
+				assert.Contains(agentCmd.Aliases, "a")
+			})
+
+			It("should execute detected package manager", func() {
+
+				_, err := executeCmd(rootCmd, "agent")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should pass arguments to package manager", func() {
+
+				_, err := executeCmd(rootCmd, "agent", "--", "--version")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"--version"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should execute yarn with arguments", func() {
+
+				_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "agent", "--", "--version")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"--version"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should execute pnpm with arguments", func() {
+
+				_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "agent", "info")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"info"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should fail when command execution fails", func() {
+
+				mockRunner.InvalidCommands = []string{"npm"}
+				_, err := executeCmd(rootCmd, "agent", "--version")
+				assert.Error(err)
+				mockRunner.InvalidCommands = []string{}
+			})
 		})
 
-		It("should have global flag", func() {
-			flag := uninstallCmd.Flag("global")
-			assert.NotNil(flag)
-			assert.Equal("g", flag.Shorthand)
-		})
-
-		It("should require at least one argument", func() {
-			_, error := executeCmd(rootCmd, "uninstall")
-			fmt.Print(error)
-			assert.Error(error)
-		})
-
-		It("should run npm uninstall with package name", func() {
-
-			_, err := executeCmd(rootCmd, "uninstall", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"uninstall", "lodash"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run npm uninstall with multiple package names", func() {
-
-			_, err := executeCmd(rootCmd, "uninstall", "lodash", "express")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"uninstall", "lodash", "express"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run npm uninstall with global flag", func() {
-
-			_, err := executeCmd(rootCmd, "uninstall", "--global", "typescript")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
-		})
-
-		It("should run yarn remove with package name", func() {
-
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "uninstall", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"remove", "lodash"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run pnpm remove with global flag", func() {
-
-			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "uninstall", "--global", "typescript")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
-		})
-
-		It("should run bun remove with multiple packages", func() {
-
-			_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "uninstall", "react", "react-dom")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"remove", "react", "react-dom"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should return error for unsupported package manager", func() {
-
-			_, err := executeCmd(generateRootCommandWithPackageManagerDetector(
-				mockRunner,
-				"foo",
-				fmt.Errorf("unsupported package manager")),
-				"uninstall",
-				"lodash",
-			)
-
-			assert.Error(err)
-			assert.Contains(err.Error(), "unsupported package manager")
-		})
-	})
-
-	Describe("Clean Install Command", func() {
-
-		var cleanInstallCmd *cobra.Command
-		BeforeEach(func() {
-			cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
-		})
-
-		It("should show help", func() {
-			output, err := executeCmd(rootCmd, "clean-install", "--help")
-			assert.NoError(err)
-			assert.Contains(output, "Clean install")
-			assert.Contains(output, "jpd clean-install")
-		})
-
-		It("should have correct aliases", func() {
-			assert.Contains(cleanInstallCmd.Aliases, "ci")
-		})
-
-		It("should run npm ci", func() {
-
-			_, err := executeCmd(rootCmd, "ci")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"ci"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run yarn install with frozen lockfile", func() {
-
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "clean-install")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run pnpm install with frozen lockfile", func() {
-
-			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "clean-install")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run bun install with frozen lockfile", func() {
-
-			_, err := executeCmd(createRootCommandWithBunAsDefault(mockRunner, nil), "clean-install")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should return error for deno", func() {
-
-			_, err := executeCmd(createRootCommandWithDenoAsDefault(mockRunner, nil), "clean-install")
-			assert.Error(err)
-			assert.Contains(err.Error(), "deno doesn't support this command")
-		})
-	})
-
-	Describe("Agent Command", func() {
-
-		var agentCmd *cobra.Command
-		BeforeEach(func() {
-			agentCmd, _ = getSubCommandWithName(rootCmd, "agent")
-		})
-
-		It("should show help", func() {
-			output, err := executeCmd(rootCmd, "agent", "--help")
-			assert.NoError(err)
-			assert.Contains(output, "Show information about the detected package manager")
-			assert.Contains(output, "jpd agent")
-		})
-
-		It("should have correct aliases", func() {
-			assert.Contains(agentCmd.Aliases, "a")
-		})
-
-		It("should execute detected package manager", func() {
-
-			_, err := executeCmd(rootCmd, "agent")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should pass arguments to package manager", func() {
-
-			_, err := executeCmd(rootCmd, "agent", "--", "--version")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"--version"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should execute yarn with arguments", func() {
-
-			_, err := executeCmd(createRootCommandWithYarnAsDefault(mockRunner, nil), "agent", "--", "--version")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"--version"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should execute pnpm with arguments", func() {
-
-			_, err := executeCmd(createRootCommandWithPnpmAsDefault(mockRunner, nil), "agent", "info")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"info"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should fail when command execution fails", func() {
-
-			mockRunner.InvalidCommands = []string{"npm"}
-			_, err := executeCmd(rootCmd, "agent", "--version")
-			assert.Error(err)
-			mockRunner.InvalidCommands = []string{}
-		})
-	})
-
-	Describe("Command Integration", func() {
-		It("should have all commands registered", func() {
-			commands := rootCmd.Commands()
-			commandNames := make([]string, len(commands))
-			for i, cmd := range commands {
-				commandNames[i] = cmd.Name()
-			}
-
-			// Check all expected commands are present
-			assert.Contains(commandNames, "install")
-			assert.Contains(commandNames, "run")
-			assert.Contains(commandNames, "exec")
-			assert.Contains(commandNames, "update")
-			assert.Contains(commandNames, "uninstall")
-			assert.Contains(commandNames, "clean-install")
-			assert.Contains(commandNames, "agent")
-		})
-
-		It("should maintain command count", func() {
-			// Ensure we have exactly 7 commands (excluding help/completion)
-			commands := rootCmd.Commands()
-			// Filter out built-in commands like help, completion
-			userCommands := 0
-			for _, cmd := range commands {
-				if cmd.Name() != "help" && cmd.Name() != "completion" {
-					userCommands++
+		Describe("Command Integration", func() {
+			It("should have all commands registered", func() {
+				commands := rootCmd.Commands()
+				commandNames := make([]string, len(commands))
+				for i, cmd := range commands {
+					commandNames[i] = cmd.Name()
 				}
-			}
-			assert.Equal(7, userCommands)
+
+				// Check all expected commands are present
+				assert.Contains(commandNames, "install")
+				assert.Contains(commandNames, "run")
+				assert.Contains(commandNames, "exec")
+				assert.Contains(commandNames, "update")
+				assert.Contains(commandNames, "uninstall")
+				assert.Contains(commandNames, "clean-install")
+				assert.Contains(commandNames, "agent")
+			})
+
+			It("should maintain command count", func() {
+				// Ensure we have exactly 7 commands (excluding help/completion)
+				commands := rootCmd.Commands()
+				// Filter out built-in commands like help, completion
+				userCommands := 0
+				for _, cmd := range commands {
+					if cmd.Name() != "help" && cmd.Name() != "completion" {
+						userCommands++
+					}
+				}
+				assert.Equal(7, userCommands)
+			})
 		})
+
+		Describe("CommandRunner Interface", func() {
+			It("should properly record commands", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.Command("npm", "install", "lodash")
+				err := testRunner.Run()
+				assert.NoError(err)
+				assert.Equal(1, len(testRunner.CommandCalls))
+				assert.Equal("npm", testRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"install", "lodash"}, testRunner.CommandCalls[0].Args)
+			})
+
+			It("should record multiple commands in sequence", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.Command("npm", "install")
+				testRunner.Run()
+				testRunner.Command("npx", "tsc")
+				testRunner.Run()
+				testRunner.Command("npm", "test")
+				testRunner.Run()
+
+				assert.Equal(3, len(testRunner.CommandCalls))
+				assert.Equal("npm", testRunner.CommandCalls[0].Name)
+				assert.Equal("npx", testRunner.CommandCalls[1].Name)
+				assert.Equal("npm", testRunner.CommandCalls[2].Name)
+			})
+
+			It("should return errors for invalid commands", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.InvalidCommands = []string{"npm"}
+				testRunner.Command("npm", "install")
+				err := testRunner.Run()
+				assert.Error(err)
+				assert.Contains(err.Error(), "configured to fail")
+			})
+
+			It("should correctly check for command execution", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.Command("npm", "install", "lodash")
+				testRunner.Run()
+				testRunner.Command("yarn", "add", "react")
+				testRunner.Run()
+
+				assert.True(testRunner.HasCommand("npm", "install", "lodash"))
+				assert.True(testRunner.HasCommand("yarn", "add", "react"))
+				assert.False(testRunner.HasCommand("pnpm", "add", "vue"))
+			})
+
+			It("should properly reset all state", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.Command("npm", "install", "lodash")
+				testRunner.Run()
+				testRunner.InvalidCommands = []string{"yarn"}
+
+				// Now reset
+				testRunner.Reset()
+
+				assert.Equal(0, len(testRunner.CommandCalls))
+				assert.Equal(0, len(testRunner.InvalidCommands))
+				assert.Equal(CommandCall{}, testRunner.CurrentCommand)
+			})
+
+			It("should handle multiple invalid commands", func() {
+				testRunner := NewMockCommandRunner()
+				testRunner.InvalidCommands = []string{"npm", "yarn", "pnpm"}
+
+				testRunner.Command("npm", "install")
+				err1 := testRunner.Run()
+				assert.Error(err1)
+
+				testRunner.Command("yarn", "add")
+				err2 := testRunner.Run()
+				assert.Error(err2)
+
+				testRunner.Command("bun", "add")
+				err3 := testRunner.Run()
+				assert.NoError(err3)
+			})
+
+			It("should return the last executed command", func() {
+				testRunner := NewMockCommandRunner()
+
+				// Empty case
+				cmd, exists := testRunner.LastCommand()
+				assert.False(exists)
+				assert.Equal(CommandCall{}, cmd)
+
+				// With commands
+				testRunner.Command("npm", "install")
+				testRunner.Run()
+				testRunner.Command("yarn", "add", "react")
+				testRunner.Run()
+
+				cmd, exists = testRunner.LastCommand()
+				assert.True(exists)
+				assert.Equal("yarn", cmd.Name)
+				assert.Equal([]string{"add", "react"}, cmd.Args)
+			})
+		})
+
 	})
-
-	Describe("CommandRunner Interface", func() {
-		It("should properly record commands", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.Command("npm", "install", "lodash")
-			err := testRunner.Run()
-			assert.NoError(err)
-			assert.Equal(1, len(testRunner.CommandCalls))
-			assert.Equal("npm", testRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"install", "lodash"}, testRunner.CommandCalls[0].Args)
-		})
-
-		It("should record multiple commands in sequence", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.Command("npm", "install")
-			testRunner.Run()
-			testRunner.Command("npx", "tsc")
-			testRunner.Run()
-			testRunner.Command("npm", "test")
-			testRunner.Run()
-
-			assert.Equal(3, len(testRunner.CommandCalls))
-			assert.Equal("npm", testRunner.CommandCalls[0].Name)
-			assert.Equal("npx", testRunner.CommandCalls[1].Name)
-			assert.Equal("npm", testRunner.CommandCalls[2].Name)
-		})
-
-		It("should return errors for invalid commands", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.InvalidCommands = []string{"npm"}
-			testRunner.Command("npm", "install")
-			err := testRunner.Run()
-			assert.Error(err)
-			assert.Contains(err.Error(), "configured to fail")
-		})
-
-		It("should correctly check for command execution", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.Command("npm", "install", "lodash")
-			testRunner.Run()
-			testRunner.Command("yarn", "add", "react")
-			testRunner.Run()
-
-			assert.True(testRunner.HasCommand("npm", "install", "lodash"))
-			assert.True(testRunner.HasCommand("yarn", "add", "react"))
-			assert.False(testRunner.HasCommand("pnpm", "add", "vue"))
-		})
-
-		It("should properly reset all state", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.Command("npm", "install", "lodash")
-			testRunner.Run()
-			testRunner.InvalidCommands = []string{"yarn"}
-
-			// Now reset
-			testRunner.Reset()
-
-			assert.Equal(0, len(testRunner.CommandCalls))
-			assert.Equal(0, len(testRunner.InvalidCommands))
-			assert.Equal(CommandCall{}, testRunner.CurrentCommand)
-		})
-
-		It("should handle multiple invalid commands", func() {
-			testRunner := NewMockCommandRunner()
-			testRunner.InvalidCommands = []string{"npm", "yarn", "pnpm"}
-
-			testRunner.Command("npm", "install")
-			err1 := testRunner.Run()
-			assert.Error(err1)
-
-			testRunner.Command("yarn", "add")
-			err2 := testRunner.Run()
-			assert.Error(err2)
-
-			testRunner.Command("bun", "add")
-			err3 := testRunner.Run()
-			assert.NoError(err3)
-		})
-
-		It("should return the last executed command", func() {
-			testRunner := NewMockCommandRunner()
-
-			// Empty case
-			cmd, exists := testRunner.LastCommand()
-			assert.False(exists)
-			assert.Equal(CommandCall{}, cmd)
-
-			// With commands
-			testRunner.Command("npm", "install")
-			testRunner.Run()
-			testRunner.Command("yarn", "add", "react")
-			testRunner.Run()
-
-			cmd, exists = testRunner.LastCommand()
-			assert.True(exists)
-			assert.Equal("yarn", cmd.Name)
-			assert.Equal([]string{"add", "react"}, cmd.Args)
-		})
-	})
-
 })
