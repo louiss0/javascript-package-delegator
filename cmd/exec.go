@@ -51,15 +51,15 @@ Examples:
 			}
 
 			pm := getPackageNameFromCommandContext(cmd)
-			goMode := getGoModeFromCommandContext(cmd)
+			goEnv := getGoEnvFromCommandContext(cmd)
 
 			packageName := args[0]
 			packageArgs := args[1:]
 
-			if goMode != _DEV {
-
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-			}
+
+			})
 
 			// Build command based on package manager
 			var execCommand string
@@ -112,9 +112,11 @@ Examples:
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(execCommand, cmdArgs...)
 
-			if goMode != _DEV {
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
-			}
+
+			})
+
 			return cmdRunner.Run()
 		},
 	}

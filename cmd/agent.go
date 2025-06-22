@@ -44,12 +44,12 @@ Examples:
 
 			pm := getPackageNameFromCommandContext(cmd)
 
-			goMode := getGoModeFromCommandContext(cmd)
+			goEnv := getGoEnvFromCommandContext(cmd)
 
-			if goMode != "development" {
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Detected package manager, now executing command: %s\n", pm)
+			})
 
-			}
 			// Show detailed information
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, args...)

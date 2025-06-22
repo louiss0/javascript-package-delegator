@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -45,7 +46,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			pm := getPackageNameFromCommandContext(cmd)
-			goMode := getGoModeFromCommandContext(cmd)
+			goEnv := getGoEnvFromCommandContext(cmd)
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -80,9 +81,10 @@ Examples:
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
 
-			if goMode != _DEV {
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-			}
+
+			})
 
 			return cmdRunner.Run()
 		},

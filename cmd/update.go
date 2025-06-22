@@ -45,12 +45,12 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm := getPackageNameFromCommandContext(cmd)
 
-			goMode := getGoModeFromCommandContext(cmd)
+			goEnv := getGoEnvFromCommandContext(cmd)
 
-			if goMode != _DEV {
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
 
-			}
+			})
 
 			// Get flags
 			interactive, _ := cmd.Flags().GetBool("interactive")
@@ -184,9 +184,11 @@ Examples:
 			// Execute the command
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
-			if goMode != _DEV {
+
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-			}
+
+			})
 			return cmdRunner.Run()
 		},
 	}

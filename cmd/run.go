@@ -53,7 +53,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm := getPackageNameFromCommandContext(cmd)
 
-			appEnv := getGoModeFromCommandContext(cmd)
+			goEnv := getGoEnvFromCommandContext(cmd)
 
 			// If no script name provided, list available scripts
 			if len(args) == 0 {
@@ -90,11 +90,10 @@ Examples:
 				}
 			}
 
-			if appEnv != _DEV {
-
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-			}
 
+			})
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -143,9 +142,10 @@ Examples:
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
 
-			if appEnv != _DEV {
+			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-			}
+			})
+
 			return cmdRunner.Run()
 		},
 	}

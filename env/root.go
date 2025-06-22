@@ -1,4 +1,4 @@
- package env
+package env
 
 import (
 	"fmt"
@@ -16,36 +16,36 @@ func getGoEnv() (string, bool) {
 var allowedModes = []string{"development", "production", "debug"}
 
 type GoEnv struct {
-	goMode       string
-	goModeExists bool
+	goEnv       string
+	goEnvExists bool
 }
 
 func NewGoEnv() (GoEnv, error) {
-	goMode, ok := getGoEnv()
+	goEnv, ok := getGoEnv()
 
-	if goMode != "" && !lo.Contains(allowedModes, goMode) {
+	if goEnv != "" && !lo.Contains(allowedModes, goEnv) {
 
 		return GoEnv{}, fmt.Errorf("Wrong go mode the only allowed modes are %v", allowedModes)
 	}
 
-	return GoEnv{goMode, ok}, nil
+	return GoEnv{goEnv, ok}, nil
 }
 
-func (e GoEnv) GetGoMode() string {
-	return e.goMode
+func (e GoEnv) GetgoEnv() string {
+	return e.goEnv
 }
 
 func (e GoEnv) IsDebugMode() bool {
 
-	return e.goMode == "debug"
+	return e.goEnv == "debug"
 }
 
 func (env GoEnv) IsDevelopmentMode() bool {
-	return env.goMode == "development"
+	return env.goEnv == "development"
 }
 
 func (env GoEnv) IsProductionMode() bool {
-	return env.goMode == "production" || env.goModeExists == false
+	return env.goEnv == "production" || env.goEnvExists == false
 }
 
 func (env GoEnv) ExecuteIfModeIsProduction(cb func()) {

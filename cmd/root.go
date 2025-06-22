@@ -32,6 +32,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -39,13 +40,6 @@ import (
 
 const _LOCKFILE = "lockfile"
 const _PACKAGE_NAME = "package-name"
-const _GO_MODE_KEY = "go_mode"
-const GO_MODE_ENV_KEY = "GO_MODE"
-
-type AppEnv string
-
-const _DEV = AppEnv("development")
-const _PROD = AppEnv("production")
 
 const _JS_PACKAGE_MANAGER_KEY = "js_pkm"
 
@@ -58,6 +52,7 @@ const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"
 const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance"
 
 const _COMMAND_RUNNER_KEY = "command_runner"
+const _GO_ENV = "go_env"
 
 type CommandRunner interface {
 	Command(string, ...string)
@@ -114,6 +109,13 @@ Available commands:
 
 			error := godotenv.Load()
 
+			goEnv, error := env.NewGoEnv()
+
+			if error != nil {
+
+				return error
+			}
+
 			if error != nil {
 
 				return error
@@ -143,19 +145,6 @@ Available commands:
 			vf.SetConfigName("jpd.config")
 
 			vf.SetConfigType("toml")
-
-			goMode := os.Getenv(GO_MODE_ENV_KEY)
-
-			allowedAppEnvValues := []string{string(_DEV), string(_PROD)}
-
-			if goMode != "" && !lo.Contains(allowedAppEnvValues, goMode) {
-
-				return fmt.Errorf(
-					"The APP_ENV variable can only be %v",
-					allowedAppEnvValues,
-				)
-
-			}
 
 			packageName, error := jsPackageManagerDetector()
 
@@ -229,7 +218,7 @@ Available commands:
 			cmdContext := cmd.Context()
 
 			lo.ForEach([][2]any{
-				{_GO_MODE_KEY, goMode},
+				{_GO_ENV, goEnv},
 				{_PACKAGE_NAME, packageName},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
@@ -359,12 +348,10 @@ func getPackageNameFromCommandContext(cmd *cobra.Command) string {
 
 }
 
-func getGoModeFromCommandContext(cmd *cobra.Command) AppEnv {
+func getGoEnvFromCommandContext(cmd *cobra.Command) env.GoEnv {
 
 	ctx := cmd.Context()
-	value := ctx.Value(_GO_MODE_KEY).(string)
-
-	return AppEnv(value)
+	return ctx.Value(_GO_ENV).(env.GoEnv)
 
 }
 
