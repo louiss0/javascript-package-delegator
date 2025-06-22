@@ -151,7 +151,7 @@ Examples:
 				}
 
 			case "deno":
-				cmdArgs = []string{"oudated"}
+				cmdArgs = []string{"outdated"}
 
 				if interactive {
 					cmdArgs = append(cmdArgs, "-i")

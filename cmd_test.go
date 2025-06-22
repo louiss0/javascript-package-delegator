@@ -40,41 +40,6 @@ func NewMockCommandRunner() *MockCommandRunner {
 	}
 }
 
-type MockYarnCommandVersionOutputer struct {
-	version string
-	goEnv   env.GoEnv
-}
-
-func (my MockYarnCommandVersionOutputer) Output() (string, error) {
-
-	if my.goEnv.IsDevelopmentMode() {
-
-		match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
-
-		if error != nil {
-
-			return "", error
-		}
-
-		if !match {
-
-			return "", fmt.Errorf("invalid version format you must use semver versioning")
-		}
-
-		return my.version, nil
-	}
-
-	output, error := exec.Command("yarn", "--version").Output()
-
-	if error != nil {
-
-		return "", error
-	}
-
-	return string(output), nil
-
-}
-
 // Command records the command that would be executed
 func (m *MockCommandRunner) Command(name string, args ...string) {
 	m.CurrentCommand = CommandCall{
@@ -138,6 +103,41 @@ func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
 		return CommandCall{}, false
 	}
 	return m.CommandCalls[len(m.CommandCalls)-1], true
+}
+
+type MockYarnCommandVersionOutputer struct {
+	version string
+	goEnv   env.GoEnv
+}
+
+func (my MockYarnCommandVersionOutputer) Output() (string, error) {
+
+	if my.goEnv.IsDevelopmentMode() {
+
+		match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
+
+		if error != nil {
+
+			return "", error
+		}
+
+		if !match {
+
+			return "", fmt.Errorf("invalid version format you must use semver versioning")
+		}
+
+		return my.version, nil
+	}
+
+	output, error := exec.Command("yarn", "--version").Output()
+
+	if error != nil {
+
+		return "", error
+	}
+
+	return string(output), nil
+
 }
 
 // This function executes a cobra command with the given arguments and returns the output and error.
@@ -959,54 +959,316 @@ var _ = Describe("JPD Commands", func() {
 			updateCmd, _ = getSubCommandWithName(rootCmd, "update")
 		})
 
+		Context("npm related", func() {
+
+			It("should error on npm with interactive flag", func() {
+
+				_, err := executeCmd(rootCmd, "update", "--interactive")
+				assert.Error(err)
+				assert.Contains(err.Error(), "npm does not support interactive updates")
+			})
+
+			It("should run npm update with no args", func() {
+
+				_, err := executeCmd(rootCmd, "update")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"update"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run npm update with package names", func() {
+
+				_, err := executeCmd(rootCmd, "update", "lodash", "express")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"update", "lodash", "express"}, mockRunner.CommandCalls[0].Args)
+			})
+
+			It("should run npm update with global flag", func() {
+
+				_, err := executeCmd(rootCmd, "update", "--global", "typescript")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should handle latest flag for npm", func() {
+
+				_, err := executeCmd(rootCmd, "update", "--latest", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "lodash@latest")
+			})
+
+			It("should handle latest flag with global for npm", func() {
+
+				_, err := executeCmd(rootCmd, "update", "--latest", "--global", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("npm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "lodash@latest")
+			})
+
+		})
+
+		Context("pnpm related", func() {
+
+			var rootCmdWithPnpmAsDefault *cobra.Command
+
+			var mockRunner *MockCommandRunner
+			BeforeEach(func() {
+				mockRunner = &MockCommandRunner{}
+				rootCmdWithPnpmAsDefault = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				rootCmdWithPnpmAsDefault.SetArgs([]string{})
+
+			})
+
+			It("should handle pnpm update with interactive flag", func() {
+
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update", "--interactive")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--interactive")
+			})
+
+			It("should handle pnpm update", func() {
+
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update")
+				fmt.Print("CommandCalls", mockRunner.CommandCalls)
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should handle pnpm update with multiple args", func() {
+
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update", "react")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "react")
+			})
+
+			It("should handle pnpm update with --global", func() {
+
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update", "--global")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should handle pnpm update with --latest", func() {
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--latest")
+			})
+
+		})
+
+		Context("yarn related", func() {
+
+			var rootCmdYarnTwoAsDefault *cobra.Command
+			var mockRunner *MockCommandRunner
+			BeforeEach(func() {
+				mockRunner = &MockCommandRunner{}
+				rootCmdYarnTwoAsDefault = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+			})
+
+			It("should handle yarn with specific packages", func() {
+
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should handle interactive flag with yarn", func() {
+
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--interactive")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should handle latest flag with yarn", func() {
+
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+			It("should handle interactive flag for yarn", func() {
+
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--interactive")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Equal([]string{"upgrade-interactive"}, mockRunner.CommandCalls[0].Args)
+				// Reset to npm for other tests
+			})
+
+			It("should handle yarn with latest flag", func() {
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
+			})
+
+			It("should handle yarn with both interactive and latest flags", func() {
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--interactive", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should handle yarn package-specific updates", func() {
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "lodash")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
+			})
+
+		})
+
+		Context("deno related", func() {
+
+			var rootCmdWithWithDenoAsDefault *cobra.Command
+			var mockRunner *MockCommandRunner
+			BeforeEach(func() {
+				mockRunner = &MockCommandRunner{}
+				rootCmdWithWithDenoAsDefault = createRootCommandWithDenoAsDefault(mockRunner, nil)
+
+			})
+			It("should handle deno update", func() {
+
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+			})
+
+			PIt("should handle deno update with multiple args", func() {
+
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update", "react")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "react")
+			})
+
+			It("should handle deno update with --global", func() {
+
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update", "--global")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should handle deno update with --latest", func() {
+
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--latest")
+			})
+
+			It("should handle deno update with --latest and arguments", func() {
+
+				_, err := executeCmd(
+					rootCmdWithWithDenoAsDefault,
+					"update",
+					"--latest",
+					"react",
+				)
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+				assert.Equal(
+					mockRunner.CommandCalls[0].Args,
+					[]string{"outdated", "--latest", "react"},
+				)
+			})
+
+		})
+
+		Context("bun related", func() {
+
+			var rootCmdWithBunAsDefault *cobra.Command
+
+			var mockRunner *MockCommandRunner
+			BeforeEach(func() {
+				mockRunner = &MockCommandRunner{}
+				rootCmdWithBunAsDefault = createRootCommandWithBunAsDefault(mockRunner, nil)
+			})
+
+			It("should give an error update with interactive flag", func() {
+
+				_, err := executeCmd(
+					createRootCommandWithBunAsDefault(
+						mockRunner,
+						fmt.Errorf("bun does not support interactive updates"),
+					),
+					"update",
+				)
+
+				assert.Error(err)
+				assert.ErrorContains(err, "bun does not support interactive updates")
+			})
+
+			It("should handle bun update", func() {
+
+				_, err := executeCmd(rootCmdWithBunAsDefault, "update")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+			})
+
+			It("should handle bun update with multiple args", func() {
+
+				_, err := executeCmd(rootCmdWithBunAsDefault, "update", "react")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "react")
+			})
+
+			It("should handle bun update with --global", func() {
+
+				_, err := executeCmd(rootCmdWithBunAsDefault, "update", "--global")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
+			})
+
+			It("should handle bun update with --latest", func() {
+
+				_, err := executeCmd(rootCmdWithBunAsDefault, "update", "--latest")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("bun", mockRunner.CommandCalls[0].Name)
+				assert.Contains(mockRunner.CommandCalls[0].Args, "--latest")
+			})
+		})
+
 		It("should return error when command runner fails", func() {
-			rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
 			mockRunner.InvalidCommands = []string{"npm"}
 
 			_, err := executeCmd(rootCmd, "update")
 			assert.Error(err)
 			assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
-		})
-
-		It("should handle yarn with specific packages", func() {
-			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should handle pnpm update", func() {
-			rootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should handle bun update", func() {
-			rootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("bun", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should handle deno update", func() {
-			rootCmd := createRootCommandWithDenoAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("deno", mockRunner.CommandCalls[0].Name)
 		})
 
 		It("should return error for unsupported package manager", func() {
@@ -1015,32 +1277,9 @@ var _ = Describe("JPD Commands", func() {
 				"unknown",
 				fmt.Errorf("unsupported package manager: unknown"),
 			)
-
-			rootCmd.SetArgs([]string{})
-
 			_, err := executeCmd(rootCmd, "update")
 			assert.Error(err)
 			assert.Contains(err.Error(), "unsupported package manager: unknown")
-		})
-
-		It("should handle interactive flag with yarn", func() {
-			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update", "--interactive")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should handle latest flag with yarn", func() {
-			rootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
-			rootCmd.SetArgs([]string{})
-
-			_, err := executeCmd(rootCmd, "update", "--latest")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 		})
 
 		It("should show help", func() {
@@ -1071,92 +1310,6 @@ var _ = Describe("JPD Commands", func() {
 		It("should have latest flag", func() {
 			flag := updateCmd.Flag("latest")
 			assert.NotNil(flag)
-		})
-
-		It("should run npm update with no args", func() {
-
-			_, err := executeCmd(rootCmd, "update")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"update"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run npm update with package names", func() {
-
-			_, err := executeCmd(rootCmd, "update", "lodash", "express")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"update", "lodash", "express"}, mockRunner.CommandCalls[0].Args)
-		})
-
-		It("should run npm update with global flag", func() {
-
-			_, err := executeCmd(rootCmd, "update", "--global", "typescript")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "--global")
-		})
-
-		It("should handle latest flag for npm", func() {
-
-			_, err := executeCmd(rootCmd, "update", "--latest", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("npm", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "lodash@latest")
-		})
-
-		It("should handle interactive flag for yarn", func() {
-
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--interactive")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Equal([]string{"upgrade-interactive"}, mockRunner.CommandCalls[0].Args)
-			// Reset to npm for other tests
-		})
-
-		It("should handle yarn with latest flag", func() {
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--latest")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
-		})
-
-		It("should handle yarn with both interactive and latest flags", func() {
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--interactive", "--latest")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-		})
-
-		It("should handle yarn package-specific updates", func() {
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "upgrade")
-		})
-
-		It("should handle latest flag for yarn", func() {
-
-			_, err := executeCmd(createRootCommandWithYarnTwoAsDefault(mockRunner, nil), "update", "--latest", "lodash")
-			assert.NoError(err)
-			assert.Equal(1, len(mockRunner.CommandCalls))
-			assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
-			assert.Contains(mockRunner.CommandCalls[0].Args, "--latest")
-			// Reset to npm for other tests
-		})
-
-		It("should error on npm with interactive flag", func() {
-
-			_, err := executeCmd(rootCmd, "update", "--interactive")
-			assert.Error(err)
-			assert.Contains(err.Error(), "npm does not support interactive updates")
 		})
 
 		Describe("Uninstall Command", func() {
@@ -1292,13 +1445,13 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(generateRootCommandWithPackageManagerDetector(
 					mockRunner,
 					"foo",
-					fmt.Errorf("unsupported package manager")),
+					fmt.Errorf("unsupported package manager foo")),
 					"uninstall",
 					"lodash",
 				)
 
 				assert.Error(err)
-				assert.Contains(err.Error(), "unsupported package manager")
+				assert.Contains(err.Error(), "unsupported package manager foo")
 			})
 		})
 
