@@ -27,7 +27,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/detect"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -46,10 +45,6 @@ Examples:
 		Aliases: []string{"x"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if lo.Contains(args, "--help") {
-				cmd.SetArgs(args)
-				return cmd.Execute()
-			}
 
 			pm := getPackageNameFromCommandContext(cmd)
 			goEnv := getGoEnvFromCommandContext(cmd)
