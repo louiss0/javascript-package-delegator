@@ -28,6 +28,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	// "github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -63,14 +66,38 @@ Examples:
 					}
 
 					if len(pkg.Tasks) == 0 {
-						fmt.Println("No tasks found in deno.json")
+						fmt.Fprint(cmd.OutOrStdout(), "No tasks found in deno.json")
 						return nil
 					}
 
-					fmt.Println("Available tasks:")
-					for name, command := range pkg.Tasks {
-						fmt.Printf("  %s: %s\n", name, command)
+					if goEnv.IsDevelopmentMode() {
+
+						fmt.Fprintf(
+							cmd.OutOrStdout(),
+							"Here are the tasks %s",
+							strings.Join(lo.Keys(pkg.Tasks), ","),
+						)
+						return nil
+
 					}
+
+					log.Info("Available tasks:")
+
+					scriptEntries := lo.Entries(pkg.Tasks)
+
+					scriptTableScaffold := table.New().
+						Headers("name", "task")
+
+					lo.ForEach(scriptEntries, func(item lo.Entry[string, string], index int) {
+
+						scriptTableScaffold.Rows([]string{item.Key, item.Value})
+
+					})
+
+					scriptTable := lipgloss.NewStyle().Render(
+						scriptTableScaffold.Render(),
+					)
+					fmt.Println(scriptTable)
 
 					return nil
 				}
@@ -85,14 +112,39 @@ Examples:
 					}
 
 					if len(pkg.Scripts) == 0 {
-						fmt.Println("No scripts found in package.json")
+						fmt.Fprint(cmd.OutOrStdout(), "No scripts found in package.json")
 						return nil
 					}
 
-					fmt.Println("Available scripts:")
-					for name, command := range pkg.Scripts {
-						fmt.Printf("  %s: %s\n", name, command)
+					if goEnv.IsDevelopmentMode() {
+
+						fmt.Fprintf(
+							cmd.OutOrStdout(),
+							"Here are the scripts %s",
+							strings.Join(lo.Keys(pkg.Scripts), ","),
+						)
+						return nil
+
 					}
+
+					log.Info("Available scripts:")
+
+					scriptEntries := lo.Entries(pkg.Scripts)
+
+					scriptTableScaffold := table.New().
+						Headers("name", "script")
+
+					lo.ForEach(scriptEntries, func(item lo.Entry[string, string], index int) {
+
+						scriptTableScaffold.Rows([]string{item.Key, item.Value})
+
+					})
+
+					scriptTable := lipgloss.NewStyle().Render(
+						scriptTableScaffold.Render(),
+					)
+					fmt.Println(scriptTable)
+
 					return nil
 				}
 
