@@ -516,8 +516,8 @@ var _ = Describe("JPD Commands", func() {
 			runCmd, _ = getSubCommandWithName(rootCmd, "run")
 		})
 
-		PIt(
-			"Should output a message with a list of scripts when there is no script name provided",
+		It(
+			"Should output a message with a list of scripts when there is no script name provided for non-deno package managers",
 			func() {
 
 				cwd, _ := os.Getwd()
@@ -530,11 +530,26 @@ var _ = Describe("JPD Commands", func() {
 				defer os.Chdir(cwd)
 				defer os.RemoveAll(jpdDir)
 
+				rootCmdWithNpmAsDefault := createRootCommandWithNpmAsDefault(
+					mockRunner,
+					nil,
+				)
+
+				rootCmdWithNpmAsDefault.SetArgs([]string{})
+
+				output, err := executeCmd(
+					rootCmdWithNpmAsDefault,
+					"run",
+				)
+
+				assert.Contains(output, "Here are the scripts")
+				assert.NoError(err)
+
 			},
 		)
 
-		PIt(
-			"Should output a message with a list of scripts when there is no script name provided",
+		It(
+			"Should output an indicator saying there are no scripts for non-deno package managers",
 			func() {
 
 				cwd, _ := os.Getwd()
@@ -546,6 +561,83 @@ var _ = Describe("JPD Commands", func() {
 
 				defer os.Chdir(cwd)
 				defer os.RemoveAll(jpdDir)
+
+				rootCmdWithNpmAsDefault := createRootCommandWithNpmAsDefault(
+					mockRunner,
+					nil,
+				)
+				rootCmdWithNpmAsDefault.SetArgs([]string{})
+
+				output, err := executeCmd(
+					rootCmdWithNpmAsDefault,
+					"run",
+				)
+
+				assert.Equal("No scripts found in package.json", output)
+				assert.NoError(err)
+
+			},
+		)
+
+		It(
+			"Should output a message with a list of scripts when there is no task name provided deno",
+			func() {
+
+				cwd, _ := os.Getwd()
+				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+				os.Chdir(jpdDir)
+
+				os.WriteFile("deno.json", []byte(`{"tasks": {"test": "echo 'test'"}}`), 0644)
+
+				defer os.Chdir(cwd)
+				defer os.RemoveAll(jpdDir)
+
+				rootCmdWithDenoAsDefault := createRootCommandWithDenoAsDefault(
+					mockRunner,
+					nil,
+				)
+
+				rootCmdWithDenoAsDefault.SetArgs([]string{})
+
+				output, err := executeCmd(
+					rootCmdWithDenoAsDefault,
+					"run",
+				)
+
+				assert.Contains(output, "Here are the tasks")
+				assert.NoError(err)
+			},
+		)
+
+		It(
+			"Should output an indicator saying there are no tasks deno",
+			func() {
+
+				cwd, _ := os.Getwd()
+				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
+
+				os.Chdir(jpdDir)
+
+				os.WriteFile("deno.json", []byte(`{"tasks": {}}`), 0644)
+
+				defer os.Chdir(cwd)
+				defer os.RemoveAll(jpdDir)
+
+				rootCmdWithDenoAsDefault := createRootCommandWithDenoAsDefault(
+					mockRunner,
+					nil,
+				)
+
+				rootCmdWithDenoAsDefault.SetArgs([]string{})
+
+				output, err := executeCmd(
+					rootCmdWithDenoAsDefault,
+					"run",
+				)
+
+				assert.Equal(output, "No tasks found in deno.json")
+				assert.NoError(err)
 
 			},
 		)
