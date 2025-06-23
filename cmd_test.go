@@ -1719,6 +1719,22 @@ var _ = Describe("JPD Commands", func() {
 			cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
 		})
 
+		It("should return error for unsupported package manager", func() {
+
+			_, err := executeCmd(
+				generateRootCommandWithPackageManagerDetector(
+					mockRunner,
+					"foo",
+					nil,
+				),
+				"ci",
+				"lodash",
+			)
+
+			assert.Error(err)
+			assert.Contains(err.Error(), "unsupported package manager: foo")
+		})
+
 		It("should return error for deno package manager", func() {
 			rootCmd := generateRootCommandWithPackageManagerDetector(
 				mockRunner,
