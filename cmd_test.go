@@ -1252,6 +1252,14 @@ var _ = Describe("JPD Commands", func() {
 				assert.Contains(mockRunner.CommandCalls[0].Args, "--interactive")
 			})
 
+			It("should handle interactive flag with pnpm with args", func() {
+
+				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update", "--interactive", "astro")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("pnpm", mockRunner.CommandCalls[0].Name)
+			})
+
 			It("should handle pnpm update", func() {
 
 				_, err := executeCmd(rootCmdWithPnpmAsDefault, "update")
@@ -1314,6 +1322,14 @@ var _ = Describe("JPD Commands", func() {
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 			})
 
+			It("should handle interactive flag with yarn with args", func() {
+
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--interactive", "test")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
+			})
+
 			It("should handle latest flag with yarn", func() {
 
 				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--latest")
@@ -1321,6 +1337,7 @@ var _ = Describe("JPD Commands", func() {
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
 			})
+
 			It("should handle interactive flag for yarn", func() {
 
 				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--interactive")
@@ -1331,8 +1348,8 @@ var _ = Describe("JPD Commands", func() {
 				// Reset to npm for other tests
 			})
 
-			It("should handle yarn with latest flag", func() {
-				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--latest")
+			It("should handle yarn with global flag", func() {
+				_, err := executeCmd(rootCmdYarnTwoAsDefault, "update", "--global")
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("yarn", mockRunner.CommandCalls[0].Name)
@@ -1363,6 +1380,17 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() {
 				mockRunner = &MockCommandRunner{}
 				rootCmdWithWithDenoAsDefault = createRootCommandWithDenoAsDefault(mockRunner, nil)
+
+			})
+
+			It("should handle deno update --interactive", func() {
+
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update")
+				assert.NoError(err)
+				assert.Equal(1, len(mockRunner.CommandCalls))
+				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
+
+				assert.Contains(mockRunner.CommandCalls[0].Name, "-i")
 
 			})
 
@@ -1437,9 +1465,9 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(
 					createRootCommandWithBunAsDefault(
 						mockRunner,
-						fmt.Errorf("bun does not support interactive updates"),
-					),
+						nil),
 					"update",
+					"--interactive",
 				)
 
 				assert.Error(err)
