@@ -275,6 +275,18 @@ var _ = Describe("JPD Commands", func() {
 			installCmd, _ = getSubCommandWithName(rootCmd, "install")
 		})
 
+		It("should handle bun dev flag", func() {
+			_, err := executeCmd(
+				createRootCommandWithBunAsDefault(mockRunner, nil),
+				"install",
+				"--dev",
+			)
+
+			assert.NoError(err)
+			assert.Contains(mockRunner.CommandCalls[0].Name, "bun")
+			assert.Contains(mockRunner.CommandCalls[0].Args, "--development")
+		})
+
 		It("should show help", func() {
 			output, err := executeCmd(rootCmd, "install", "--help")
 			assert.NoError(err)
