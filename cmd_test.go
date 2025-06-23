@@ -1385,12 +1385,12 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should handle deno update --interactive", func() {
 
-				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update")
+				_, err := executeCmd(rootCmdWithWithDenoAsDefault, "update", "--interactive")
 				assert.NoError(err)
 				assert.Equal(1, len(mockRunner.CommandCalls))
 				assert.Equal("deno", mockRunner.CommandCalls[0].Name)
 
-				assert.Contains(mockRunner.CommandCalls[0].Name, "-i")
+				assert.Contains(mockRunner.CommandCalls[0].Args, "-i")
 
 			})
 
