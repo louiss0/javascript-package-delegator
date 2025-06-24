@@ -10,7 +10,13 @@ import (
 	"github.com/samber/lo"
 )
 
-var SupportedJSPackageManagers = [5]string{"deno", "bun", "npm", "pnpm", "yarn"}
+const DENO = "deno"
+const BUN = "bun"
+const NPM = "npm"
+const PNPM = "pnpm"
+const YARN = "yarn"
+
+var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
 
 func DetectJSPacakgeManager() (string, error) {
 
@@ -47,12 +53,18 @@ func DetectJSPacakgeManager() (string, error) {
 
 }
 
+const WINGET = "winget"
+const NIX = "nix"
+const SCOOP = "scoop"
+const CHOCO = "choco"
+const BREW = "brew"
+
 var SupportedOperatingSystemPackageManagers = [5]string{
-	"winget",
-	"nix",
-	"scoop",
-	"choco",
-	"brew",
+	WINGET,
+	NIX,
+	SCOOP,
+	CHOCO,
+	BREW,
 }
 
 // Detects one of the packages supported by this library
@@ -72,6 +84,7 @@ func SupportedOperatingSystemPackageManager() (string, error) {
 			"You don't have one of the suppoted package managers installed: %s",
 			strings.Join(SupportedOperatingSystemPackageManagers[:], " , "),
 		)
+
 	}
 
 	return detectedPackageManager, nil
