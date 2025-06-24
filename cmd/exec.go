@@ -46,7 +46,7 @@ Examples:
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			pm := getPackageNameFromCommandContext(cmd)
+			pm := getJS_PackageManagerNameFromCommandContext(cmd)
 			goEnv := getGoEnvFromCommandContext(cmd)
 
 			packageName := args[0]

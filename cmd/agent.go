@@ -40,9 +40,10 @@ This command shows which package manager would be used based on lock files in th
 Examples:
   jpd    # Show detected package manager`,
 		Aliases: []string{"a"},
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			pm := getPackageNameFromCommandContext(cmd)
+			pm := getJS_PackageManagerNameFromCommandContext(cmd)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 

@@ -43,7 +43,7 @@ Examples:
 		Aliases: []string{"un", "remove", "rm"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm := getPackageNameFromCommandContext(cmd)
+			pm := getJS_PackageManagerNameFromCommandContext(cmd)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 

@@ -45,7 +45,7 @@ Examples:
 		Aliases: []string{"ci"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			pm := getPackageNameFromCommandContext(cmd)
+			pm := getJS_PackageManagerNameFromCommandContext(cmd)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 

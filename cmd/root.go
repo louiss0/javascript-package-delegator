@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
@@ -38,25 +39,25 @@ import (
 	"github.com/spf13/viper"
 )
 
-const _LOCKFILE = "lockfile"
-const _PACKAGE_NAME = "package-name"
-
+// Constants for context keys and configuration
+const _LOCK_FILE_ENV = "JPD_LOCK_FILE"
 const _JS_PACKAGE_MANAGER_KEY = "js_pkm"
-
 const _OS_PACKAGE_MANAGER_KEY = "os_pkm"
-
 const _INTERACTIVE_FLAG = "interactive"
-
-const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"
-
-const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance"
+const _PACKAGE_NAME = "package-name"                       // Used for storing detected package name in context
+const _GO_ENV = "go_env"                                   // Used for storing GoEnv in context
+const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"      // Used for storing config paths in context
+const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance" // Used for storing Viper instance in context
+const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter"   // Key for YarnCommandVersionOutputter
 
 const _COMMAND_RUNNER_KEY = "command_runner"
 
-const _GO_ENV = "go_env"
+const JPD_DEVELOPMENT_CONFIG_NAME = "jpd.config_test"
+const JPD_PRODUCTION_CONFIG_NAME = "jpd.config"
+const JPD_CONFIG_EXTENSION = "toml"
 
-const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter"
-
+// CommandRunner Interface and its implementation (executor)
+// This interface allows for mocking command execution in tests.
 type CommandRunner interface {
 	Command(string, ...string)
 	Run() error
@@ -76,28 +77,94 @@ func newExecutor(execCommandFunc _ExecCommandFunc) *executor {
 }
 
 func (e *executor) Command(name string, args ...string) {
-
 	e.cmd = e.execCommandFunc(name, args...)
-
+	e.cmd.Stdout = os.Stdout // Ensure output goes to stdout
+	e.cmd.Stderr = os.Stderr // Ensure errors go to stderr
 }
 
 func (e executor) Run() error {
+	if e.cmd == nil {
+		return fmt.Errorf("no command set to run")
+	}
 	return e.cmd.Run()
 }
 
-type Dependencies struct {
-	CommandRunner
-	JS_PackageManagerDetector func() (string, error)
-	detect.YarnCommandVersionOutputter
-	NixUISelector
-	NixProfileNameInputer
+// Nix UI Interfaces and Implementations
+// These interfaces allow for mocking user interaction for Nix installation prompts.
+type NixUISelector interface {
+	Selection() string
+	Choices() [2]string // Changed from huh.OptionValue to string
+	Run() error
 }
 
-func NewRootCmd(dependencies Dependencies) *cobra.Command {
+type nixInstallationOption string
+
+// Constants for Nix installation options
+const NIX_INSTALLATION_OPTION_PROFILE = "Nix Profile (recommended for most users)" // Changed to string
+const NIX_INSTALLATION_OPTION_ENV = "nix-env (legacy)"                             // Changed to string
+
+// RealNixSelectUI implements NixUISelector for real user interaction.
+type RealNixSelectUI struct {
+	selection string // Changed from huh.OptionValue to string
+}
+
+func (s *RealNixSelectUI) Selection() string {
+	return s.selection
+}
+
+func (s *RealNixSelectUI) Choices() [2]string { // Changed from huh.OptionValue to string
+	return [2]string{NIX_INSTALLATION_OPTION_PROFILE, NIX_INSTALLATION_OPTION_ENV}
+}
+
+func (s *RealNixSelectUI) Run() error {
+	form := huh.NewSelect[string](). // Changed from huh.OptionValue to string
+						Title("How would you like to install it?").
+						Options(
+			huh.NewOption("Nix Profile (recommended for most users)", NIX_INSTALLATION_OPTION_PROFILE),
+			huh.NewOption("nix-env (legacy)", NIX_INSTALLATION_OPTION_ENV),
+		).
+		Value(&s.selection)
+	return form.Run()
+}
+
+// NixProfileNameInputer defines the interface for prompting a Nix profile name.
+type NixProfileNameInputer interface {
+	Value() string
+	Run() error
+}
+
+// RealNixProfileNameInput implements NixProfileNameInputer for real user interaction.
+type RealNixProfileNameInput struct {
+	value string
+}
+
+func (n *RealNixProfileNameInput) Value() string {
+	return n.value
+}
+
+func (n *RealNixProfileNameInput) Run() error {
+	form := huh.NewInput().
+		Title("Enter a name for the Nix profile (e.g., nodejs)").
+		Value(&n.value)
+	return form.Run()
+}
+
+// Dependencies holds the external dependencies for testing and real execution
+type Dependencies struct {
+	CommandRunner               CommandRunner
+	JS_PackageManagerDetector   func() (string, error)
+	OS_PackageManagerDetector   func() (string, error)
+	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
+	NixUISelector               NixUISelector
+	NixProfileNameInputer       NixProfileNameInputer
+}
+
+// NewRootCmd creates a new root command with injectable dependencies.
+func NewRootCmd(deps Dependencies) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
-		Version: "0.0.0",
+		Version: "0.0.0", // Default version or set via build process
 		Short:   "JavaScript Package Delegator - A universal package manager interface",
 		Long: `JavaScript Package Delegator (jpd) - A universal package manager interface that detects
 and delegates to the appropriate package manager (npm, yarn, pnpm, bun, or deno) based on
@@ -116,214 +183,212 @@ Available commands:
   clean-install - Clean install with frozen lockfile (equivalent to 'nci')
   agent      - Show detected package manager (equivalent to 'na')`,
 
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-
-			error := godotenv.Load()
-
-			goEnv, error := env.NewGoEnv()
-
-			if error != nil {
-
-				return error
+		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			// Load .env file
+			err := godotenv.Load()
+			if err != nil && !os.IsNotExist(err) {
+				log.Error(err.Error()) // Log error, but don't stop execution unless critical
 			}
 
-			homeDir, error := os.UserHomeDir()
+			goEnv, err := env.NewGoEnv() // Instantiate GoEnv
 
-			if error != nil {
-
-				return error
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return err
 			}
 
+			// Setup Viper for configuration management
 			var supportedConfigPaths []string
-
 			vf := viper.New()
-
 			supportedConfigPaths = []string{
-				fmt.Sprintf("%s/.config/", homeDir),
-				fmt.Sprintf("%s/.local/share/", homeDir),
+				filepath.Join(homeDir, ".config/"),
+				filepath.Join(homeDir, ".local/share/"),
 			}
 
 			lo.ForEach(supportedConfigPaths, func(path string, index int) {
-
 				vf.AddConfigPath(path)
 			})
 
-			vf.SetConfigName("jpd.config")
+			configFileName := JPD_PRODUCTION_CONFIG_NAME
 
-			vf.SetConfigType("toml")
-
-			packageName, error := dependencies.JS_PackageManagerDetector()
-
-			if error != nil {
-
-				jsPackageManagerFromConfig := vf.GetString(_JS_PACKAGE_MANAGER_KEY)
-				osPackageManagerFromConfig := vf.GetString(_OS_PACKAGE_MANAGER_KEY)
-
-				installJSPackageManager := createInstallJSPackageManager(
-					dependencies.CommandRunner,
-					dependencies.NixUISelector,
-					dependencies.NixProfileNameInputer,
-				)
-
-				if jsPackageManagerFromConfig != "" && osPackageManagerFromConfig == "" {
-
-					detectedOSManager, error := detect.SupportedOperatingSystemPackageManager()
-
-					if error != nil {
-
-						return error
-					}
-
-					error = installJSPackageManager(jsPackageManagerFromConfig, detectedOSManager)
-
-					if error != nil {
-						return fmt.Errorf("Something went wrong with the command from what you have chosen %v", error)
-					}
-
-					return nil
-
-				}
-
-				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig == "" {
-
-					choices := detect.SupportedJSPackageManagers
-
-					var selectedJSPkgManager string
-
-					error := huh.NewSelect[string]().
-						Title("Choose JS package manager").
-						Options(huh.NewOptions(choices[:]...)...).
-						Value(&selectedJSPkgManager).
-						Run()
-
-					if error != nil {
-
-						return fmt.Errorf("Well there's nothing else to do If you have a JS Package Manager you'd like to use please use it")
-					}
-
-					error = installJSPackageManager(selectedJSPkgManager, osPackageManagerFromConfig)
-
-					if error != nil {
-						return fmt.Errorf("Something went wrong with the command from what you have chosen %v", error)
-					}
-
-					return nil
-
-				}
-
-				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig != "" {
-					// This assumes that both are filled!
-					error := installJSPackageManager(jsPackageManagerFromConfig, osPackageManagerFromConfig)
-
-					if error != nil {
-
-						return error
-					}
-
-					return nil
-
-				}
-
-				return error
+			if goEnv.IsDevelopmentMode() {
+				configFileName = JPD_DEVELOPMENT_CONFIG_NAME
 			}
 
-			cmdContext := cmd.Context()
+			vf.SetConfigName(configFileName)
+			vf.SetConfigType(JPD_CONFIG_EXTENSION)
 
-			// Register dependencies
+			// Read config, but don't fail if file not found
+			if err := vf.ReadInConfig(); err != nil {
+				if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+					log.Warnf("Error reading config file: %v", err)
+				}
+			}
+
+			// Store dependencies and other derived values in the command context
+			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
 
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
-				{_PACKAGE_NAME, packageName},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
-				{_COMMAND_RUNNER_KEY, dependencies.CommandRunner},
-				{_YARN_VERSION_OUTPUTTER, dependencies.YarnCommandVersionOutputter},
+				{_COMMAND_RUNNER_KEY, deps.CommandRunner},
+				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
 			}, func(item [2]any, index int) {
-
-				key := item[0]
-				value := item[1]
-
-				cmdContext = context.WithValue(
-					cmdContext,
-					key,
-					value,
+				c_ctx = context.WithValue(
+					c_ctx,
+					item[0],
+					item[1],
 				)
-
 			})
 
-			cmd.SetContext(cmdContext)
+			// c.SetContext(c_ctx) // Update the command's context with the new values
 
-			return nil
+			// Package manager detection and potential installation logic
+			pm, err := deps.JS_PackageManagerDetector() // Use injected detector
 
-		},
-		Run: func(cmd *cobra.Command, args []string) {
+			if err != nil {
+				// No JS package manager detected by lockfile, check config or prompt
+				jsPackageManagerFromConfig := vf.GetString(_JS_PACKAGE_MANAGER_KEY)
+				osPackageManagerFromConfig := vf.GetString(_OS_PACKAGE_MANAGER_KEY)
 
-			interactiveFlag, error := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-
-			if error != nil {
-
-				log.Error(error.Error())
-
-			}
-
-			var Form struct {
-				OS_PackageManager string
-				JS_PackageManager string
-				ConfigPath        string
-			}
-
-			if interactiveFlag {
-
-				supportedConfigPaths := getSupportedPathsFromCommandContext(cmd)
-
-				error := huh.NewForm(
-					huh.NewGroup(
-						huh.NewSelect[string]().
-							Title("OS Package Manager").
-							Description("Pick from the selected OS package managers").
-							Options(huh.NewOptions(detect.SupportedOperatingSystemPackageManagers[:]...)...).
-							Value(&Form.OS_PackageManager),
-						huh.NewSelect[string]().
-							Title("JS Package Manager").
-							Description("Pick from the selected JS package managers").
-							Options(huh.NewOptions(detect.SupportedJSPackageManagers[:]...)...).
-							Value(&Form.JS_PackageManager),
-						huh.NewSelect[string]().
-							Title("Config File Path").
-							Description("Pick the path you want to use for the config").
-							Options(huh.NewOptions(supportedConfigPaths...)...).
-							Value(&Form.ConfigPath),
-					).
-						Title("Javascript Package Delegator Setup").
-						Description("This form is supposed to help you setup JPD according to your preferences ").
-						WithTheme(huh.ThemeDracula()),
-				).Run()
-
-				if error != nil {
-
-					log.Error(error.Error())
-
-				}
-
-				vf := getViperInstanceFronCommandContext(cmd)
-
-				vf.Set(_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager)
-				vf.Set(_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager)
-
-				configFilePath := filepath.Join(Form.ConfigPath, "jpd.config.toml")
-
-				vf.WriteConfigAs(configFilePath)
-
-				log.Infof("Your config file was created at this path %s", configFilePath)
-
-				log.Info(
-					"It has these values",
-					_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager,
-					_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager,
+				installJSPackageManagerFunc := createInstallJSPackageManager(
+					deps.CommandRunner,
+					deps.NixUISelector,
+					deps.NixProfileNameInputer,
 				)
 
+				// Scenario 1: JS package manager defined in config, OS package manager needs detection/prompt
+				if jsPackageManagerFromConfig != "" && osPackageManagerFromConfig == "" {
+					detectedOSManager, err := deps.OS_PackageManagerDetector() // Use injected OS detector
+					if err != nil {
+						// If OS package manager not detected, prompt user to select one
+						selectedOSPackageManager, promptErr := promptUserToSelectOSPackageManager()
+						if promptErr != nil {
+							return fmt.Errorf("failed to select OS package manager: %w", promptErr)
+						}
+						detectedOSManager = selectedOSPackageManager
+					}
+
+					err = installJSPackageManagerFunc(jsPackageManagerFromConfig, detectedOSManager)
+					if err != nil {
+						return fmt.Errorf("failed to install %s via %s: %w", jsPackageManagerFromConfig, detectedOSManager, err)
+					}
+					c_ctx = context.WithValue(c_ctx, _PACKAGE_NAME, jsPackageManagerFromConfig)
+					c.SetContext(c_ctx)
+					return nil
+				}
+
+				// Scenario 2: OS package manager defined in config, JS package manager needs selection
+				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig == "" {
+					selectedJSPkgManager, promptErr := promptUserToSelectJSPackageManager()
+					if promptErr != nil {
+						return fmt.Errorf("no JS package manager chosen for installation: %w", promptErr)
+					}
+					err = installJSPackageManagerFunc(selectedJSPkgManager, osPackageManagerFromConfig)
+					if err != nil {
+						return fmt.Errorf("failed to install %s via %s: %w", selectedJSPkgManager, osPackageManagerFromConfig, err)
+					}
+					c_ctx = context.WithValue(c_ctx, _PACKAGE_NAME, selectedJSPkgManager)
+					c.SetContext(c_ctx)
+					return nil
+				}
+
+				// Scenario 3: Both JS and OS package managers are defined in config
+				if osPackageManagerFromConfig != "" && jsPackageManagerFromConfig != "" {
+					err = installJSPackageManagerFunc(jsPackageManagerFromConfig, osPackageManagerFromConfig)
+					if err != nil {
+						return fmt.Errorf("failed to install %s via %s from config: %w", jsPackageManagerFromConfig, osPackageManagerFromConfig, err)
+					}
+					c_ctx = context.WithValue(c_ctx, _PACKAGE_NAME, jsPackageManagerFromConfig)
+					c.SetContext(c_ctx)
+					return nil
+				}
+
+				// If no config and no detection, and it's the root command without subcommands
+				if len(args) == 0 {
+					log.Warn("No JavaScript package manager detected. You might need to install one or use the --interactive flag for setup.")
+				}
+				return fmt.Errorf("no JavaScript package manager detected or configured: %w", err)
 			}
 
+			// If PM detected successfully, set it in context
+			c_ctx = context.WithValue(c_ctx, _PACKAGE_NAME, pm)
+			c.SetContext(c_ctx)
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			// If no subcommand is provided (i.e., just 'jpd' or 'jpd --interactive'),
+			// handle the interactive setup or default 'agent' command.
+			if len(args) == 0 {
+				interactiveFlag, err := c.Flags().GetBool(_INTERACTIVE_FLAG)
+				if err != nil {
+					return err
+				}
+
+				if interactiveFlag {
+					// Retrieve necessary dependencies from context for interactive setup
+					goEnv := getGoEnvFromCommandContext(c)
+					supportedConfigPaths := getSupportedPathsFromCommandContext(c)
+					vf := getViperInstanceFromCommandContext(c)
+
+					var Form struct {
+						OS_PackageManager string
+						JS_PackageManager string
+						ConfigPath        string
+					}
+
+					err := huh.NewForm(
+						huh.NewGroup(
+							huh.NewSelect[string]().
+								Title("OS Package Manager").
+								Description("Pick from the selected OS package managers").
+								Options(huh.NewOptions(detect.SupportedOperatingSystemPackageManagers[:]...)...).
+								Value(&Form.OS_PackageManager),
+							huh.NewSelect[string]().
+								Title("JS Package Manager").
+								Description("Pick from the selected JS package managers").
+								Options(huh.NewOptions(detect.SupportedJSPackageManagers[:]...)...).
+								Value(&Form.JS_PackageManager),
+							huh.NewSelect[string]().
+								Title("Config File Path").
+								Description("Pick the path you want to use for the config").
+								Options(huh.NewOptions(supportedConfigPaths...)...).
+								Value(&Form.ConfigPath),
+						).
+							Title("Javascript Package Delegator Setup").
+							Description("This form is supposed to help you setup JPD according to your preferences ").
+							WithTheme(huh.ThemeDracula()),
+					).Run()
+
+					if err != nil {
+						log.Error(err.Error())
+						return err
+					}
+
+					vf.Set(_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager)
+					vf.Set(_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager)
+
+					configFileName := JPD_PRODUCTION_CONFIG_NAME
+					if goEnv.IsDevelopmentMode() {
+						configFileName = JPD_DEVELOPMENT_CONFIG_NAME
+					}
+					configFilePath := filepath.Join(Form.ConfigPath, fmt.Sprintf("%s.%s", configFileName, JPD_CONFIG_EXTENSION))
+
+					if err := vf.WriteConfigAs(configFilePath); err != nil {
+						return fmt.Errorf("failed to write config file: %w", err)
+					}
+
+					log.Infof("Your config file was created at this path %s", configFilePath)
+					log.Info(
+						"It has these values",
+						_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager,
+						_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager,
+					)
+					return nil // Interactive setup completed
+				}
+			}
+			return nil // Let subcommands handle their own RunE
 		},
 	}
 
@@ -336,169 +401,132 @@ Available commands:
 	cmd.AddCommand(NewCleanInstallCmd())
 	cmd.AddCommand(NewAgentCmd())
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	cmd.Flags().BoolP(
+	// Add persistent flags (like interactive)
+	cmd.PersistentFlags().BoolP(
 		"interactive",
 		"i",
 		false,
 		"Allows the user to setup the config file for jpd",
 	)
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-
 	return cmd
 }
 
-var rootCmd = NewRootCmd(
-	Dependencies{
-		CommandRunner:               newExecutor(exec.Command),
-		JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
-		YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
-	},
-)
+// Global variable for the root command, initialized in init()
+var rootCmd *cobra.Command
+
+func init() {
+	// Initialize the global rootCmd with real implementations of its dependencies
+	rootCmd = NewRootCmd(
+		Dependencies{
+			CommandRunner:               newExecutor(exec.Command), // Use the newExecutor constructor
+			JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
+			OS_PackageManagerDetector:   detect.SupportedOperatingSystemPackageManager,
+			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+			NixUISelector:               &RealNixSelectUI{},
+			NixProfileNameInputer:       &RealNixProfileNameInput{},
+		},
+	)
+	cobra.OnInitialize(initConfig) // Register initConfig to be run by Cobra
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	err := rootCmd.ExecuteContext(context.Background())
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+// initConfig reads in config file and ENV variables if set.
+// This function is intended to be called by cobra.OnInitialize.
+func initConfig() {
+	// Load .env file first
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Errorf("Error loading .env file: %s", err)
+	}
+
+	// Set environment variables for Viper to read
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			viper.SetDefault(pair[0], pair[1])
+		}
+	}
+}
+
+// Helper functions to retrieve dependencies and other values from the command context.
+// These functions are used by subcommands to get their required dependencies.
+
+func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
+
+	return cmd.Context().Value(_COMMAND_RUNNER_KEY).(CommandRunner)
+}
+
+func getJS_PackageManagerNameFromCommandContext(cmd *cobra.Command) string {
+	return cmd.Context().Value(_PACKAGE_NAME).(string)
+}
 
 func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {
 
-	ctx := cmd.Context()
-
-	return ctx.Value(_YARN_VERSION_OUTPUTTER).(detect.YarnCommandVersionOutputter)
-}
-
-func getPackageNameFromCommandContext(cmd *cobra.Command) string {
-
-	ctx := cmd.Context()
-
-	return ctx.Value(_PACKAGE_NAME).(string)
-
+	return cmd.Context().Value(_YARN_VERSION_OUTPUTTER).(detect.YarnCommandVersionOutputter)
 }
 
 func getGoEnvFromCommandContext(cmd *cobra.Command) env.GoEnv {
-
-	ctx := cmd.Context()
-	return ctx.Value(_GO_ENV).(env.GoEnv)
-
+	goEnv := cmd.Context().Value(_GO_ENV).(env.GoEnv)
+	return goEnv
 }
 
 func getSupportedPathsFromCommandContext(cmd *cobra.Command) []string {
-
-	ctx := cmd.Context()
-
-	return ctx.Value(_SUPPORTED_CONFIG_PATHS_KEY).([]string)
-
+	paths := cmd.Context().Value(_SUPPORTED_CONFIG_PATHS_KEY).([]string)
+	return paths
 }
 
-func getViperInstanceFronCommandContext(cmd *cobra.Command) *viper.Viper {
-	ctx := cmd.Context()
-
-	return ctx.Value(_VIPER_CONFIG_INSTANCE_KEY).(*viper.Viper)
+func getViperInstanceFromCommandContext(cmd *cobra.Command) *viper.Viper {
+	vf := cmd.Context().Value(_VIPER_CONFIG_INSTANCE_KEY).(*viper.Viper)
+	return vf
 }
 
-func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
-	ctx := cmd.Context()
-
-	return ctx.Value(_COMMAND_RUNNER_KEY).(CommandRunner)
-}
-
-type NixUISelector interface {
-	Selection() string
-	Chioces() [2]string
-	Run() error
-}
-
-type nixSelectUI struct {
-	selection nixInstallationOption
-}
-
-type nixInstallationOption string
-
-const NIX_INSTALLATION_OPTION_PROFILE = nixInstallationOption("profile")
-const NIX_INSTALLATION_OPTION_ENV = nixInstallationOption("env")
-
-func (n nixSelectUI) Selection() string {
-
-	return string(n.selection)
-}
-
-func (n nixSelectUI) Choices() [2]nixInstallationOption {
-	return [2]nixInstallationOption{NIX_INSTALLATION_OPTION_PROFILE, NIX_INSTALLATION_OPTION_ENV}
-}
-
-func (n *nixSelectUI) Run() error {
-
-	chioces := n.Choices()
-	error := huh.NewSelect[nixInstallationOption]().
-		Options(huh.NewOptions(chioces[:]...)...).
-		Value(&n.selection).
-		Run()
-
-	if error != nil {
-
-		return error
-	}
-
-	return nil
-}
-
-type NixProfileNameInputer interface {
-	Value() string
-	Run() error
-}
-
-type nixProfileNameInput struct {
-	value string
-}
-
-func (n *nixProfileNameInput) Value() string {
-	return n.value
-}
-
-func (n *nixProfileNameInput) Run() error {
-
-	error := huh.NewText().
-		Value(&n.value).
-		Run()
-
-	if error != nil {
-
-		return error
-	}
-
-	return nil
-}
-
+// createInstallJSPackageManager orchestrates the installation of a JS package manager
+// using a detected or selected OS package manager.
 func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISelector, input NixProfileNameInputer) func(string, string) error {
-	var cmdName string
-	var cmdArgs []string
+	// Local constants for Nix installation choices to avoid shadowing global ones.
+	localSupportedNixInstallationChoices := [2]string{NIX_INSTALLATION_OPTION_PROFILE, NIX_INSTALLATION_OPTION_ENV} // Changed to string
 
-	supportedNixInstallationChoices := [2]string{"profiles", "env"}
-	promptUserToSelectNixEnvORProfile := func() (string, error) {
-
-		error := selectUI.Run()
-
-		if error != nil {
-
-			return "", error
+	// Helper function for Nix installation option selection.
+	promptUserToSelectNixEnvORProfile := func() (string, error) { // Changed return type to string
+		err := selectUI.Run()
+		if err != nil {
+			return "", err
 		}
-
+		// Directly use selectUI.Selection() as it now returns string
 		return selectUI.Selection(), nil
 	}
 
+	// Helper function to construct Nix profile installation command.
 	constructNixProfileCommand := func(jsPkgMgr string) (string, []string) {
-
-		error := input.Run()
-
-		if input.Value() == "" || error != nil {
-			return "nix profile", []string{"install", fmt.Sprintf("nixpkgs#%s", jsPkgMgr)}
+		err := input.Run()
+		profileName := input.Value()
+		if profileName == "" || err != nil {
+			log.Warnf("Failed to get Nix profile name, using default. Error: %v", err)
+			return "nix", []string{"profile", "install", "--impure", "--expr", fmt.Sprintf(`with import <nixpkgs> {}; pkgs.%s`, jsPkgMgr)}
 		}
-
-		return "nix profile", []string{"install", input.Value(), fmt.Sprintf("nixpkgs#%s", jsPkgMgr)}
+		return "nix", []string{
+			"profile",
+			"install",
+			"--impure",
+			"--expr",
+			fmt.Sprintf(`with import <nixpkgs> {}; pkgs.%s`, jsPkgMgr),
+			"--as",
+			profileName,
+		}
 	}
 
+	// The returned function performs the actual installation logic.
 	return func(jsPkgMgr, osPkgMgr string) error {
+		var cmdName string
+		var cmdArgs []string
 
 		switch jsPkgMgr {
 		case "deno":
@@ -513,20 +541,16 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 				cmdName = osPkgMgr
 				cmdArgs = []string{"install", jsPkgMgr}
 			case "nix":
-				answer, error := promptUserToSelectNixEnvORProfile()
-
-				if error != nil {
-					return error
+				answer, err := promptUserToSelectNixEnvORProfile()
+				if err != nil {
+					return err
 				}
-
-				if answer == supportedNixInstallationChoices[0] {
+				if answer == localSupportedNixInstallationChoices[0] {
 					cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 					break
 				}
-
 				cmdName = "nix-env"
 				cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
-
 			default:
 				return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 			}
@@ -538,6 +562,20 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 			case "scoop":
 				cmdName = "scoop"
 				cmdArgs = []string{"install", jsPkgMgr}
+			case "winget": // Added winget support for bun
+				cmdName = "winget"
+				cmdArgs = []string{"install", "--id", "OwenKelly.Bun", "-e"}
+			case "nix": // Added nix support for bun
+				answer, err := promptUserToSelectNixEnvORProfile()
+				if err != nil {
+					return err
+				}
+				if answer == localSupportedNixInstallationChoices[0] {
+					cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
+					break
+				}
+				cmdName = "nix-env"
+				cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 			default:
 				return fmt.Errorf("bun not supported on %s", osPkgMgr)
 			}
@@ -545,7 +583,7 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 			switch osPkgMgr {
 			case "brew":
 				cmdName = "brew"
-				cmdArgs = []string{"install", "node"}
+				cmdArgs = []string{"install", "node"} // npm usually comes with node
 			case "winget":
 				cmdName = "winget"
 				cmdArgs = []string{"install", "Node.js"}
@@ -553,19 +591,16 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 				cmdName = osPkgMgr
 				cmdArgs = []string{"install", "nodejs-lts"}
 			case "nix":
-				answer, error := promptUserToSelectNixEnvORProfile()
-
-				if error != nil {
-					return error
+				answer, err := promptUserToSelectNixEnvORProfile()
+				if err != nil {
+					return err
 				}
-
-				if answer == supportedNixInstallationChoices[0] {
-					cmdName, cmdArgs = constructNixProfileCommand("node")
+				if answer == localSupportedNixInstallationChoices[0] {
+					cmdName, cmdArgs = constructNixProfileCommand("nodejs") // npm is part of nodejs on Nix
 					break
 				}
-
 				cmdName = "nix-env"
-				cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
+				cmdArgs = []string{"-iA", "nixpkgs.nodejs"} // nixpkgs.nodejs usually includes npm
 			default:
 				return fmt.Errorf("unsupported OS package manager: %s", osPkgMgr)
 			}
@@ -581,17 +616,14 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 				cmdName = osPkgMgr
 				cmdArgs = []string{"install", jsPkgMgr}
 			case "nix":
-				answer, error := promptUserToSelectNixEnvORProfile()
-
-				if error != nil {
-					return error
+				answer, err := promptUserToSelectNixEnvORProfile()
+				if err != nil {
+					return err
 				}
-
-				if answer == supportedNixInstallationChoices[0] {
+				if answer == localSupportedNixInstallationChoices[0] {
 					cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 					break
 				}
-
 				cmdName = "nix-env"
 				cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 			default:
@@ -609,17 +641,14 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 				cmdName = osPkgMgr
 				cmdArgs = []string{"install", jsPkgMgr}
 			case "nix":
-				answer, error := promptUserToSelectNixEnvORProfile()
-
-				if error != nil {
-					return error
+				answer, err := promptUserToSelectNixEnvORProfile()
+				if err != nil {
+					return err
 				}
-
-				if answer == supportedNixInstallationChoices[0] {
+				if answer == localSupportedNixInstallationChoices[0] {
 					cmdName, cmdArgs = constructNixProfileCommand(jsPkgMgr)
 					break
 				}
-
 				cmdName = "nix-env"
 				cmdArgs = []string{"-iA", fmt.Sprintf("nixpkgs.%s", jsPkgMgr)}
 			default:
@@ -631,20 +660,47 @@ func createInstallJSPackageManager(commandRunner CommandRunner, selectUI NixUISe
 
 		commandRunner.Command(cmdName, cmdArgs...)
 		err := commandRunner.Run()
-
 		if err != nil {
 			return err
 		}
-
 		return nil
 	}
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.ExecuteContext(context.Background())
+// Helper to get selected JS package manager from prompt, using injected UI.
+func promptUserToSelectJSPackageManager() (string, error) {
+	selectedPackageManager := ""
+	options := lo.Map(detect.SupportedJSPackageManagers[:], func(item string, index int) huh.Option[string] {
+		return huh.NewOption(item, item)
+	})
+
+	form := huh.NewSelect[string]().
+		Title("No JavaScript package manager found. Please select one to install:").
+		Options(options...).
+		Value(&selectedPackageManager)
+
+	err := form.Run()
 	if err != nil {
-		os.Exit(1)
+		return "", fmt.Errorf("failed to get JS package manager selection: %w", err)
 	}
+	return selectedPackageManager, nil
+}
+
+// Helper to get selected OS package manager from prompt, using injected UI.
+func promptUserToSelectOSPackageManager() (string, error) {
+	selectedPackageManager := ""
+	options := lo.Map(detect.SupportedOperatingSystemPackageManagers[:], func(item string, index int) huh.Option[string] {
+		return huh.NewOption(item, item)
+	})
+
+	form := huh.NewSelect[string]().
+		Title("No supported OS package manager found. Please select one to install the JavaScript package manager:").
+		Options(options...).
+		Value(&selectedPackageManager)
+
+	err := form.Run()
+	if err != nil {
+		return "", fmt.Errorf("failed to get OS package manager selection: %w", err)
+	}
+	return selectedPackageManager, nil
 }
