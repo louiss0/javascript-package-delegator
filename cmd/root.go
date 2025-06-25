@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -94,6 +95,66 @@ type Dependencies struct {
 	CommandRunner               CommandRunner
 	JS_PackageManagerDetector   func() (string, error)
 	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
+	CommandUITexter
+}
+
+type CommandUITexter interface {
+	Run() error
+	Value() string
+}
+
+const VALID_INSTALL_COMMAND_STRING_RE = `^(?:[^\s=]+)\s+(?:[^\s=]+)\s+(?:[^\s=]+)(?:[^\s=]+\s+[^\s]+)*$`
+
+var INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE = []string{
+	"You wrote this as your string %s",
+	"A command for installing a package is at least three words",
+	"In the form write the command like you'd normally write a command like this",
+	"[command] [subcommand or flag] [package]",
+	"Place flags after the command",
+}
+
+func newCommandTextUI() *CommandTextUI {
+
+	return &CommandTextUI{
+		textUI: huh.NewText().
+			Title("Command").
+			Description("The command you want to use to install your js package manager").
+			Validate(func(s string) error {
+
+				match, error := regexp.MatchString(VALID_INSTALL_COMMAND_STRING_RE, s)
+
+				if error != nil {
+
+					return error
+				}
+
+				if match {
+
+					return nil
+
+				}
+
+				return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), s)
+
+			}),
+	}
+}
+
+type CommandTextUI struct {
+	value  string
+	textUI *huh.Text
+}
+
+func (ui CommandTextUI) Value() string {
+
+	return ui.value
+
+}
+
+func (ui *CommandTextUI) Run() error {
+
+	return ui.textUI.Value(&ui.value).Run()
+
 }
 
 // NewRootCmd creates a new root command with injectable dependencies.
@@ -165,11 +226,12 @@ Available commands:
 			// Store dependencies and other derived values in the command context
 			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
 
+			commandRunner := deps.CommandRunner
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
 				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
 				{_VIPER_CONFIG_INSTANCE_KEY, vf},
-				{_COMMAND_RUNNER_KEY, deps.CommandRunner},
+				{_COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
@@ -186,7 +248,34 @@ Available commands:
 
 			if err != nil {
 
-				return err
+				goEnv.ExecuteIfModeIsProduction(func() {
+					log.Warn("The package manager wasn't detected:")
+					log.Warn("You be asked to fill in which command you'd like to use to install it")
+
+				})
+
+				commandTextUI := deps.CommandUITexter
+
+				if err := commandTextUI.Run(); err != nil {
+
+					return err
+				}
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+
+					log.Info("Installing the package manager using ", "command", commandTextUI.Value())
+
+				})
+
+				splitCommandString := strings.Split(commandTextUI.Value(), `\s`)
+
+				commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
+
+				if err := commandRunner.Run(); err != nil {
+
+					return err
+				}
+
 			}
 
 			// If PM detected successfully, set it in context
@@ -237,6 +326,7 @@ Available commands:
 					vf.Set(_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager)
 
 					configFileName := JPD_PRODUCTION_CONFIG_NAME
+
 					if goEnv.IsDevelopmentMode() {
 						configFileName = JPD_DEVELOPMENT_CONFIG_NAME
 					}
@@ -289,6 +379,7 @@ func init() {
 			CommandRunner:               newExecutor(exec.Command), // Use the newExecutor constructor
 			JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+			CommandUITexter:             newCommandTextUI(),
 		},
 	)
 	cobra.OnInitialize(initConfig) // Register initConfig to be run by Cobra
