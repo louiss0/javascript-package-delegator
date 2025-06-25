@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	. "github.com/onsi/ginkgo/v2"
@@ -155,6 +156,43 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
+type MockCommandTextUI struct {
+	value string
+}
+
+func (ui MockCommandTextUI) Value() string {
+
+	return ui.value
+}
+
+func (ui *MockCommandTextUI) SetValue(value string) string {
+	ui.value = value
+	return ui.value
+}
+
+func newMockCommandTextUI() *MockCommandTextUI {
+
+	return &MockCommandTextUI{}
+}
+
+func (ui *MockCommandTextUI) Run() error {
+
+	match, error := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, ui.Value())
+
+	if error != nil {
+		return error
+	}
+
+	if match {
+
+		fmt.Println("It matched!")
+		return nil
+	}
+
+	return fmt.Errorf(strings.Join(cmd.INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), ui.value)
+
+}
+
 // It ensures that each command has access to the package manager name and CommandRunner
 
 var _ = Describe("JPD Commands", func() {
@@ -267,39 +305,43 @@ var _ = Describe("JPD Commands", func() {
 
 			generateRootCommandUsingPreSelectedValues := func(
 				mockCommandRunner *MockCommandRunner,
-				jsPackageManagerDetector func() (string, error),
-
+				commandUI *MockCommandTextUI,
 			) *cobra.Command {
 				return cmd.NewRootCmd(
 					cmd.Dependencies{
-						CommandRunner:             mockCommandRunner,
-						JS_PackageManagerDetector: jsPackageManagerDetector,
+						CommandRunner: mockCommandRunner,
+						JS_PackageManagerDetector: func() (string, error) {
+							return "", fmt.Errorf("No JS package manager detected")
+						},
+						CommandUITexter: commandUI,
 					},
 				)
 			}
 
+			var commandTextUI *MockCommandTextUI
+			var mockRunner *MockCommandRunner
+			var rootCmd *cobra.Command
 			BeforeEach(func() {
 				// Default to no JS package manager detected, but OS package manager can be detected.
+				//
+
+				commandTextUI = newMockCommandTextUI()
+				mockRunner = NewMockCommandRunner()
 				rootCmd = generateRootCommandUsingPreSelectedValues(
 					mockRunner,
-					func() (string, error) { return "", fmt.Errorf("No JS package manager detected") },
+					commandTextUI,
 				)
 			})
 
 			It(
-				"propmts the user for which command they would like to use to install package manager",
+				`propmts the user for which command they would like to use to install package manager
+				 If the user refuses an error is produced.
+				`,
 				func() {
-					output, err := executeCmd(rootCmd, "")
 
-					assert.NoError(err)
-					assert.Regexp(
-						`The command you used is: (?:\w+)\s+(?:\w+)\s+([\w\.]+)`,
-						output,
-						"The term 'The command you used is:' was expected at the start",
-						"A the end the command that the user wrote was supposed to be expressed",
-						"A command is supposed to have two words that are alphanumerical with spaces in between",
-						"At the end the final word is alphanumeric with a dot allowed",
-					)
+					_, err := executeCmd(rootCmd, "")
+
+					assert.Error(err)
 
 				},
 			)
@@ -614,7 +656,7 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				It("should return error for deno with dependencies (mocked error)", func() {
-					rootCmdWithError := createRootCommandWithDenoAsDefault(mockRunner, fmt.Errorf("deno doesn't support installing packages"))
+					rootCmdWithError := createRootCommandWithDenoAsDefault(mockRunner, nil)
 					_, err := executeCmd(rootCmdWithError, "install", "lodash")
 					assert.Error(err)
 					assert.Contains(err.Error(), "deno doesn't support installing packages")
