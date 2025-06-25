@@ -1,13 +1,9 @@
 package detect
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-
-	"github.com/samber/lo"
 )
 
 const DENO = "deno"
@@ -50,44 +46,6 @@ func DetectJSPacakgeManager() (string, error) {
 	}
 
 	return "npm", nil
-
-}
-
-const WINGET = "winget"
-const NIX = "nix"
-const SCOOP = "scoop"
-const CHOCO = "choco"
-const BREW = "brew"
-
-var SupportedOperatingSystemPackageManagers = [5]string{
-	WINGET,
-	NIX,
-	SCOOP,
-	CHOCO,
-	BREW,
-}
-
-// Detects one of the packages supported by this library
-func SupportedOperatingSystemPackageManager() (string, error) {
-
-	detectedPackageManager, ok := lo.Find(SupportedOperatingSystemPackageManagers[:], func(path string) bool {
-
-		_, error := exec.LookPath(path)
-
-		return error == nil
-
-	})
-
-	if !ok {
-
-		return "", fmt.Errorf(
-			"You don't have one of the suppoted package managers installed: %s",
-			strings.Join(SupportedOperatingSystemPackageManagers[:], " , "),
-		)
-
-	}
-
-	return detectedPackageManager, nil
 
 }
 
