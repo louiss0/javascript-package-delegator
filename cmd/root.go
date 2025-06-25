@@ -218,16 +218,6 @@ Available commands:
 					err := huh.NewForm(
 						huh.NewGroup(
 							huh.NewSelect[string]().
-								Title("OS Package Manager").
-								Description("Pick from the selected OS package managers").
-								Options(huh.NewOptions(detect.SupportedOperatingSystemPackageManagers[:]...)...).
-								Value(&Form.OS_PackageManager),
-							huh.NewSelect[string]().
-								Title("JS Package Manager").
-								Description("Pick from the selected JS package managers").
-								Options(huh.NewOptions(detect.SupportedJSPackageManagers[:]...)...).
-								Value(&Form.JS_PackageManager),
-							huh.NewSelect[string]().
 								Title("Config File Path").
 								Description("Pick the path you want to use for the config").
 								Options(huh.NewOptions(supportedConfigPaths...)...).
