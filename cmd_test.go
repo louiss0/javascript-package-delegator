@@ -340,8 +340,28 @@ var _ = Describe("JPD Commands", func() {
 				func() {
 
 					_, err := executeCmd(rootCmd, "")
-
 					assert.Error(err)
+
+				},
+			)
+
+			It(
+				"executes the command given when the user gives a correct command",
+				func() {
+
+					commandString := "winget install pnpm.pnpm"
+
+					commandTextUI.SetValue(commandString)
+
+					_, err := executeCmd(rootCmd, "")
+
+					assert.NoError(err)
+
+					splitCommandString := strings.Split(commandString, "\n")
+
+					assert.Equal(mockRunner.CommandCall.Name, splitCommandString[0])
+
+					assert.Equal(mockRunner.CommandCall.Args, splitCommandString[1:])
 
 				},
 			)
