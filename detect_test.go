@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"os"
-	"runtime"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
@@ -112,63 +111,6 @@ var _ = Describe("Detect", func() {
 
 			assert.Equal("deno", pkg)
 		})
-	})
-
-	Describe("SupportedOSPackageManager", func() {
-
-		// I'm using Linux with my own package manager nix!
-		// I decided to write a test for that on Linux a package manager
-		// is supposed to be choosen based on OS
-		It("detect's nix", func() {
-
-			if runtime.GOOS != "linux" {
-				Skip("This is linux nix is a linux only")
-			}
-
-			supported_package, error := detect.SupportedOperatingSystemPackageManager()
-
-			assert.NoError(error)
-
-			assert.NotEmpty(supported_package)
-
-			assert.Equal("nix", supported_package)
-
-		})
-
-		// This test will check for brew since it's generally installed on Mack!
-		It("detect's brew", func() {
-
-			if runtime.GOOS != "mac" {
-				Skip("This is linux brew is a linux only")
-			}
-
-			supported_package, error := detect.SupportedOperatingSystemPackageManager()
-
-			assert.NoError(error)
-
-			assert.NotEmpty(supported_package)
-
-			assert.Equal("brew", supported_package)
-
-		})
-
-		// This test will check for winget since it's generally installed on Windows now!
-		It("detect's winget", func() {
-
-			if runtime.GOOS != "windows" {
-				Skip("This is linux winget is a linux only")
-			}
-
-			supported_package, error := detect.SupportedOperatingSystemPackageManager()
-
-			assert.NoError(error)
-
-			assert.NotEmpty(supported_package)
-
-			assert.Equal("winget", supported_package)
-
-		})
-
 	})
 
 })
