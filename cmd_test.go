@@ -286,11 +286,30 @@ var _ = Describe("JPD Commands", func() {
 				)
 			})
 
+			It(
+				"propmts the user for which command they would like to use to install package manager",
+				func() {
+					output, err := executeCmd(rootCmd, "")
+
+					assert.NoError(err)
+					assert.Regexp(
+						`The command you used is: (?:\w+)\s+(?:\w+)\s+([\w\.]+)`,
+						output,
+						"The term 'The command you used is:' was expected at the start",
+						"A the end the command that the user wrote was supposed to be expressed",
+						"A command is supposed to have two words that are alphanumerical with spaces in between",
+						"At the end the final word is alphanumeric with a dot allowed",
+					)
+
+				},
+			)
+
 		})
 
 		Describe("Install Command", func() {
 
 			var installCmd *cobra.Command
+
 			BeforeEach(func() {
 				installCmd, _ = getSubCommandWithName(rootCmd, "install")
 			})
