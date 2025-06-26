@@ -185,7 +185,6 @@ func (ui *MockCommandTextUI) Run() error {
 
 	if match {
 
-		fmt.Println("It matched!")
 		return nil
 	}
 
@@ -344,8 +343,8 @@ var _ = Describe("JPD Commands", func() {
 
 				},
 			)
-
 			It(
+
 				"executes the command given when the user gives a correct command",
 				func() {
 
@@ -357,7 +356,8 @@ var _ = Describe("JPD Commands", func() {
 
 					assert.NoError(err)
 
-					splitCommandString := strings.Split(commandString, "\n")
+					re := regexp.MustCompile(`\s+`)
+					splitCommandString := re.Split(commandString, -1)
 
 					assert.Equal(mockRunner.CommandCall.Name, splitCommandString[0])
 
@@ -366,6 +366,38 @@ var _ = Describe("JPD Commands", func() {
 				},
 			)
 
+			DescribeTable(
+				"executes the command based typical instaltion commands",
+				func(inputCommand string, expectedCommandName string, expectedCommandArgs []string) {
+
+					commandTextUI.SetValue(inputCommand)
+
+					_, err := executeCmd(rootCmd, "")
+
+					assert.NoError(err)
+
+					assert.Equal(expectedCommandName, mockRunner.CommandCall.Name)
+
+					assert.Equal(expectedCommandArgs, mockRunner.CommandCall.Args)
+
+				},
+				Entry("Using npm to install npm globally", "npm install -g npm", "npm", []string{"install", "-g", "npm"}),
+				Entry("Using yarn to add yarn globally", "yarn global add yarn", "yarn", []string{"global", "add", "yarn"}),
+				Entry("Using pnpm to add pnpm globally", "pnpm add -g pnpm", "pnpm", []string{"add", "-g", "pnpm"}),
+				Entry("Using bun to install bun globally", "bun install -g bun", "bun", []string{"install", "-g", "bun"}),
+				Entry("Using deno to install deno CLI tool", "deno install --allow-net --allow-read deno", "deno", []string{"install", "--allow-net", "--allow-read", "deno"}),
+				Entry("Using apt-get to install nodejs", "sudo apt-get install nodejs", "sudo", []string{"apt-get", "install", "nodejs"}),
+				Entry("Using brew to install pnpm", "brew install pnpm", "brew", []string{"install", "pnpm"}),
+				Entry("Using choco to install nodejs", "choco install nodejs", "choco", []string{"install", "nodejs"}),
+				Entry("Using winget to install VSCode", "winget install Microsoft.VisualStudioCode", "winget", []string{"install", "Microsoft.VisualStudioCode"}),
+				Entry("Using pacman to install git", "sudo pacman -S git", "sudo", []string{"pacman", "-S", "git"}),
+				Entry("Using dnf to install yarn", "sudo dnf install yarn", "sudo", []string{"dnf", "install", "yarn"}),
+				Entry("Using yum to install nodejs", "sudo yum install nodejs", "sudo", []string{"yum", "install", "nodejs"}),
+				Entry("Using zypper to install pnpm", "sudo zypper install pnpm", "sudo", []string{"zypper", "install", "pnpm"}),
+				Entry("Using apk to add deno", "sudo apk add deno", "sudo", []string{"apk", "add", "deno"}),
+				Entry("Using nix-env to install nodejs", "nix-env -iA nixpkgs.nodejs", "nix-env", []string{"-iA", "nixpkgs.nodejs"}),
+				Entry("Using nix profile to install yarn", "nix profile install nixpkgs#yarn", "nix", []string{"profile", "install", "nixpkgs#yarn"}),
+			)
 		})
 
 		Describe("Install Command", func() {
