@@ -106,7 +106,7 @@ type CommandUITexter interface {
 const VALID_INSTALL_COMMAND_STRING_RE = `^(?:[^\s=]+)\s+(?:[^\s=]+)\s+(?:[^\s=]+)(?:[^\s=]+\s+[^\s]+)*$`
 
 var INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE = []string{
-	"You wrote this as your string %s",
+	"You wrote this as your string %s ",
 	"A command for installing a package is at least three words",
 	"In the form write the command like you'd normally write a command like this",
 	"[command] [subcommand or flag] [package]",
@@ -267,7 +267,8 @@ Available commands:
 
 				})
 
-				splitCommandString := strings.Split(commandTextUI.Value(), `\s`)
+				re := regexp.MustCompile(`\s+`)
+				splitCommandString := re.Split(commandTextUI.Value(), -1)
 
 				commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
