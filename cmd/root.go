@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -256,35 +257,41 @@ Available commands:
 
 			if err != nil {
 
-				goEnv.ExecuteIfModeIsProduction(func() {
-					log.Warn("The package manager wasn't detected:")
-					log.Warn("You be asked to fill in which command you'd like to use to install it")
+				if errors.Is(detect.ErrNoPackageManager, err) {
 
-				})
+					goEnv.ExecuteIfModeIsProduction(func() {
+						log.Warn("The package manager wasn't detected:")
+						log.Warn("You be asked to fill in which command you'd like to use to install it")
 
-				commandTextUI := deps.CommandUITexter
+					})
 
-				if err := commandTextUI.Run(); err != nil {
+					commandTextUI := deps.CommandUITexter
 
-					return err
+					if err := commandTextUI.Run(); err != nil {
+
+						return err
+					}
+
+					goEnv.ExecuteIfModeIsProduction(func() {
+
+						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
+
+					})
+
+					re := regexp.MustCompile(`\s+`)
+					splitCommandString := re.Split(commandTextUI.Value(), -1)
+
+					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
+
+					if err := commandRunner.Run(); err != nil {
+
+						return err
+					}
+
+					return nil
 				}
 
-				goEnv.ExecuteIfModeIsProduction(func() {
-
-					log.Info("Installing the package manager using ", "command", commandTextUI.Value())
-
-				})
-
-				re := regexp.MustCompile(`\s+`)
-				splitCommandString := re.Split(commandTextUI.Value(), -1)
-
-				commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
-
-				if err := commandRunner.Run(); err != nil {
-
-					return err
-				}
-
+				return err
 			}
 
 			// If PM detected successfully, set it in context
