@@ -261,7 +261,7 @@ Available commands:
 			// If PM detected successfully, set it in context
 			c_ctx = context.WithValue(c_ctx, PACKAGE_NAME, pm)
 			c.SetContext(c_ctx)
-			return err
+			return nil
 		},
 	}
 
