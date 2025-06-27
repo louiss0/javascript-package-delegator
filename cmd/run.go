@@ -50,7 +50,7 @@ Examples:
   javascript-package-delegator run test -- --watch # Run test with npm-style args`,
 		Aliases: []string{"r"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm := getJS_PackageManagerNameFromCommandContext(cmd)
+			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 

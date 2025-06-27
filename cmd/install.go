@@ -44,7 +44,7 @@ Examples:
   jpd install -g typescript # Install globally`,
 		Aliases: []string{"i", "add"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm := getJS_PackageManagerNameFromCommandContext(cmd)
+			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 

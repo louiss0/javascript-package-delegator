@@ -43,7 +43,7 @@ Examples:
   javascript-package-delegator update -g typescript # Update global package`,
 		Aliases: []string{"u", "up", "upgrade"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm := getJS_PackageManagerNameFromCommandContext(cmd)
+			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 

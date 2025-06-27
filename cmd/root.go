@@ -40,7 +40,6 @@ import (
 )
 
 // Constants for context keys and configuration
-const _INTERACTIVE_FLAG = "interactive"
 const PACKAGE_NAME = "package-name"                      // Used for storing detected package name in context
 const _GO_ENV = "go_env"                                 // Used for storing GoEnv in context
 const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
@@ -48,6 +47,7 @@ const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandV
 const _COMMAND_RUNNER_KEY = "command_runner"
 const JPD_AGENT_ENV_VAR = "JPD_AGENT"
 const DEBUG_FLAG = "debug"
+const AGENT_FLAG = "agent"
 
 // CommandRunner Interface and its implementation
 // This interface allows for mocking command execution in tests.
@@ -228,6 +228,19 @@ Available commands:
 				)
 			})
 
+			agent, error := c.Flags().GetString(AGENT_FLAG)
+
+			if error != nil {
+
+				return error
+			}
+
+			if agent != "" {
+
+				c.Flags().Set(AGENT_FLAG, agent)
+				return nil
+			}
+
 			agent, ok := os.LookupEnv(JPD_AGENT_ENV_VAR)
 
 			if ok {
@@ -247,9 +260,9 @@ Available commands:
 
 				})
 
-				c_ctx = context.WithValue(c_ctx, PACKAGE_NAME, agent)
-				c.SetContext(c_ctx)
+				c.Flags().Set(AGENT_FLAG, agent)
 				return nil
+
 			}
 
 			// Package manager detection and potential installation logic
@@ -294,8 +307,7 @@ Available commands:
 				return err
 			}
 
-			// If PM detected successfully, set it in context
-			c_ctx = context.WithValue(c_ctx, PACKAGE_NAME, pm)
+			c.Flags().Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},
@@ -311,6 +323,13 @@ Available commands:
 	cmd.AddCommand(NewAgentCmd())
 
 	cmd.PersistentFlags().BoolP(DEBUG_FLAG, "d", false, "Make commands run in debug mode")
+
+	cmd.PersistentFlags().StringP(AGENT_FLAG, "a", "", "Select the JS package manager you want to use")
+
+	cmd.RegisterFlagCompletionFunc(
+		AGENT_FLAG,
+		cobra.FixedCompletions(detect.SupportedJSPackageManagers[:], cobra.ShellCompDirectiveNoFileComp),
+	)
 
 	return cmd
 }
@@ -348,10 +367,6 @@ func Execute() {
 func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
 
 	return cmd.Context().Value(_COMMAND_RUNNER_KEY).(CommandRunner)
-}
-
-func getJS_PackageManagerNameFromCommandContext(cmd *cobra.Command) string {
-	return cmd.Context().Value(PACKAGE_NAME).(string)
 }
 
 func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {

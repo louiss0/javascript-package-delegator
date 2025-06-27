@@ -470,8 +470,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				// Now, the context of currentRootCmd should have the value set by PersistentPreRunE
-				pm, ok := currentRootCmd.Context().Value(cmd.PACKAGE_NAME).(string)
-				assert.True(ok, "The package name was not found in context")
+				pm, error := currentRootCmd.Flags().GetString(cmd.AGENT_FLAG)
+				assert.NoError(error, "The package name was not found in context")
 				assert.Equal(expected, pm)
 
 				// Verify that no commands were executed by the mock runner because JPD_AGENT was set
