@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -37,25 +36,16 @@ import (
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Constants for context keys and configuration
-const _LOCK_FILE_ENV = "JPD_LOCK_FILE"
-const _JS_PACKAGE_MANAGER_KEY = "js_pkm"
-const _OS_PACKAGE_MANAGER_KEY = "os_pkm"
 const _INTERACTIVE_FLAG = "interactive"
-const _PACKAGE_NAME = "package-name"                       // Used for storing detected package name in context
-const _GO_ENV = "go_env"                                   // Used for storing GoEnv in context
-const _SUPPORTED_CONFIG_PATHS_KEY = "supported_paths"      // Used for storing config paths in context
-const _VIPER_CONFIG_INSTANCE_KEY = "viper_config_instance" // Used for storing Viper instance in context
-const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter"   // Key for YarnCommandVersionOutputter
+const PACKAGE_NAME = "package-name"                      // Used for storing detected package name in context
+const _GO_ENV = "go_env"                                 // Used for storing GoEnv in context
+const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
 
 const _COMMAND_RUNNER_KEY = "command_runner"
-
-const JPD_DEVELOPMENT_CONFIG_NAME = "jpd.config_test"
-const JPD_PRODUCTION_CONFIG_NAME = "jpd.config"
-const JPD_CONFIG_EXTENSION = "toml"
+const JPD_AGENT_ENV_VAR = "JPD_AGENT"
 
 // CommandRunner Interface and its implementation (executor)
 // This interface allows for mocking command execution in tests.
@@ -184,53 +174,20 @@ Available commands:
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Load .env file
 			err := godotenv.Load()
+
 			if err != nil && !os.IsNotExist(err) {
 				log.Error(err.Error()) // Log error, but don't stop execution unless critical
 			}
 
 			goEnv, err := env.NewGoEnv() // Instantiate GoEnv
 
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return err
-			}
-
-			// Setup Viper for configuration management
-			var supportedConfigPaths []string
-			vf := viper.New()
-			supportedConfigPaths = []string{
-				filepath.Join(homeDir, ".config/"),
-				filepath.Join(homeDir, ".local/share/"),
-			}
-
-			lo.ForEach(supportedConfigPaths, func(path string, index int) {
-				vf.AddConfigPath(path)
-			})
-
-			configFileName := JPD_PRODUCTION_CONFIG_NAME
-
-			if goEnv.IsDevelopmentMode() {
-				configFileName = JPD_DEVELOPMENT_CONFIG_NAME
-			}
-
-			vf.SetConfigName(configFileName)
-			vf.SetConfigType(JPD_CONFIG_EXTENSION)
-
-			// Read config, but don't fail if file not found
-			if err := vf.ReadInConfig(); err != nil {
-				if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-					log.Warnf("Error reading config file: %v", err)
-				}
-			}
-
 			// Store dependencies and other derived values in the command context
 			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
 
 			commandRunner := deps.CommandRunner
+
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
-				{_SUPPORTED_CONFIG_PATHS_KEY, supportedConfigPaths},
-				{_VIPER_CONFIG_INSTANCE_KEY, vf},
 				{_COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
 			}, func(item [2]any, index int) {
@@ -241,13 +198,37 @@ Available commands:
 				)
 			})
 
-			// c.SetContext(c_ctx) // Update the command's context with the new values
+			agent, ok := os.LookupEnv(JPD_AGENT_ENV_VAR)
+
+			if ok {
+
+				fmt.Println("The agent is here", agent)
+				if !lo.Contains(detect.SupportedJSPackageManagers[:], agent) {
+
+					return fmt.Errorf(
+						"The %s variable is set the wrong way use one of these values instead %v",
+						JPD_AGENT_ENV_VAR,
+						detect.SupportedJSPackageManagers,
+					)
+
+				}
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+					log.Info("Using package manager", "agent", agent)
+
+				})
+
+				c_ctx = context.WithValue(c_ctx, PACKAGE_NAME, agent)
+				c.SetContext(c_ctx)
+				return nil
+			}
 
 			// Package manager detection and potential installation logic
 			pm, err := deps.JS_PackageManagerDetector() // Use injected detector
 
 			if err != nil {
 
+				fmt.Println("JS Pacakge Manager no detected")
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Warn("The package manager wasn't detected:")
 					log.Warn("You be asked to fill in which command you'd like to use to install it")
@@ -257,6 +238,7 @@ Available commands:
 				commandTextUI := deps.CommandUITexter
 
 				if err := commandTextUI.Run(); err != nil {
+					fmt.Println("Command text UI failed")
 
 					return err
 				}
@@ -273,6 +255,7 @@ Available commands:
 				commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 				if err := commandRunner.Run(); err != nil {
+					fmt.Println("Command Runner failed")
 
 					return err
 				}
@@ -280,73 +263,9 @@ Available commands:
 			}
 
 			// If PM detected successfully, set it in context
-			c_ctx = context.WithValue(c_ctx, _PACKAGE_NAME, pm)
+			c_ctx = context.WithValue(c_ctx, PACKAGE_NAME, pm)
 			c.SetContext(c_ctx)
-			return nil
-		},
-		RunE: func(c *cobra.Command, args []string) error {
-			// If no subcommand is provided (i.e., just 'jpd' or 'jpd --interactive'),
-			// handle the interactive setup or default 'agent' command.
-			if len(args) == 0 {
-				interactiveFlag, err := c.Flags().GetBool(_INTERACTIVE_FLAG)
-				if err != nil {
-					return err
-				}
-
-				if interactiveFlag {
-					// Retrieve necessary dependencies from context for interactive setup
-					goEnv := getGoEnvFromCommandContext(c)
-					supportedConfigPaths := getSupportedPathsFromCommandContext(c)
-					vf := getViperInstanceFromCommandContext(c)
-
-					var Form struct {
-						OS_PackageManager string
-						JS_PackageManager string
-						ConfigPath        string
-					}
-
-					err := huh.NewForm(
-						huh.NewGroup(
-							huh.NewSelect[string]().
-								Title("Config File Path").
-								Description("Pick the path you want to use for the config").
-								Options(huh.NewOptions(supportedConfigPaths...)...).
-								Value(&Form.ConfigPath),
-						).
-							Title("Javascript Package Delegator Setup").
-							Description("This form is supposed to help you setup JPD according to your preferences ").
-							WithTheme(huh.ThemeDracula()),
-					).Run()
-
-					if err != nil {
-						log.Error(err.Error())
-						return err
-					}
-
-					vf.Set(_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager)
-					vf.Set(_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager)
-
-					configFileName := JPD_PRODUCTION_CONFIG_NAME
-
-					if goEnv.IsDevelopmentMode() {
-						configFileName = JPD_DEVELOPMENT_CONFIG_NAME
-					}
-					configFilePath := filepath.Join(Form.ConfigPath, fmt.Sprintf("%s.%s", configFileName, JPD_CONFIG_EXTENSION))
-
-					if err := vf.WriteConfigAs(configFilePath); err != nil {
-						return fmt.Errorf("failed to write config file: %w", err)
-					}
-
-					log.Infof("Your config file was created at this path %s", configFilePath)
-					log.Info(
-						"It has these values",
-						_OS_PACKAGE_MANAGER_KEY, Form.OS_PackageManager,
-						_JS_PACKAGE_MANAGER_KEY, Form.JS_PackageManager,
-					)
-					return nil // Interactive setup completed
-				}
-			}
-			return nil // Let subcommands handle their own RunE
+			return err
 		},
 	}
 
@@ -383,7 +302,6 @@ func init() {
 			CommandUITexter:             newCommandTextUI(),
 		},
 	)
-	cobra.OnInitialize(initConfig) // Register initConfig to be run by Cobra
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -392,23 +310,6 @@ func Execute() {
 	err := rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		os.Exit(1)
-	}
-}
-
-// initConfig reads in config file and ENV variables if set.
-// This function is intended to be called by cobra.OnInitialize.
-func initConfig() {
-	// Load .env file first
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
-		log.Errorf("Error loading .env file: %s", err)
-	}
-
-	// Set environment variables for Viper to read
-	for _, e := range os.Environ() {
-		pair := strings.SplitN(e, "=", 2)
-		if len(pair) == 2 {
-			viper.SetDefault(pair[0], pair[1])
-		}
 	}
 }
 
@@ -421,7 +322,7 @@ func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
 }
 
 func getJS_PackageManagerNameFromCommandContext(cmd *cobra.Command) string {
-	return cmd.Context().Value(_PACKAGE_NAME).(string)
+	return cmd.Context().Value(PACKAGE_NAME).(string)
 }
 
 func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {
@@ -432,14 +333,4 @@ func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVe
 func getGoEnvFromCommandContext(cmd *cobra.Command) env.GoEnv {
 	goEnv := cmd.Context().Value(_GO_ENV).(env.GoEnv)
 	return goEnv
-}
-
-func getSupportedPathsFromCommandContext(cmd *cobra.Command) []string {
-	paths := cmd.Context().Value(_SUPPORTED_CONFIG_PATHS_KEY).([]string)
-	return paths
-}
-
-func getViperInstanceFromCommandContext(cmd *cobra.Command) *viper.Viper {
-	vf := cmd.Context().Value(_VIPER_CONFIG_INSTANCE_KEY).(*viper.Viper)
-	return vf
 }
