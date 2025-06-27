@@ -46,11 +46,20 @@ const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandV
 
 const _COMMAND_RUNNER_KEY = "command_runner"
 const JPD_AGENT_ENV_VAR = "JPD_AGENT"
+const DEBUG_FLAG = "debug"
 
-// CommandRunner Interface and its implementation (executor)
+// CommandRunner Interface and its implementation
 // This interface allows for mocking command execution in tests.
+// **Remember:** always use the `Command()` before using the `Run()`
 type CommandRunner interface {
+	// A method that is used to determine whether run should be in debug mode or not
+	// Use a boolean state in struct that implements this inter face and return that
+	IsDebug() bool
+	// This method uses `exec.Cmd` struct to execute commands behind the scenes
+	// Make this method useful by creating a field that will hold `exec.Command`.
+	// Then make a second field that will hold the
 	Command(string, ...string)
+	// This method calls the underlying `exec.Run()` to execute the command from `exec.Cmd`!
 	Run() error
 }
 
@@ -59,12 +68,19 @@ type _ExecCommandFunc func(string, ...string) *exec.Cmd
 type executor struct {
 	execCommandFunc _ExecCommandFunc
 	cmd             *exec.Cmd
+	debug           bool
 }
 
-func newExecutor(execCommandFunc _ExecCommandFunc) *executor {
+func newExecutor(execCommandFunc _ExecCommandFunc, debug bool) *executor {
 	return &executor{
 		execCommandFunc: execCommandFunc,
+		debug:           debug,
 	}
+}
+
+func (e executor) IsDebug() bool {
+
+	return e.debug
 }
 
 func (e *executor) Command(name string, args ...string) {
@@ -77,12 +93,19 @@ func (e executor) Run() error {
 	if e.cmd == nil {
 		return fmt.Errorf("no command set to run")
 	}
+
+	if e.debug {
+
+		log.Debug("Using this command: %s \n", strings.Join(e.cmd.Args, " "))
+
+	}
+
 	return e.cmd.Run()
 }
 
 // Dependencies holds the external dependencies for testing and real execution
 type Dependencies struct {
-	CommandRunner               CommandRunner
+	CommandRunnerGetter         func(bool) CommandRunner
 	JS_PackageManagerDetector   func() (string, error)
 	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
 	CommandUITexter
@@ -184,7 +207,13 @@ Available commands:
 			// Store dependencies and other derived values in the command context
 			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
 
-			commandRunner := deps.CommandRunner
+			isDebug, err := c.Flags().GetBool(DEBUG_FLAG)
+
+			if err != nil {
+				return err
+			}
+
+			commandRunner := deps.CommandRunnerGetter(isDebug)
 
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
@@ -274,13 +303,7 @@ Available commands:
 	cmd.AddCommand(NewCleanInstallCmd())
 	cmd.AddCommand(NewAgentCmd())
 
-	// Add persistent flags (like interactive)
-	cmd.PersistentFlags().BoolP(
-		"interactive",
-		"i",
-		false,
-		"Allows the user to setup the config file for jpd",
-	)
+	cmd.PersistentFlags().BoolP(DEBUG_FLAG, "d", false, "Make commands run in debug mode")
 
 	return cmd
 }
@@ -292,12 +315,15 @@ func init() {
 	// Initialize the global rootCmd with real implementations of its dependencies
 	rootCmd = NewRootCmd(
 		Dependencies{
-			CommandRunner:               newExecutor(exec.Command), // Use the newExecutor constructor
+			CommandRunnerGetter: func(b bool) CommandRunner {
+				return newExecutor(exec.Command, b)
+			}, // Use the newExecutor constructor
 			JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			CommandUITexter:             newCommandTextUI(),
 		},
 	)
+
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
