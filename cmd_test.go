@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
+	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -331,7 +332,7 @@ var _ = Describe("JPD Commands", func() {
 						},
 						JS_PackageManagerDetector: func() (string, error) {
 
-							return "", fmt.Errorf("format string")
+							return "", detect.ErrNoPackageManager
 						},
 						CommandUITexter: commandTextUI,
 					},
