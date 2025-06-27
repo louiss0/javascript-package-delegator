@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +46,7 @@ func DetectJSPacakgeManager() (string, error) {
 		}
 	}
 
-	return "npm", nil
+	return "", fmt.Errorf("No package manager found!")
 
 }
 
