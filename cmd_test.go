@@ -23,6 +23,7 @@ type MockCommandRunner struct {
 	InvalidCommands []string
 	// HasBeenCalled indicates if a command has been set for this run
 	HasBeenCalled bool
+	isDebug       bool
 }
 
 // CommandCall represents a single command call with its name and arguments
@@ -47,6 +48,10 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 		Args: args,
 	}
 	m.HasBeenCalled = true
+}
+
+func (m MockCommandRunner) IsDebug() bool {
+	return m.isDebug
 }
 
 // Run simulates running the command and records it.
@@ -214,7 +219,9 @@ var _ = Describe("JPD Commands", func() {
 	generateRootCommandWithPackageManagerDetector := func(mockRunner *MockCommandRunner, packageManager string, err error) *cobra.Command {
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
-				CommandRunner: mockRunner,
+				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					return mockRunner
+				},
 				JS_PackageManagerDetector: func() (string, error) {
 
 					return packageManager, err
@@ -233,7 +240,9 @@ var _ = Describe("JPD Commands", func() {
 
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
-				CommandRunner: mockRunner,
+				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					return mockRunner
+				},
 				JS_PackageManagerDetector: func() (string, error) {
 
 					return "yarn", err
@@ -247,7 +256,9 @@ var _ = Describe("JPD Commands", func() {
 	createRootCommandWithYarnOneAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
-				CommandRunner: mockRunner,
+				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					return mockRunner
+				},
 				JS_PackageManagerDetector: func() (string, error) {
 
 					return "yarn", err
@@ -261,7 +272,9 @@ var _ = Describe("JPD Commands", func() {
 	createRootCommandWithNoYarnVersion := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
 		return cmd.NewRootCmd(
 			cmd.Dependencies{
-				CommandRunner: mockRunner,
+				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					return mockRunner
+				},
 				JS_PackageManagerDetector: func() (string, error) {
 
 					return "yarn", err
@@ -313,7 +326,9 @@ var _ = Describe("JPD Commands", func() {
 
 				return cmd.NewRootCmd(
 					cmd.Dependencies{
-						CommandRunner: mockRunner,
+						CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+							return mockRunner
+						},
 						JS_PackageManagerDetector: func() (string, error) {
 
 							return "", fmt.Errorf("format string")
@@ -328,6 +343,8 @@ var _ = Describe("JPD Commands", func() {
 
 				currentCommand = generateRootCommandUsingPreSelectedValues()
 				currentCommand.SetContext(context.Background())
+				currentCommand.ParseFlags([]string{})
+
 			})
 
 			It(
@@ -410,7 +427,9 @@ var _ = Describe("JPD Commands", func() {
 
 				// Create the root command with *all* necessary dependencies
 				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunner: mockRunner,
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
 					JS_PackageManagerDetector:   func() (string, error) { return "", fmt.Errorf("not detected") },
 					YarnCommandVersionOutputter: mockYarnVersionOutputter,
@@ -419,6 +438,10 @@ var _ = Describe("JPD Commands", func() {
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
 				// No need to SetArgs here if we are directly calling PersistentPreRunE
+
+				// This must be set so that the debug flag can be used!
+				currentRootCmd.ParseFlags([]string{})
+
 			})
 
 			AfterEach(func() {
