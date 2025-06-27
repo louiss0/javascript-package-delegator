@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"errors" // Import the errors package
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,10 @@ const PNPM = "pnpm"
 const YARN = "yarn"
 
 var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
+
+// ErrNoPackageManager is returned when no supported JavaScript package manager
+// lock file or configuration file is found in the current directory.
+var ErrNoPackageManager = errors.New("no supported JavaScript package manager found")
 
 func DetectJSPacakgeManager() (string, error) {
 
@@ -30,7 +35,9 @@ func DetectJSPacakgeManager() (string, error) {
 	cwd, err := os.Getwd()
 
 	if err != nil {
-		return "", err
+		// Pass through the original error from os.Getwd().
+		// This error is already descriptive (e.g., *os.PathError).
+		return "", fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
 	// Check for lock files and config files in order of preference
@@ -39,15 +46,26 @@ func DetectJSPacakgeManager() (string, error) {
 		lockFile := lockFileAndPakageName[0]
 		packageName := lockFileAndPakageName[1]
 
-		if _, err := os.Stat(filepath.Join(cwd, lockFile)); err == nil {
+		filePath := filepath.Join(cwd, lockFile)
+		_, err := os.Stat(filePath)
 
+		if err == nil {
+			// File exists, we found the package manager
 			return packageName, nil
-
 		}
+
+		// If the error indicates the file simply does not exist, continue to the next one.
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+
+		// If it's any other error, it's a deeper issue (e.g., permissions, corrupted file system).
+		// Return this error immediately. Wrap it for context.
+		return "", fmt.Errorf("failed to stat file %q while detecting package manager: %w", filePath, err)
 	}
 
-	return "", fmt.Errorf("No package manager found!")
-
+	// Return our specific error for this condition
+	return "", ErrNoPackageManager
 }
 
 type YarnCommandVersionOutputter interface {
