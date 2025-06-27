@@ -202,7 +202,6 @@ Available commands:
 
 			if ok {
 
-				fmt.Println("The agent is here", agent)
 				if !lo.Contains(detect.SupportedJSPackageManagers[:], agent) {
 
 					return fmt.Errorf(
@@ -228,7 +227,6 @@ Available commands:
 
 			if err != nil {
 
-				fmt.Println("JS Pacakge Manager no detected")
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Warn("The package manager wasn't detected:")
 					log.Warn("You be asked to fill in which command you'd like to use to install it")
@@ -238,7 +236,6 @@ Available commands:
 				commandTextUI := deps.CommandUITexter
 
 				if err := commandTextUI.Run(); err != nil {
-					fmt.Println("Command text UI failed")
 
 					return err
 				}
@@ -255,7 +252,6 @@ Available commands:
 				commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 				if err := commandRunner.Run(); err != nil {
-					fmt.Println("Command Runner failed")
 
 					return err
 				}
