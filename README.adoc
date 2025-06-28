@@ -1,82 +1,272 @@
-# javascript-package-delegator
+= javascript-package-delegator: A Universal JavaScript Package Manager CLI
 
-This project is called javascript-package-delegator.
-It's a CLI that allows the user to exec javascript package manager commands based on the lock files associated with the project.
-This CLI is written in Go. It's released by using Go Releaser.
+:toc: left
+:toclevels: 3
+:sectnums:
+:sectanchors:
+:imagesdir: docs/images
 
-// The user can download it using brew,scoop, winget or chocolatey.
+image:https://img.shields.io/badge/made%20with-Go-blue.svg[Go]
+image:https://img.shields.io/github/workflow/status/louiss0/javascript-package-delegator/Go[Build Status]
+image:https://img.shields.io/github/license/louiss0/javascript-package-delegator[License]
+image:https://img.shields.io/github/v/release/louiss0/javascript-package-delegator[Latest Release]
 
-.Tools
-|===
-| type | name
+// Abstract/Introduction
+`javascript-package-delegator` (jpd) is a powerful and intuitive Command Line Interface (CLI) tool designed to streamline your workflow across various JavaScript package managers. Inspired by the simplicity of `@antfu/ni`, `jpd` automatically detects the package manager used in your project (npm, Yarn, pnpm, Bun, or Deno) based on existing lock files and configuration, then transparently delegates your commands to the appropriate tool.
 
-| utilities | samber/lo
-| test runner | onsi/ginkgo
-| assertion | testify/assert
-|===
+This eliminates the need to remember different commands or continuously switch between package managers when collaborating in diverse teams or managing multiple projects. `jpd` provides a unified experience, allowing you to focus on development rather than toolchain nuances.
 
+== Features
 
-## Usage
+`jpd` offers a comprehensive set of features to simplify your JavaScript development experience:
 
-[NOTE]
-.This is a TDD project which means you test commands by running a test suite.
-====
+*   **Automatic Package Manager Detection:** Intelligently identifies the active package manager by checking for `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lockb`, `deno.json`, `deno.jsonc`, or `deno.lock`.
+*   **Unified Command Set:** Provides a consistent API for common package management tasks, regardless of the underlying tool:
+    ** `jpd install` (`i`, `add`):** Installs project dependencies.
+    ** `jpd run` (`r`):** Executes scripts defined in `package.json` or tasks in `deno.json`.
+    ** `jpd exec` (`x`):** Executes packages (e.g., `npx`, `yarn dlx`, `pnpm dlx`, `bunx`).
+    ** `jpd update` (`u`, `up`, `upgrade`):** Updates installed packages to their latest compatible versions.
+    ** `jpd uninstall` (`un`, `remove`, `rm`):** Removes specified packages from your project.
+    ** `jpd clean-install` (`ci`):** Performs a clean installation with a frozen lockfile, ideal for CI/CD environments and production builds.
+    ** `jpd agent` (`a`):** Displays the detected package manager for the current project.
+*   **Intelligent Yarn Version Handling:** Differentiates between Yarn v1 and Yarn v2+ for `clean-install` and `exec` commands, applying the correct flags (`--frozen-lockfile` vs. `--immutable` / `yarn` vs. `yarn dlx`).
+*   **Interactive Package Manager Installation:** If no package manager is detected, `jpd` can interactively prompt you to provide a command to install one, ensuring you can quickly get started.
+*   **Flexible Agent Selection:** Override automatic detection using the `--agent` (`-a`) flag or the `JPD_AGENT` environment variable to explicitly specify your preferred package manager for a command or session.
+*   **Debugging Capabilities:** Enable a debug mode (`--debug` or `-d`) to view verbose logging, aiding in troubleshooting and understanding command execution.
+*   **Shell Auto-completion:** Supports shell auto-completion for the `--agent` flag, providing a convenient list of supported package managers.
+*   **Go-based Performance:** Written in Go, `jpd` is compiled into a single static binary, offering fast execution and easy distribution without runtime dependencies.
 
+== Installation
 
-To test commands, you can run the following command:
+`jpd` is distributed as a single binary and can be installed via popular package managers or by downloading the binary directly.
 
-```sh
+[source,bash]
+----
+# Via Homebrew (macOS/Linux)
+brew install louiss0/tap/jpd
+
+# Via Scoop (Windows)
+scoop bucket add louiss0 https://github.com/louiss0/scoop-bucket.git
+scoop install jpd
+
+# Via Winget (Windows)
+winget install jpd
+
+# Via Chocolatey (Windows)
+choco install jpd
+
+# Manual Installation (Cross-platform)
+# Download the appropriate binary for your OS from the
+# https://github.com/louiss0/javascript-package-delegator/releases[releases page]
+# and place it in your system's PATH.
+----
+
+== Usage
+
+Once installed, you can use `jpd` in place of your usual package manager commands.
+
+=== General Usage
+
+To see all available commands and global flags:
+[source,bash]
+----
+jpd --help
+----
+
+To run a command:
+[source,bash]
+----
+jpd <command> [arguments...] [flags...]
+----
+
+For command-specific help:
+[source,bash]
+----
+jpd <command> --help
+----
+
+=== Examples
+
+Here are some common use cases for `jpd`:
+
+*   **Install all dependencies:**
+    [source,bash]
+    ----
+    jpd install
+    # Equivalent to: npm install, yarn install, pnpm install, bun install
+    ----
+
+*   **Add a new package:**
+    [source,bash]
+    ----
+    jpd install lodash
+    # Equivalent to: npm install lodash, yarn add lodash, pnpm add lodash, bun add lodash
+    ----
+
+*   **Add a development dependency:**
+    [source,bash]
+    ----
+    jpd install -D vitest
+    # Equivalent to: npm install --save-dev vitest, yarn add --dev vitest, pnpm add --save-dev vitest, bun add --development vitest
+    ----
+
+*   **Run a script:**
+    [source,bash]
+    ----
+    jpd run dev
+    # Equivalent to: npm run dev, yarn run dev, pnpm run dev, bun run dev
+    # For Deno: deno task dev
+    ----
+
+*   **List all available scripts/tasks:**
+    [source,bash]
+    ----
+    jpd run
+    ----
+
+*   **Execute a binary from node_modules or a remote package:**
+    [source,bash]
+    ----
+    jpd exec create-react-app my-app
+    # Equivalent to: npx create-react-app my-app, yarn dlx create-react-app my-app, pnpm dlx create-react-app my-app, bunx create-react-app my-app
+    ----
+
+*   **Update all packages:**
+    [source,bash]
+    ----
+    jpd update
+    # Equivalent to: npm update, yarn upgrade, pnpm update, bun update, deno outdated
+    ----
+
+*   **Uninstall a package:**
+    [source,bash]
+    ----
+    jpd uninstall lodash
+    # Equivalent to: npm uninstall lodash, yarn remove lodash, pnpm remove lodash, bun remove lodash
+    ----
+
+*   **Perform a clean install (for CI/CD):**
+    [source,bash]
+    ----
+    jpd clean-install
+    # Equivalent to: npm ci, yarn install --frozen-lockfile/--immutable, pnpm install --frozen-lockfile, bun install --frozen-lockfile
+    ----
+
+*   **Check the detected package manager:**
+    [source,bash]
+    ----
+    jpd agent
+    ----
+
+*   **Force a specific package manager (e.g., Yarn) for a command:**
+    [source,bash]
+    ----
+    jpd install --agent yarn
+    ----
+
+*   **Enable debug mode:**
+    [source,bash]
+    ----
+    jpd install --debug
+    ----
+
+NOTE:
+.This project is developed using a Test-Driven Development (TDD) approach.
+To run the test suite, use the `ginkgo` test runner:
+[source,sh]
+----
 ginkgo run
-```
-
-To watch files for changes and re-run tests:
-
-```sh
+----
+To watch files for changes and re-run tests automatically:
+[source,sh]
+----
 ginkgo watch
-```
-====
+----
 
-### Writing Commands
+== Project Structure
 
-When you create a new command, you should follow these steps:
+The project follows a modular structure to ensure maintainability and testability:
 
-. Create a new file in the `cmd` directory with the name of the command.
-. In the file, make a called New{CommandName}Cmd function that returns the command you see after using `cobra-cli add`.
-. In the `init()` 's `rootCmd.AddCommand()` Use the function you created in step 2.
-. In the function write the flags and arguments for the command after the variable creation.
-. Write tests for the command in the `javascript-package-delegator_suite_test.go` file.
-
-TIP: Use the `cobra-cli add` command to create a new command.
-
-NOTE: Remember to always add arguments to your commands.
-
-CAUTION: Gingko will run tests in parallel by default.
-
-
-## Project structure
-
-```sh
+[source,sh]
+----
 ├── cmd
+│   ├── agent.go        // 'agent' command logic
+│   ├── clean-install.go// 'clean-install' command logic
+│   ├── exec.go         // 'exec' command logic
+│   ├── install.go      // 'install' command logic
+│   ├── root.go         // Main Cobra root command setup and persistent logic
+│   ├── run.go          // 'run' command logic
+│   ├── uninstall.go    // 'uninstall' command logic
+│   └── update.go       // 'update' command logic
+├── custom_errors       // Custom error definitions
 │   └── root.go
-├── cmd_test.go
-├── cobra_cli_template_suite_test.go
-├── custom_errors
+├── custom_flags        // Custom Cobra flags for common use cases
 │   └── root.go
-├── custom_flags
+├── detect              // Package manager detection logic
 │   └── root.go
-├── go.mod
-├── go.sum
+├── env                 // Environment-related utilities (e.g., Go environment checks)
+│   └── root.go
+├── jpd-test            // Test utilities and helpers
+├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
+├── testutils           // General testing utilities
+├── .gitignore
 ├── LICENSE
-├── main.go
-├── README.adoc
-|-- goreleaser.yaml
-```
+├── README.adoc         // This documentation file
+├── cmd_test.go         // Tests for commands in `cmd` package
+├── coverprofile.out    // Go test coverage output
+├── default.nix         // Nix package configuration
+├── detect_test.go      // Tests for `detect` package
+├── go.mod              // Go module definition
+├── go.sum              // Go module checksums
+├── goreleaser.yaml     // GoReleaser configuration for releases
+├── javascript-package-delegator_suite_test.go // Ginkgo test suite setup
+└── main.go             // Entry point of the application
+----
 
-This project has the cmd package and two other packages.
-The `custom_errors` and `custom_flags` package.
-The custom errors package was created to created named errors.
-The custom flags package is created for generic flags.
+*   The `cmd` package contains the implementation for all `jpd` commands, organized into separate files for clarity.
+*   `custom_errors` is designed for creating named, reusable error types.
+*   `custom_flags` provides generic flag definitions for Cobra commands.
+*   The `detect` package encapsulates the logic for identifying the JavaScript package manager in a project.
+*   The `env` package contains environment-related utilities, potentially including checks for production/development modes.
 
-The custom_flags is filled with flags that are meant to be used in cobra's `cmd.Flags().Var()` methods.
-To use them you must create each struct in a variable then use each variable as a reference to each function.
-I decided to use the word `root.go` as the name of each file because it makes it clear that it's the main file.
+== Tools and Libraries Used
+
+`jpd` is built using robust Go libraries and tools:
+
+|===
+| Type | Name | Description
+
+| CLI Framework | `spf13/cobra` | A library for creating powerful modern CLI applications.
+| Logging | `charmbracelet/log` | A structured, colorful logger for the terminal.
+| Interactive UI | `charmbracelet/huh` | A library for building interactive prompts and forms in the terminal.
+| Utilities | `samber/lo` | A Lodash-style Go library for collections and common helpers.
+| Environment Loading | `joho/godotenv` | Loads environment variables from `.env` files.
+| Testing Framework | `onsi/ginkgo` | A BDD-style testing framework for Go.
+| Assertion Library | `testify/assert` | A Go testing framework with useful assertions and mocks.
+| Release Automation | `goreleaser/goreleaser` | Automates the entire Go project release cycle.
+| UI Styling | `charmbracelet/lipgloss` | Style definitions for nice terminal layouts.
+|===
+
+== Contributing
+
+We welcome contributions to `javascript-package-delegator`! If you're interested in contributing, please read our `CONTRIBUTING.md` (to be created) for guidelines on how to submit issues, features, and pull requests.
+
+=== Writing Commands
+
+When creating a new command for `jpd`, please follow these steps:
+
+1.  **Create a New File:** In the `cmd` directory, create a new Go file named after your command (e.g., `mycommand.go`).
+2.  **Define `New{CommandName}Cmd` Function:** Inside the new file, create a public function `New{CommandName}Cmd()` that returns a `*cobra.Command` instance. This function should contain the command's `Use`, `Short`, `Long` descriptions, `Aliases` (if any), `Args` validation, and the `RunE` or `PersistentPreRunE` logic.
+3.  **Register Command in `root.go`:** In the `init()` function of `javascript-package-delegator/cmd/root.go`, add your new command to the `rootCmd` using `cmd.AddCommand(New{CommandName}Cmd())`.
+4.  **Implement Flags and Arguments:** Define any command-specific flags or arguments within your `New{CommandName}Cmd` function. Ensure proper type and default value handling.
+5.  **Write Tests:** Create corresponding tests for your new command in the `javascript-package-delegator_suite_test.go` file (or a dedicated test file if the command is complex), leveraging `ginkgo` and `testify/assert`.
+
+TIP: Use `cobra-cli add <command-name>` as a starting point to generate the basic command structure.
+
+NOTE: Remember to always add appropriate arguments and flags to your commands and handle them robustly.
+
+CAUTION: Ginkgo runs tests in parallel by default. Be mindful of shared state in tests.
+
+== License
+
+This project is licensed under the MIT License. See the link:LICENSE[LICENSE] file for details.
