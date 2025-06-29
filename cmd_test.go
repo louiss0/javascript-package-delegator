@@ -782,45 +782,50 @@ var _ = Describe("JPD Commands", func() {
 				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
 			})
 
-			It("should handle deno with deps.ts file", func() {
-				err := os.WriteFile("deps.ts", []byte("export { serve } from 'https://deno.land/std/http/server.ts';"), 0644)
-				assert.NoError(err)
-				defer os.Remove("deps.ts")
-
-				_, err = executeCmd(denoRootCmd, "install")
-				assert.NoError(err)
-				assert.Contains(mockRunner.CommandCall.Name, "deno")
-				assert.Contains(mockRunner.CommandCall.Args, "cache")
-				assert.Contains(mockRunner.CommandCall.Args, "deps.ts")
-			})
-
-			It("should handle deno with mod.ts file when deps.ts doesn't exist", func() {
-				err := os.WriteFile("mod.ts", []byte("export * from './lib.ts';"), 0644)
-				assert.NoError(err)
-				defer os.Remove("mod.ts")
-
-				_, err = executeCmd(denoRootCmd, "install")
-				assert.NoError(err)
-				assert.Contains(mockRunner.CommandCall.Name, "deno")
-				assert.Contains(mockRunner.CommandCall.Args, "cache")
-				assert.Contains(mockRunner.CommandCall.Args, "mod.ts")
-			})
-
-			It("should return error for deno without deps.ts or mod.ts", func() {
+			It("should return an error if no packages are provided for a non-global install", func() {
 				_, err := executeCmd(denoRootCmd, "install")
 				assert.Error(err)
-				assert.Contains(err.Error(), "no deps.ts or mod.ts file found to cache")
+				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.False(mockRunner.HasBeenCalled)
 			})
 
-			It("should return error for deno with specific packages", func() {
-				_, err := executeCmd(denoRootCmd, "install", "lodash")
+			It("should return an error if --global flag is used without packages", func() {
+				// This case should still trigger the "one or more packages" error first
+				_, err := executeCmd(denoRootCmd, "install", "--global")
 				assert.Error(err)
-				assert.Contains(err.Error(), "deno doesn't support installing packages directly")
+				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.False(mockRunner.HasBeenCalled)
 			})
 
-			It("should return error for deno with dependencies (mocked error)", func() {
-				rootCmdWithError := createRootCommandWithDenoAsDefault(mockRunner, nil)
-				_, err := executeCmd(rootCmdWithError, "install", "lodash")
+			It("should execute deno install with --global flag and packages", func() {
+				_, err := executeCmd(denoRootCmd, "install", "--global", "my-global-tool")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("deno", "install", "my-global-tool"))
+			})
+
+			It("should return an error when --production flag is used", func() {
+				// Pass a package to ensure it bypasses the "no packages" error and hits the "production" error
+				_, err := executeCmd(denoRootCmd, "install", "--production", "my-package")
+				assert.Error(err)
+				assert.Contains(err.Error(), "Deno doesn't support prod!")
+				assert.False(mockRunner.HasBeenCalled)
+			})
+
+			It("should execute deno add with no flags and packages", func() {
+				_, err := executeCmd(denoRootCmd, "install", "my-package")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("deno", "add", "my-package"))
+			})
+
+			It("should execute deno add with --dev flag and packages", func() {
+				_, err := executeCmd(denoRootCmd, "install", "--dev", "my-dev-dep")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("deno", "add", "my-dev-dep", "--dev"))
+			})
+
+			It("should return an error if --dev flag is used without packages", func() {
+				// This case should still trigger the "one or more packages" error first
+				_, err := executeCmd(denoRootCmd, "install", "--dev")
 				assert.Error(err)
 				assert.Contains(err.Error(), "For deno one or more packages is required")
 				assert.False(mockRunner.HasBeenCalled)
