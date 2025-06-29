@@ -23,11 +23,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
 
-	"github.com/charmbracelet/log"
+	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/spf13/cobra"
 )
 
@@ -55,15 +52,8 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 
-			noVolta, err := cmd.Flags().GetBool("no-volta")
-			if err != nil {
-				return err
-			}
-
 			// Build command based on package manager and flags
 			var cmdArgs []string
-			var finalPm string = pm   // The actual executable to run (could become "volta")
-			var finalCmdArgs []string // The arguments for the final executable
 
 			switch pm {
 			case "npm":
@@ -144,62 +134,40 @@ Examples:
 				}
 
 			case "deno":
-				// Deno doesn't have traditional "install" - it downloads deps on run
-				// But we can cache dependencies
+
 				if len(args) == 0 {
-					// Check for deps.ts or mod.ts file to cache
-					if _, err := os.Stat("deps.ts"); err == nil {
-						cmdArgs = []string{"cache", "deps.ts"}
-					} else if _, err := os.Stat("mod.ts"); err == nil {
-						cmdArgs = []string{"cache", "mod.ts"}
-					} else {
-						return fmt.Errorf("deno: no deps.ts or mod.ts file found to cache")
-					}
-				} else {
-					// For specific packages, advise user to add them to imports
-					return fmt.Errorf("deno doesn't support installing packages directly. Add imports to your code or deps.ts file")
+
+					return fmt.Errorf("For deno one or more packages is required")
 				}
-				// Note: Deno ignores most flags as it doesn't have traditional package management
+
+				if production, _ := cmd.Flags().GetBool("production"); production {
+					return custom_errors.CreateInvalidFlagErrorWithMessage(
+						custom_errors.FlagName("production"),
+						"Deno doesn't support prod!",
+					)
+				}
+
+				if global, _ := cmd.Flags().GetBool("global"); global {
+
+					cmdArgs = append([]string{"install"}, args...)
+					break
+				}
+
+				cmdArgs = append([]string{"add"}, args...)
+
+				if dev, _ := cmd.Flags().GetBool("dev"); dev {
+					cmdArgs = append(cmdArgs, "--dev")
+				}
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
-
-			// --- Volta Integration for 'install' command ---
-			if !noVolta {
-				_, err := exec.LookPath("volta")
-				if err == nil { // Volta is found
-					if cmdRunner.IsDebug() {
-						log.Debug("Volta detected. Wrapping install command with 'volta run'.")
-					}
-					// Prepend "run" and the package manager to the arguments
-					finalCmdArgs = append([]string{"run", pm}, cmdArgs...)
-					finalPm = "volta"
-				} else {
-					if cmdRunner.IsDebug() {
-						log.Debug("Volta not found or not executable. Skipping Volta integration.")
-					}
-					// If Volta is not found, use the original package manager and arguments
-					finalPm = pm
-					finalCmdArgs = cmdArgs
-				}
-			} else {
-				if cmdRunner.IsDebug() {
-					log.Debug("Volta integration explicitly disabled by --no-volta flag.")
-				}
-				// If --no-volta is used, use the original package manager and arguments
-				finalPm = pm
-				finalCmdArgs = cmdArgs
-			}
-			// --- End Volta Integration ---
-
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Using %s\n", finalPm)
-				log.Infof("Running: %s %s\n", finalPm, strings.Join(finalCmdArgs, " "))
+
 			})
 
 			// Execute the command
-			cmdRunner.Command(finalPm, finalCmdArgs...)
+			cmdRunner.Command(pm, cmdArgs...)
 			return cmdRunner.Run()
 		},
 	}
