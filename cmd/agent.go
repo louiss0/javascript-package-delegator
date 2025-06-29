@@ -1,60 +1,56 @@
-/*
-Copyright © 2025 Shelton Louis
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
+// Package cmd contains the Cobra commands for the javascript-package-delegator CLI.
+// It defines the various subcommands and their logic for delegating to JavaScript package managers.
 package cmd
 
 import (
-	// "log/slog"
-
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
+// NewAgentCmd creates a new Cobra command for the "agent" functionality.
+// This command detects and displays the JavaScript package manager being used
+// in the current project, equivalent to the `na` command in `@antfu/ni`.
+// It is useful for quickly identifying which package manager `jpd` would delegate to.
+//
+// The command's `RunE` function retrieves the detected package manager name from the
+// command's persistent flags (which is populated by the root command's PersistentPreRunE
+// logic) and then executes a command to show information about that package manager.
 func NewAgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Show the detected package manager agent",
 		Long: `Show information about the detected package manager agent.
-Equivalent to 'na' command - detects and disp"Agentlays the package manager being used.
+Equivalent to 'na' command - detects and displays the package manager being used.
 
 This command shows which package manager would be used based on lock files in the current directory.
 
 Examples:
-  jpd    # Show detected package manager`,
+  jpd agent    # Show detected package manager
+  jpd agent -a yarn # Explicitly show yarn's agent info (e.g., its version or help)
+`,
 		Aliases: []string{"a"},
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-
+			// Retrieve the detected package manager name from the command's flags.
+			// This flag is populated by the root command's PersistentPreRunE logic.
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
+			// Get the environment configuration to determine if logging should be verbose.
 			goEnv := getGoEnvFromCommandContext(cmd)
 
+			// Log the detected package manager in production mode.
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Detected package manager, now executing command: %s\n", pm)
 			})
 
-			// Show detailed information
+			// Obtain the command runner from the context, which handles external process execution.
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			// Prepare the command to be executed. For the 'agent' command, it typically
+			// runs the package manager itself. Any additional arguments provided to 'jpd agent'
+			// are passed directly to the detected package manager.
 			cmdRunner.Command(pm, args...)
 
+			// Execute the command and return any error.
 			return cmdRunner.Run()
 		},
 	}

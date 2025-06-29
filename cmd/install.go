@@ -24,12 +24,17 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
+// NewInstallCmd creates a new Cobra command for the "install" functionality.
+// This command delegates to the appropriate JavaScript package manager (npm, Yarn, pnpm, Bun, or Deno)
+// to install project dependencies or specific packages.
+// It also includes optional Volta integration to ensure consistent toolchain usage.
 func NewInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install [packages...]",
@@ -41,20 +46,25 @@ Examples:
   jpd install           # Install all dependencies
   jpd install lodash    # Install lodash
   jpd install -D vitest # Install vitest as dev dependency
-  jpd install -g typescript # Install globally`,
+  jpd install -g typescript # Install globally
+  jpd install --no-volta # Install packages bypassing Volta, even if installed
+`,
 		Aliases: []string{"i", "add"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
-
 			goEnv := getGoEnvFromCommandContext(cmd)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 
-			goEnv.ExecuteIfModeIsProduction(func() {
-
-				log.Infof("Using %s\n", pm)
-			})
+			noVolta, err := cmd.Flags().GetBool("no-volta")
+			if err != nil {
+				return err
+			}
 
 			// Build command based on package manager and flags
 			var cmdArgs []string
+			var finalPm string = pm   // The actual executable to run (could become "volta")
+			var finalCmdArgs []string // The arguments for the final executable
+
 			switch pm {
 			case "npm":
 				if len(args) == 0 {
@@ -155,14 +165,41 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
-			cmdRunner.Command(pm, cmdArgs...)
+			// --- Volta Integration for 'install' command ---
+			if !noVolta {
+				_, err := exec.LookPath("volta")
+				if err == nil { // Volta is found
+					if cmdRunner.IsDebug() {
+						log.Debug("Volta detected. Wrapping install command with 'volta run'.")
+					}
+					// Prepend "run" and the package manager to the arguments
+					finalCmdArgs = append([]string{"run", pm}, cmdArgs...)
+					finalPm = "volta"
+				} else {
+					if cmdRunner.IsDebug() {
+						log.Debug("Volta not found or not executable. Skipping Volta integration.")
+					}
+					// If Volta is not found, use the original package manager and arguments
+					finalPm = pm
+					finalCmdArgs = cmdArgs
+				}
+			} else {
+				if cmdRunner.IsDebug() {
+					log.Debug("Volta integration explicitly disabled by --no-volta flag.")
+				}
+				// If --no-volta is used, use the original package manager and arguments
+				finalPm = pm
+				finalCmdArgs = cmdArgs
+			}
+			// --- End Volta Integration ---
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-
+				log.Infof("Using %s\n", finalPm)
+				log.Infof("Running: %s %s\n", finalPm, strings.Join(finalCmdArgs, " "))
 			})
+
+			// Execute the command
+			cmdRunner.Command(finalPm, finalCmdArgs...)
 			return cmdRunner.Run()
 		},
 	}
@@ -173,6 +210,7 @@ Examples:
 	cmd.Flags().BoolP("production", "P", false, "Install production dependencies only")
 	cmd.Flags().Bool("frozen", false, "Install with frozen lockfile")
 	cmd.Flags().BoolP("interactive", "i", false, "Interactive package selection")
+	cmd.Flags().Bool("no-volta", false, "Disable Volta integration for this command") // New flag for Volta opt-out
 
 	return cmd
 }
