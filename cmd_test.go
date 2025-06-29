@@ -530,6 +530,44 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal("i", flag.Shorthand)
 		})
 
+		Context("Volta", func() {
+
+			DescribeTable(
+				"Appends volta run when a node package manager is the agent",
+				func(packageManager string) {
+
+					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+
+					output, error := executeCmd(rootCommmand, "install")
+
+					assert.NoError(error)
+					assert.Empty(output)
+
+				},
+				EntryDescription("Volta run was appended to %s"),
+				Entry(nil, "npm"),
+				Entry(nil, "yarn"),
+				Entry(nil, "pnpm"),
+			)
+
+			DescribeTable(
+				"Doesn't append volta run when a non-node package manager is the agent",
+				func(packageManager string) {
+
+					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+
+					output, error := executeCmd(rootCommmand, "install")
+
+					assert.NoError(error)
+					assert.Empty(output)
+
+				},
+				EntryDescription("Volta run was't appended to %s"),
+				Entry(nil, "deno"),
+				Entry(nil, "bun"),
+			)
+		})
+
 		Context("npm", func() {
 			It("should run npm install with no args", func() {
 				_, err := executeCmd(rootCmd, "install")
@@ -784,7 +822,8 @@ var _ = Describe("JPD Commands", func() {
 				rootCmdWithError := createRootCommandWithDenoAsDefault(mockRunner, nil)
 				_, err := executeCmd(rootCmdWithError, "install", "lodash")
 				assert.Error(err)
-				assert.Contains(err.Error(), "deno doesn't support installing packages")
+				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.False(mockRunner.HasBeenCalled)
 			})
 		})
 
@@ -1614,6 +1653,43 @@ var _ = Describe("JPD Commands", func() {
 		BeforeEach(func() {
 
 			cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
+		})
+		Context("Volta", func() {
+
+			DescribeTable(
+				"Appends volta run when a node package manager is the agent",
+				func(packageManager string) {
+
+					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+
+					output, error := executeCmd(rootCommmand, "install")
+
+					assert.NoError(error)
+					assert.Empty(output)
+
+				},
+				EntryDescription("Volta run was appended to %s"),
+				Entry(nil, "npm"),
+				Entry(nil, "yarn"),
+				Entry(nil, "pnpm"),
+			)
+
+			DescribeTable(
+				"Doesn't append volta run when a non-node package manager is the agent",
+				func(packageManager string) {
+
+					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+
+					output, error := executeCmd(rootCommmand, "install")
+
+					assert.NoError(error)
+					assert.Empty(output)
+
+				},
+				EntryDescription("Volta run was't appended to %s"),
+				Entry(nil, "deno"),
+				Entry(nil, "bun"),
+			)
 		})
 
 		It("should show help", func() {
