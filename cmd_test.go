@@ -531,7 +531,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("Volta", func() {
-
 			DescribeTable(
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
@@ -543,11 +542,15 @@ var _ = Describe("JPD Commands", func() {
 					assert.NoError(error)
 					assert.Empty(output)
 
+					assert.Equal("volta", mockRunner.CommandCall.Name)
+
+					assert.Equal([]string{"run", packageManager, "install"}, mockRunner.CommandCall.Args)
+
 				},
 				EntryDescription("Volta run was appended to %s"),
-				Entry(nil, "npm"),
-				Entry(nil, "yarn"),
-				Entry(nil, "pnpm"),
+				Entry(nil, detect.NPM),
+				Entry(nil, detect.YARN),
+				Entry(nil, detect.PNPM),
 			)
 
 			DescribeTable(
@@ -556,15 +559,38 @@ var _ = Describe("JPD Commands", func() {
 
 					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
 
-					output, error := executeCmd(rootCommmand, "install")
+					var (
+						output string
+						error  error
+					)
 
-					assert.NoError(error)
-					assert.Empty(output)
+					if packageManager == detect.DENO {
+
+						output, error = executeCmd(rootCommmand, "install", "npm:cn-efs")
+						assert.NoError(error)
+						assert.Empty(output)
+
+						assert.Equal(packageManager, mockRunner.CommandCall.Name)
+
+						assert.Equal([]string{"add", "npm:cn-efs"}, mockRunner.CommandCall.Args)
+
+					} else {
+
+						output, error = executeCmd(rootCommmand, "install")
+
+						assert.NoError(error)
+						assert.Empty(output)
+
+						assert.Equal(mockRunner.CommandCall.Name, packageManager)
+
+						assert.Equal(mockRunner.CommandCall.Args, []string{"install"})
+
+					}
 
 				},
 				EntryDescription("Volta run was't appended to %s"),
-				Entry(nil, "deno"),
-				Entry(nil, "bun"),
+				Entry(nil, detect.DENO),
+				Entry(nil, detect.BUN),
 			)
 		})
 
@@ -1672,11 +1698,15 @@ var _ = Describe("JPD Commands", func() {
 					assert.NoError(error)
 					assert.Empty(output)
 
+					assert.Equal("volta", mockRunner.CommandCall.Name)
+
+					assert.Equal([]string{"run", packageManager, "install"}, mockRunner.CommandCall.Args)
+
 				},
 				EntryDescription("Volta run was appended to %s"),
-				Entry(nil, "npm"),
-				Entry(nil, "yarn"),
-				Entry(nil, "pnpm"),
+				Entry(nil, detect.NPM),
+				Entry(nil, detect.YARN),
+				Entry(nil, detect.PNPM),
 			)
 
 			DescribeTable(
@@ -1685,15 +1715,38 @@ var _ = Describe("JPD Commands", func() {
 
 					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
 
-					output, error := executeCmd(rootCommmand, "install")
+					var (
+						output string
+						error  error
+					)
 
-					assert.NoError(error)
-					assert.Empty(output)
+					if packageManager == detect.DENO {
+
+						output, error = executeCmd(rootCommmand, "install", "npm:cn-efs")
+						assert.NoError(error)
+						assert.Empty(output)
+
+						assert.Equal(packageManager, mockRunner.CommandCall.Name)
+
+						assert.Equal([]string{"add", "npm:cn-efs"}, mockRunner.CommandCall.Args)
+
+					} else {
+
+						output, error = executeCmd(rootCommmand, "install")
+
+						assert.NoError(error)
+						assert.Empty(output)
+
+						assert.Equal(mockRunner.CommandCall.Name, packageManager)
+
+						assert.Equal(mockRunner.CommandCall.Args, []string{"install"})
+
+					}
 
 				},
 				EntryDescription("Volta run was't appended to %s"),
-				Entry(nil, "deno"),
-				Entry(nil, "bun"),
+				Entry(nil, detect.DENO),
+				Entry(nil, detect.BUN),
 			)
 		})
 
