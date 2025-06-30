@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
-	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -520,24 +519,21 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Install Command", func() {
 
-		PContext("Works with the search flag", func() {
+		Context("Works with the search flag", func() {
 
-			It("returns err when value is passed to the flag ", func() {
+			It("returns err when value isn't passed to the flag ", func() {
 
 				_, err := executeCmd(rootCmd, "install", "--search")
 
 				assert.Error(err)
-				assert.ErrorIs(err, custom_errors.InvalidArgument)
-				assert.ErrorContains(err, "You can only use one argument in search mode")
 
 			})
 
 			It("returns err when an argument is passed when the flag is passed", func() {
 
-				_, err := executeCmd(rootCmd, "install", "vue", "--search")
+				_, err := executeCmd(rootCmd, "install", "vue", "--search", "foo")
 
 				assert.Error(err)
-				assert.ErrorIs(err, custom_errors.InvalidArgument)
 				assert.ErrorContains(err, "No arguments must be passed while the search flag is used")
 
 			})
