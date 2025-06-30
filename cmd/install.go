@@ -26,6 +26,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
+	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -33,12 +34,12 @@ import (
 
 // Add flags
 const (
-	_DEV_FLAG         = "dev"
-	_GLOBAL_FLAG      = "global"
-	_PRODUCTION_FLAG  = "production"
-	_FROZEN_FLAG      = "frozen"
-	_INTERACTIVE_FLAG = "interactive"
-	_NO_VOLTA_FLAG    = "no-volta"
+	_DEV_FLAG        = "dev"
+	_GLOBAL_FLAG     = "global"
+	_PRODUCTION_FLAG = "production"
+	_FROZEN_FLAG     = "frozen"
+	_SEARCH_FLAG     = "search"
+	_NO_VOLTA_FLAG   = "no-volta"
 )
 
 // NewInstallCmd creates a new Cobra command for the "install" functionality.
@@ -46,6 +47,9 @@ const (
 // to install project dependencies or specific packages.
 // It also includes optional Volta integration to ensure consistent toolchain usage.
 func NewInstallCmd(detectVolta func() bool) *cobra.Command {
+
+	var searchFlag = custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
+
 	cmd := &cobra.Command{
 		Use:   "install [packages...]",
 		Short: "Install packages using the detected package manager",
@@ -60,6 +64,17 @@ Examples:
   jpd install --no-volta # Install packages bypassing Volta, even if installed
 `,
 		Aliases: []string{"i", "add"},
+		Args: func(cmd *cobra.Command, args []string) error {
+
+			return lo.Ternary(
+				searchFlag.String() != "" && len(args) > 0,
+				custom_errors.CreateInvalidArgumentErrorWithMessage(
+					"No arguments must be passed while the search flag is used",
+				),
+				nil,
+			)
+
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
@@ -67,6 +82,10 @@ Examples:
 
 			// Build command based on package manager and flags
 			var cmdArgs []string
+
+			if searchFlag.String() != "" {
+
+			}
 
 			switch pm {
 			case "npm":
@@ -224,7 +243,7 @@ Examples:
 	cmd.Flags().BoolP(_GLOBAL_FLAG, "g", false, "Install globally")
 	cmd.Flags().BoolP(_PRODUCTION_FLAG, "P", false, "Install production dependencies only")
 	cmd.Flags().Bool(_FROZEN_FLAG, false, "Install with frozen lockfile")
-	cmd.Flags().BoolP(_INTERACTIVE_FLAG, "i", false, "Interactive package selection")
+	cmd.Flags().VarP(&searchFlag, _SEARCH_FLAG, "s", "Interactive package search selection")
 	cmd.Flags().Bool(_NO_VOLTA_FLAG, false, "Disable Volta integration for this command") // New flag for Volta opt-out
 
 	return cmd
