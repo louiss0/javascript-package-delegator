@@ -110,6 +110,7 @@ type Dependencies struct {
 	JS_PackageManagerDetector   func() (string, error)
 	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
 	CommandUITexter
+	DetectVolta func() bool
 }
 
 type CommandUITexter interface {
@@ -314,12 +315,12 @@ Available commands:
 	}
 
 	// Add all subcommands
-	cmd.AddCommand(NewInstallCmd())
+	cmd.AddCommand(NewInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewRunCmd())
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewUpdateCmd())
 	cmd.AddCommand(NewUninstallCmd())
-	cmd.AddCommand(NewCleanInstallCmd())
+	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewAgentCmd())
 
 	cmd.PersistentFlags().BoolP(DEBUG_FLAG, "d", false, "Make commands run in debug mode")
@@ -347,6 +348,7 @@ func init() {
 			JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			CommandUITexter:             newCommandTextUI(),
+			DetectVolta:                 detect.DetectVolta,
 		},
 	)
 

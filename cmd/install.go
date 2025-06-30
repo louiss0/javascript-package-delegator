@@ -24,7 +24,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
+	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +35,7 @@ import (
 // This command delegates to the appropriate JavaScript package manager (npm, Yarn, pnpm, Bun, or Deno)
 // to install project dependencies or specific packages.
 // It also includes optional Volta integration to ensure consistent toolchain usage.
-func NewInstallCmd() *cobra.Command {
+func NewInstallCmd(detectVolta func() bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install [packages...]",
 		Short: "Install packages using the detected package manager",
@@ -162,12 +165,33 @@ Examples:
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
-			goEnv.ExecuteIfModeIsProduction(func() {
 
-			})
+			if detectVolta() && lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) {
+
+				completeVoltaCommand := lo.Flatten([][]string{
+					detect.VOLTA_RUN_COMMNAD,
+					{pm},
+					cmdArgs,
+				})
+				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+
+					log.Info("Executing this ", "command", completeVoltaCommand)
+
+				})
+			} else {
+
+				cmdRunner.Command(pm, cmdArgs...)
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+
+					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
+
+				})
+			}
 
 			// Execute the command
-			cmdRunner.Command(pm, cmdArgs...)
 			return cmdRunner.Run()
 		},
 	}

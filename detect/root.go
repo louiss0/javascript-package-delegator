@@ -108,3 +108,19 @@ func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, e
 	return result, nil
 
 }
+
+const VOLTA = "volta"
+
+var VOLTA_RUN_COMMNAD = []string{VOLTA, "run"}
+
+func DetectVolta() bool {
+
+	_, err := exec.LookPath(VOLTA)
+
+	if err != nil {
+		return false
+	}
+
+	return true
+
+}

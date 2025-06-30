@@ -27,10 +27,11 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
-func NewCleanInstallCmd() *cobra.Command {
+func NewCleanInstallCmd(detectVolta func() bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean-install",
 		Short: "Clean install packages using the detected package manager",
@@ -82,12 +83,30 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			cmdRunner.Command(pm, cmdArgs...)
+			if detectVolta() && lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) {
 
-			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+				completeVoltaCommand := lo.Flatten([][]string{
+					detect.VOLTA_RUN_COMMNAD,
+					{pm},
+					cmdArgs,
+				})
+				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 
-			})
+				goEnv.ExecuteIfModeIsProduction(func() {
+
+					log.Info("Executing this ", "command", completeVoltaCommand)
+
+				})
+			} else {
+
+				cmdRunner.Command(pm, cmdArgs...)
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+
+					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
+
+				})
+			}
 
 			return cmdRunner.Run()
 		},
