@@ -227,6 +227,27 @@ var _ = Describe("JPD Commands", func() {
 
 					return packageManager, err
 				},
+				DetectVolta: func() bool {
+
+					return false
+				},
+			})
+	}
+
+	generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected := func(mockRunner *MockCommandRunner, packageManager string) *cobra.Command {
+		return cmd.NewRootCmd(
+			cmd.Dependencies{
+				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					return mockRunner
+				},
+				JS_PackageManagerDetector: func() (string, error) {
+
+					return packageManager, nil
+				},
+				DetectVolta: func() bool {
+
+					return true
+				},
 			})
 	}
 
@@ -251,6 +272,11 @@ var _ = Describe("JPD Commands", func() {
 				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
 					version: "2.0.0",
 				},
+
+				DetectVolta: func() bool {
+
+					return false
+				},
 			})
 	}
 
@@ -267,6 +293,11 @@ var _ = Describe("JPD Commands", func() {
 				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{
 					version: "1.0.0",
 				},
+
+				DetectVolta: func() bool {
+
+					return false
+				},
 			})
 	}
 
@@ -279,6 +310,11 @@ var _ = Describe("JPD Commands", func() {
 				JS_PackageManagerDetector: func() (string, error) {
 
 					return "yarn", err
+				},
+
+				DetectVolta: func() bool {
+
+					return false
 				},
 				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{},
 			})
@@ -535,7 +571,7 @@ var _ = Describe("JPD Commands", func() {
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
 
 					output, error := executeCmd(rootCommmand, "install")
 
@@ -557,7 +593,7 @@ var _ = Describe("JPD Commands", func() {
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
 
 					var (
 						output string
@@ -1691,7 +1727,7 @@ var _ = Describe("JPD Commands", func() {
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
 
 					output, error := executeCmd(rootCommmand, "install")
 
@@ -1713,7 +1749,7 @@ var _ = Describe("JPD Commands", func() {
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetector(mockRunner, packageManager, nil)
+					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
 
 					var (
 						output string
