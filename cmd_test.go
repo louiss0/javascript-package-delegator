@@ -540,7 +540,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("Returns an error if no packages are found", func() {
 
-				_, err := executeCmd(rootCmd, "install", "--search")
+				_, err := executeCmd(rootCmd, "install", "--search", "56")
 
 				assert.Error(err)
 				assert.ErrorContains(err, "Your query has failed")
