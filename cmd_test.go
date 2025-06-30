@@ -629,7 +629,7 @@ var _ = Describe("JPD Commands", func() {
 				Entry(nil, detect.BUN),
 			)
 
-			PIt("rejects volta usage if the --no-volta flag is passed", func() {
+			It("rejects volta usage if the --no-volta flag is passed", func() {
 
 				rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, "npm")
 
@@ -640,7 +640,7 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Equal("npm", mockRunner.CommandCall.Name)
 
-				assert.Equal([]string{"npm", "install"}, mockRunner.CommandCall.Args)
+				assert.Equal([]string{"install"}, mockRunner.CommandCall.Args)
 			})
 
 		})
@@ -1800,7 +1800,7 @@ var _ = Describe("JPD Commands", func() {
 				Entry(nil, detect.BUN),
 			)
 
-			PIt("rejects volta usage if the --no-volta flag is passed", func() {
+			It("rejects volta usage if the --no-volta flag is passed", func() {
 
 				rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, "npm")
 
@@ -1811,7 +1811,7 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Equal("npm", mockRunner.CommandCall.Name)
 
-				assert.Equal([]string{"npm", "install"}, mockRunner.CommandCall.Args)
+				assert.Equal([]string{"install"}, mockRunner.CommandCall.Args)
 			})
 
 		})
