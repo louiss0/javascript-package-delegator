@@ -520,11 +520,9 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Install Command", func() {
 
-		var installCmd *cobra.Command
-
 		PContext("Works with the search flag", func() {
 
-			It("returns err when more than one argument is passed is when the flag is passed", func() {
+			It("returns err when value is passed to the flag ", func() {
 
 				_, err := executeCmd(rootCmd, "install", "--search")
 
@@ -534,13 +532,13 @@ var _ = Describe("JPD Commands", func() {
 
 			})
 
-			It("returns err when no argument is passed when the flag is passed", func() {
+			It("returns err when an argument is passed when the flag is passed", func() {
 
-				_, err := executeCmd(rootCmd, "install", "--search")
+				_, err := executeCmd(rootCmd, "install", "vue", "--search")
 
 				assert.Error(err)
 				assert.ErrorIs(err, custom_errors.InvalidArgument)
-				assert.ErrorContains(err, "You must one argument in search mode the argument is used to search")
+				assert.ErrorContains(err, "No arguments must be passed while the search flag is used")
 
 			})
 
@@ -555,10 +553,29 @@ var _ = Describe("JPD Commands", func() {
 
 			It("works", func() {
 
+				const expected = "angular"
+				_, err := executeCmd(rootCmd, "install", "--search", expected)
+
+				assert.NoError(err)
+
+				assert.Equal("npm", mockRunner.CommandCall.Name)
+
+				assert.Contains(mockRunner.CommandCall.Args, "install")
+				assert.NotContains(mockRunner.CommandCall.Args, "--search")
+				assert.Conditionf(func() bool {
+					return lo.SomeBy(mockRunner.CommandCall.Args, func(item string) bool {
+						return strings.Contains(item, expected)
+					})
+				},
+					"The args are supposed to contain a word that is a part of this word %s",
+					expected,
+				)
+
 			})
 
 		})
 
+		var installCmd *cobra.Command
 		BeforeEach(func() {
 			installCmd, _ = getSubCommandWithName(rootCmd, "install")
 		})
@@ -596,12 +613,6 @@ var _ = Describe("JPD Commands", func() {
 		It("should have frozen flag", func() {
 			flag := installCmd.Flag("frozen")
 			assert.NotNil(flag)
-		})
-
-		It("should have interactive flag", func() {
-			flag := installCmd.Flag("interactive")
-			assert.NotNil(flag)
-			assert.Equal("i", flag.Shorthand)
 		})
 
 		Context("Volta", func() {
