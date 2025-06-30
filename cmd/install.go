@@ -31,6 +31,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add flags
+const (
+	_DEV_FLAG         = "dev"
+	_GLOBAL_FLAG      = "global"
+	_PRODUCTION_FLAG  = "production"
+	_FROZEN_FLAG      = "frozen"
+	_INTERACTIVE_FLAG = "interactive"
+	_NO_VOLTA_FLAG    = "no-volta"
+)
+
 // NewInstallCmd creates a new Cobra command for the "install" functionality.
 // This command delegates to the appropriate JavaScript package manager (npm, Yarn, pnpm, Bun, or Deno)
 // to install project dependencies or specific packages.
@@ -166,7 +176,21 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			if detectVolta() && lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) {
+			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
+
+			if error != nil {
+				return error
+			}
+
+			// shouldUseVoltaWithPackageManager is true if:
+			// 1. Volta is detected on the system (detectVolta())
+			// 2. The detected package manager (pm) is one of npm, pnpm, or yarn (lo.Contains checks this)
+			// 3. The --no-volta flag was NOT provided (!noVolta)
+			shouldUseVoltaWithPackageManager := detectVolta() &&
+				lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) &&
+				!noVolta
+
+			if shouldUseVoltaWithPackageManager {
 
 				completeVoltaCommand := lo.Flatten([][]string{
 					detect.VOLTA_RUN_COMMNAD,
@@ -196,13 +220,12 @@ Examples:
 		},
 	}
 
-	// Add flags
-	cmd.Flags().BoolP("dev", "D", false, "Install as dev dependency")
-	cmd.Flags().BoolP("global", "g", false, "Install globally")
-	cmd.Flags().BoolP("production", "P", false, "Install production dependencies only")
-	cmd.Flags().Bool("frozen", false, "Install with frozen lockfile")
-	cmd.Flags().BoolP("interactive", "i", false, "Interactive package selection")
-	cmd.Flags().Bool("no-volta", false, "Disable Volta integration for this command") // New flag for Volta opt-out
+	cmd.Flags().BoolP(_DEV_FLAG, "D", false, "Install as dev dependency")
+	cmd.Flags().BoolP(_GLOBAL_FLAG, "g", false, "Install globally")
+	cmd.Flags().BoolP(_PRODUCTION_FLAG, "P", false, "Install production dependencies only")
+	cmd.Flags().Bool(_FROZEN_FLAG, false, "Install with frozen lockfile")
+	cmd.Flags().BoolP(_INTERACTIVE_FLAG, "i", false, "Interactive package selection")
+	cmd.Flags().Bool(_NO_VOLTA_FLAG, false, "Disable Volta integration for this command") // New flag for Volta opt-out
 
 	return cmd
 }

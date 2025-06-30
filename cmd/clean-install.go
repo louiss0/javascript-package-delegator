@@ -83,8 +83,21 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			if detectVolta() && lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) {
+			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
 
+			if error != nil {
+				return error
+			}
+
+			// shouldUseVoltaWithPackageManager is true if:
+			// 1. Volta is detected on the system (detectVolta())
+			// 2. The detected package manager (pm) is one of npm, pnpm, or yarn (lo.Contains checks this)
+			// 3. The --no-volta flag was NOT provided (!noVolta)
+			shouldUseVoltaWithPackageManager := detectVolta() &&
+				lo.Contains([]string{detect.NPM, detect.PNPM, detect.YARN}, pm) &&
+				!noVolta
+
+			if shouldUseVoltaWithPackageManager {
 				completeVoltaCommand := lo.Flatten([][]string{
 					detect.VOLTA_RUN_COMMNAD,
 					{pm},
@@ -111,6 +124,8 @@ Examples:
 			return cmdRunner.Run()
 		},
 	}
+
+	cmd.Flags().Bool(_NO_VOLTA_FLAG, false, "Disable Volta integration for this command") // New flag for Volta opt-out
 
 	return cmd
 }
