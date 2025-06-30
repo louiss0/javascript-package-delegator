@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
+	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -520,6 +521,43 @@ var _ = Describe("JPD Commands", func() {
 	Describe("Install Command", func() {
 
 		var installCmd *cobra.Command
+
+		PContext("Works with the search flag", func() {
+
+			It("returns err when more than one argument is passed is when the flag is passed", func() {
+
+				_, err := executeCmd(rootCmd, "install", "--search")
+
+				assert.Error(err)
+				assert.ErrorIs(err, custom_errors.InvalidArgument)
+				assert.ErrorContains(err, "You can only use one argument in search mode")
+
+			})
+
+			It("returns err when no argument is passed when the flag is passed", func() {
+
+				_, err := executeCmd(rootCmd, "install", "--search")
+
+				assert.Error(err)
+				assert.ErrorIs(err, custom_errors.InvalidArgument)
+				assert.ErrorContains(err, "You must one argument in search mode the argument is used to search")
+
+			})
+
+			It("Returns an error if no packages are found", func() {
+
+				_, err := executeCmd(rootCmd, "install", "--search")
+
+				assert.Error(err)
+				assert.ErrorContains(err, "Your query has failed")
+
+			})
+
+			It("works", func() {
+
+			})
+
+		})
 
 		BeforeEach(func() {
 			installCmd, _ = getSubCommandWithName(rootCmd, "install")
