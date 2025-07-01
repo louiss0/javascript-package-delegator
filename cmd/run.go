@@ -29,12 +29,41 @@ import (
 	"strings"
 
 	// "github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
+
+type TaskUISelector interface {
+	Value() string
+	Run() error
+}
+
+type taskSelectorUI struct {
+	selectedValue string
+	selectUI      huh.Select[string]
+}
+
+func newTaskSelectorUI(options []string) TaskUISelector {
+	return &taskSelectorUI{
+		selectUI: *huh.NewSelect[string]().
+			Title("Select a task").
+			Description("Pick a task from one of your selected tasks").
+			Options(huh.NewOptions(options...)...),
+	}
+}
+
+func (t taskSelectorUI) Value() string {
+	return t.selectedValue
+}
+
+func (t taskSelectorUI) Run() error {
+
+	return t.selectUI.Value(&t.selectedValue).Run()
+}
 
 func NewRunCmd() *cobra.Command {
 	cmd := &cobra.Command{

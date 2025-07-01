@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -244,6 +245,36 @@ func (ui *MockPackageMultiSelectUI) Run() error {
 	mutable.Shuffle(ui.values)
 
 	ui.values = lo.Slice(ui.values, 0, randomNumber)
+
+	return nil
+}
+
+type MockTaskSelectUI struct {
+	selectedValue string
+	options       []string
+}
+
+func NewMockTaskSelectUI(options []string) cmd.TaskUISelector {
+	return &MockTaskSelectUI{
+		options: options,
+	}
+}
+
+func (t MockTaskSelectUI) Value() string {
+	return t.selectedValue
+}
+
+func (t *MockTaskSelectUI) Run() error {
+
+	if len(t.options) == 0 {
+		return fmt.Errorf("no tasks available for selection")
+	}
+
+	// Randomly select one option
+	source := rand.NewSource(uint64(time.Now().UnixNano()))
+	rng := rand.New(source)
+	randomIndex := rng.Intn(len(t.options))
+	t.selectedValue = t.options[randomIndex]
 
 	return nil
 }
@@ -634,7 +665,6 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Contains(mockRunner.CommandCall.Args, "install")
 				assert.NotContains(mockRunner.CommandCall.Args, "--search")
-				fmt.Println("Mock Runner Args", mockRunner.CommandCall.Args)
 				assert.Conditionf(func() bool {
 					return lo.SomeBy(mockRunner.CommandCall.Args, func(item string) bool {
 						return strings.Contains(item, expected)
@@ -1073,38 +1103,121 @@ var _ = Describe("JPD Commands", func() {
 			assert.NotNil(flag)
 		})
 
+		Context(
+			"How it responds if there are no arguments",
+			func() {
+
+				createRootCommandWithTaskSelectorUI := func(mockRunner *MockCommandRunner, packageManager string) *cobra.Command {
+					return cmd.NewRootCmd(
+						cmd.Dependencies{
+							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+								return mockRunner
+							},
+							JS_PackageManagerDetector: func() (string, error) {
+								return packageManager, nil // Or "deno" depending on the test context
+							},
+
+							DetectVolta: func() bool {
+								return false
+							},
+						})
+				}
+
+				var (
+					tempDir string
+					error   error
+					cwd     string
+					rootCmd *cobra.Command
+				)
+				BeforeEach(func() {
+
+					cwd, error = os.Getwd()
+					assert.NoError(error)
+
+					rootCmd = createRootCommandWithTaskSelectorUI(mockRunner, "npm")
+					tempDir, error = os.MkdirTemp("", "jpd-test-*")
+
+					assert.NoError(error)
+					assert.DirExists(tempDir)
+
+					os.Chdir(tempDir)
+
+				})
+
+				AfterEach(func() {
+					os.Chdir(cwd)
+					os.RemoveAll(tempDir)
+				})
+
+				It(
+					"returns an error If there is no tasks avaliable",
+					func() {
+
+						err := os.WriteFile("package.json", []byte(
+							`{
+								"scripts": {
+
+									}
+							   }
+							`),
+							os.ModePerm,
+						)
+
+						assert.NoError(err)
+
+						_, err = executeCmd(rootCmd, "run")
+
+						assert.Error(err)
+						assert.Contains(err.Error(), "No tasks available")
+					},
+				)
+
+				It(
+					"prompts the user to select a task from deno or package .json",
+					func() {
+
+						tasks := map[string]string{
+							"dev":   "vite",
+							"build": "vite build",
+							"test":  "vitest",
+						}
+
+						result, error := json.Marshal(tasks)
+						assert.NoError(error)
+
+						formattedString := fmt.Sprintf(
+							`{"scripts": %s }`,
+							string(result),
+						)
+
+						err := os.WriteFile(
+							"package.json",
+							[]byte(formattedString),
+							os.ModePerm,
+						)
+
+						assert.NoError(err)
+
+						_, err = executeCmd(rootCmd, "run")
+
+						assert.NoError(err)
+
+						assert.Equal("npm", mockRunner.CommandCall.Name)
+
+						taskNames := lo.Keys(tasks)
+
+						assert.True(
+							lo.Contains(taskNames, mockRunner.CommandCall.Args[2]),
+							fmt.Sprintf("The task name isn't one of those tasks %v", taskNames),
+						)
+
+					},
+				)
+
+			},
+		)
+
 		Context("npm", func() {
-			It("Should output a message with a list of scripts when there is no script name provided", func() {
-				cwd, _ := os.Getwd()
-				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
-				os.Chdir(jpdDir)
-				os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
-				defer os.Chdir(cwd)
-				defer os.RemoveAll(jpdDir)
-
-				rootCmdWithNpmAsDefault := createRootCommandWithNpmAsDefault(mockRunner, nil)
-				rootCmdWithNpmAsDefault.SetArgs([]string{})
-
-				output, err := executeCmd(rootCmdWithNpmAsDefault, "run")
-				assert.Contains(output, "Here are the scripts")
-				assert.NoError(err)
-			})
-
-			It("Should output an indicator saying there are no scripts", func() {
-				cwd, _ := os.Getwd()
-				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
-				os.Chdir(jpdDir)
-				os.WriteFile("package.json", []byte(`{"scripts": {}}`), 0644)
-				defer os.Chdir(cwd)
-				defer os.RemoveAll(jpdDir)
-
-				rootCmdWithNpmAsDefault := createRootCommandWithNpmAsDefault(mockRunner, nil)
-				rootCmdWithNpmAsDefault.SetArgs([]string{})
-
-				output, err := executeCmd(rootCmdWithNpmAsDefault, "run")
-				assert.Equal("No scripts found in package.json", output)
-				assert.NoError(err)
-			})
 
 			It("should run npm run with script name", func() {
 				originalDir, _ := os.Getwd()
