@@ -1172,6 +1172,50 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				It(
+					"prompts the user to select a task from deno .json if pkg is deno",
+					func() {
+
+						tasks := map[string]string{
+							"dev":   "vite",
+							"build": "vite build",
+							"test":  "vitest",
+						}
+
+						result, error := json.Marshal(tasks)
+						assert.NoError(error)
+
+						formattedString := fmt.Sprintf(
+							`{"scripts": %s }`,
+							string(result),
+						)
+
+						err := os.WriteFile(
+							"package.json",
+							[]byte(formattedString),
+							os.ModePerm,
+						)
+
+						assert.NoError(err)
+
+						rootCmdWithDenoAsDefault := createRootCommandWithTaskSelectorUI(mockRunner, "deno")
+
+						_, err = executeCmd(rootCmdWithDenoAsDefault, "run")
+
+						assert.NoError(err)
+
+						assert.Equal("npm", mockRunner.CommandCall.Name)
+
+						taskNames := lo.Keys(tasks)
+
+						assert.True(
+							lo.Contains(taskNames, mockRunner.CommandCall.Args[1]),
+							fmt.Sprintf("The task name isn't one of those tasks %v", taskNames),
+						)
+
+					},
+				)
+
+				It(
 					"returns an error If there is no tasks avaliable",
 					func() {
 
