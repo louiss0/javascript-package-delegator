@@ -35,6 +35,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
+	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -110,7 +111,8 @@ type Dependencies struct {
 	JS_PackageManagerDetector   func() (string, error)
 	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
 	CommandUITexter
-	DetectVolta func() bool
+	DetectVolta             func() bool
+	NewPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter
 }
 
 type CommandUITexter interface {
@@ -315,7 +317,7 @@ Available commands:
 	}
 
 	// Add all subcommands
-	cmd.AddCommand(NewInstallCmd(deps.DetectVolta))
+	cmd.AddCommand(NewInstallCmd(deps.DetectVolta, deps.NewPackageMultiSelectUI))
 	cmd.AddCommand(NewRunCmd())
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewUpdateCmd())
@@ -349,6 +351,10 @@ func init() {
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			CommandUITexter:             newCommandTextUI(),
 			DetectVolta:                 detect.DetectVolta,
+			NewPackageMultiSelectUI: func(pi []services.PackageInfo) MultiUISelecter {
+
+				return newPackageMultiSelectUI(pi)
+			},
 		},
 	)
 

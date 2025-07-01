@@ -24,10 +24,12 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -42,11 +44,54 @@ const (
 	_NO_VOLTA_FLAG   = "no-volta"
 )
 
+type MultiUISelecter interface {
+	Values() []string
+	Run() error
+}
+
+type packageMultiSelectUI struct {
+	value         []string
+	multiSelectUI *huh.MultiSelect[string]
+}
+
+func newPackageMultiSelectUI(packageInfo []services.PackageInfo) *packageMultiSelectUI {
+	return &packageMultiSelectUI{
+
+		multiSelectUI: huh.NewMultiSelect[string]().
+			Title("What packages do you want to install?").
+			Options(
+				lo.Map(
+					packageInfo,
+					func(packageInfo services.PackageInfo, index int) huh.Option[string] {
+
+						return huh.NewOption(
+							packageInfo.Name,
+							fmt.Sprintf(
+								"%s@%s",
+								packageInfo.Name, packageInfo.Version,
+							),
+						)
+
+					})...,
+			),
+	}
+}
+
+func (p packageMultiSelectUI) Values() []string {
+	return p.value
+}
+
+func (p *packageMultiSelectUI) Run() error {
+
+	return p.multiSelectUI.Value(&p.value).Run()
+
+}
+
 // NewInstallCmd creates a new Cobra command for the "install" functionality.
 // This command delegates to the appropriate JavaScript package manager (npm, Yarn, pnpm, Bun, or Deno)
 // to install project dependencies or specific packages.
 // It also includes optional Volta integration to ensure consistent toolchain usage.
-func NewInstallCmd(detectVolta func() bool) *cobra.Command {
+func NewInstallCmd(detectVolta func() bool, newPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter) *cobra.Command {
 
 	var searchFlag = custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
 
@@ -82,18 +127,44 @@ Examples:
 
 			// Build command based on package manager and flags
 			var cmdArgs []string
+			var selectedPackages []string
 
 			if searchFlag.String() != "" {
+
+				npmRegistryService := services.NewNpmRegistryService()
+
+				packageInfo, error := npmRegistryService.SearchPackages(searchFlag.String())
+
+				if error != nil {
+
+					return error
+				}
+
+				if len(packageInfo) == 0 {
+
+					return fmt.Errorf("Your query has failed %s", searchFlag.String())
+				}
+
+				installMultiSelect := newPackageMultiSelectUI(packageInfo)
+
+				if error := installMultiSelect.Run(); error != nil {
+
+					return error
+				}
+
+				selectedPackages = installMultiSelect.Values()
 
 			}
 
 			switch pm {
 			case "npm":
 				if len(args) == 0 {
-					cmdArgs = []string{"install"}
+					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
 				} else {
-					cmdArgs = []string{"install"}
-					cmdArgs = append(cmdArgs, args...)
+					cmdArgs = lo.Flatten([][]string{
+						{"install"},
+						args,
+					})
 				}
 				if dev, _ := cmd.Flags().GetBool("dev"); dev {
 					cmdArgs = append(cmdArgs, "--save-dev")
@@ -110,10 +181,12 @@ Examples:
 
 			case "yarn":
 				if len(args) == 0 {
-					cmdArgs = []string{"install"}
+					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
 				} else {
-					cmdArgs = []string{"add"}
-					cmdArgs = append(cmdArgs, args...)
+					cmdArgs = lo.Flatten([][]string{
+						{"add"},
+						args,
+					})
 				}
 				if dev, _ := cmd.Flags().GetBool("dev"); dev {
 					cmdArgs = append(cmdArgs, "--dev")
@@ -130,10 +203,14 @@ Examples:
 
 			case "pnpm":
 				if len(args) == 0 {
-					cmdArgs = []string{"install"}
+					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
+
 				} else {
-					cmdArgs = []string{"add"}
-					cmdArgs = append(cmdArgs, args...)
+					cmdArgs = lo.Flatten([][]string{
+						{"add"},
+						selectedPackages,
+						args,
+					})
 				}
 				if dev, _ := cmd.Flags().GetBool("dev"); dev {
 					cmdArgs = append(cmdArgs, "--save-dev")
@@ -150,10 +227,13 @@ Examples:
 
 			case "bun":
 				if len(args) == 0 {
-					cmdArgs = []string{"install"}
+					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
+
 				} else {
-					cmdArgs = []string{"add"}
-					cmdArgs = append(cmdArgs, args...)
+					cmdArgs = lo.Flatten([][]string{
+						{"add"},
+						args,
+					})
 				}
 				if dev, _ := cmd.Flags().GetBool("dev"); dev {
 					cmdArgs = append(cmdArgs, "--development")
@@ -199,6 +279,7 @@ Examples:
 
 			if error != nil {
 				return error
+
 			}
 
 			// shouldUseVoltaWithPackageManager is true if:
