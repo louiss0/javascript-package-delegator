@@ -1172,25 +1172,25 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				It(
-					"prompts the user to select a task from deno .json if pkg is deno",
+					"prompts the user to select a task from deno.json if pkg is deno",
 					func() {
 
 						tasks := map[string]string{
-							"dev":   "vite",
-							"build": "vite build",
-							"test":  "vitest",
+							"dev":   "deno run -A --watch main.ts",
+							"build": "deno compile --output my_app main.ts",
+							"test":  "deno test",
 						}
 
 						result, error := json.Marshal(tasks)
 						assert.NoError(error)
 
 						formattedString := fmt.Sprintf(
-							`{"scripts": %s }`,
+							`{"tasks": %s }`,
 							string(result),
 						)
 
 						err := os.WriteFile(
-							"package.json",
+							"deno.json",
 							[]byte(formattedString),
 							os.ModePerm,
 						)
@@ -1203,7 +1203,7 @@ var _ = Describe("JPD Commands", func() {
 
 						assert.NoError(err)
 
-						assert.Equal("npm", mockRunner.CommandCall.Name)
+						assert.Equal("deno", mockRunner.CommandCall.Name)
 
 						taskNames := lo.Keys(tasks)
 
@@ -1409,22 +1409,6 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
-			})
-
-			It("Should output a message with a list of scripts when there is no task name provided", func() {
-				cwd, _ := os.Getwd()
-				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
-				os.Chdir(jpdDir)
-				os.WriteFile("deno.json", []byte(`{"tasks": {"test": "echo 'test'"}}`), 0644)
-				defer os.Chdir(cwd)
-				defer os.RemoveAll(jpdDir)
-
-				rootCmdWithDenoAsDefault := createRootCommandWithDenoAsDefault(mockRunner, nil)
-				rootCmdWithDenoAsDefault.SetArgs([]string{})
-
-				output, err := executeCmd(rootCmdWithDenoAsDefault, "run")
-				assert.Contains(output, "Here are the tasks")
-				assert.NoError(err)
 			})
 
 			It("should return an error if deno is the package manager and the eval flag is passed", func() {
