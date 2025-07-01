@@ -7,13 +7,17 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/services"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/rand"
 )
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes
@@ -197,6 +201,51 @@ func (ui *MockCommandTextUI) Run() error {
 
 	return fmt.Errorf(strings.Join(cmd.INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), ui.value)
 
+}
+
+type MockPackageMultiSelectUI struct {
+	values []string
+}
+
+func (ui MockPackageMultiSelectUI) Values() []string {
+
+	return ui.values
+}
+
+func NewMockPackageMultiSelectUI(packages []services.PackageInfo) *MockPackageMultiSelectUI {
+
+	return &MockPackageMultiSelectUI{
+		values: lo.Map(packages, func(item services.PackageInfo, index int) string {
+
+			return item.Name
+		}),
+	}
+}
+
+func (ui *MockPackageMultiSelectUI) Run() error {
+
+	if len(ui.values) == 0 {
+		return fmt.Errorf("no packages available")
+	}
+
+	min := 1
+	max := 20
+
+	// 2. Seed the random number generator with the current time
+	// This ensures a different sequence of numbers each time the program runs.
+	source := rand.NewSource(uint64(time.Now().UnixNano()))
+	rng := rand.New(source)
+
+	// 3. Generate a random number within the range [min, max]
+	// rng.Intn(n) generates a number in [0, n).
+	// So, to get a number in [min, max], we need a range of (max - min + 1).
+	randomNumber := rng.Intn(max-min+1) + min
+
+	mutable.Shuffle(ui.values)
+
+	ui.values = lo.Slice(ui.values, 0, randomNumber)
+
+	return nil
 }
 
 // It ensures that each command has access to the package manager name and CommandRunner
@@ -519,7 +568,34 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Install Command", func() {
 
+		createRootCommandWithPackageManagerAndMultiSelectUI := func(mockRunner *MockCommandRunner) *cobra.Command {
+
+			return cmd.NewRootCmd(
+				cmd.Dependencies{
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
+					JS_PackageManagerDetector: func() (string, error) {
+						return "npm", nil
+					},
+					NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter {
+
+						return NewMockPackageMultiSelectUI(pi)
+
+					},
+					DetectVolta: func() bool {
+						return false
+					},
+				})
+		}
+
 		Context("Works with the search flag", func() {
+
+			var rootCmd *cobra.Command
+
+			BeforeEach(func() {
+				rootCmd = createRootCommandWithPackageManagerAndMultiSelectUI(mockRunner)
+			})
 
 			It("returns err when value isn't passed to the flag ", func() {
 
@@ -558,6 +634,7 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Contains(mockRunner.CommandCall.Args, "install")
 				assert.NotContains(mockRunner.CommandCall.Args, "--search")
+				fmt.Println("Mock Runner Args", mockRunner.CommandCall.Args)
 				assert.Conditionf(func() bool {
 					return lo.SomeBy(mockRunner.CommandCall.Args, func(item string) bool {
 						return strings.Contains(item, expected)
