@@ -1116,7 +1116,7 @@ var _ = Describe("JPD Commands", func() {
 							JS_PackageManagerDetector: func() (string, error) {
 								return packageManager, nil // Or "deno" depending on the test context
 							},
-
+							NewTaskSelectorUI: NewMockTaskSelectUI,
 							DetectVolta: func() bool {
 								return false
 							},
@@ -1195,7 +1195,7 @@ var _ = Describe("JPD Commands", func() {
 				)
 
 				It(
-					"prompts the user to select a task from deno or package .json",
+					"prompts the user to select a task from package .json",
 					func() {
 
 						tasks := map[string]string{
@@ -1229,7 +1229,7 @@ var _ = Describe("JPD Commands", func() {
 						taskNames := lo.Keys(tasks)
 
 						assert.True(
-							lo.Contains(taskNames, mockRunner.CommandCall.Args[2]),
+							lo.Contains(taskNames, mockRunner.CommandCall.Args[1]),
 							fmt.Sprintf("The task name isn't one of those tasks %v", taskNames),
 						)
 
