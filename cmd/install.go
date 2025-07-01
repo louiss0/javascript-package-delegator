@@ -54,7 +54,7 @@ type packageMultiSelectUI struct {
 	multiSelectUI *huh.MultiSelect[string]
 }
 
-func newPackageMultiSelectUI(packageInfo []services.PackageInfo) *packageMultiSelectUI {
+func newPackageMultiSelectUI(packageInfo []services.PackageInfo) MultiUISelecter {
 	return &packageMultiSelectUI{
 
 		multiSelectUI: huh.NewMultiSelect[string]().
