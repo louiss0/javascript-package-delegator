@@ -30,8 +30,6 @@ import (
 
 	// "github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
 	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -65,7 +63,7 @@ func (t taskSelectorUI) Run() error {
 	return t.selectUI.Value(&t.selectedValue).Run()
 }
 
-func NewRunCmd() *cobra.Command {
+func NewRunCmd(newTaskSelectorUI func(options []string) TaskUISelector) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [script] [args...]",
 		Short: "Run scripts using the detected package manager",
@@ -85,6 +83,8 @@ Examples:
 
 			// If no script name provided, list available scripts
 
+			var selectedPackage string
+
 			if pm == "deno" {
 
 				if len(args) == 0 {
@@ -95,40 +95,26 @@ Examples:
 					}
 
 					if len(pkg.Tasks) == 0 {
-						fmt.Fprint(cmd.OutOrStdout(), "No tasks found in deno.json")
-						return nil
+						return fmt.Errorf("No tasks found in deno.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
 
 						fmt.Fprintf(
 							cmd.OutOrStdout(),
-							"Here are the tasks %s",
+							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Tasks), ","),
 						)
-						return nil
 
 					}
 
-					log.Info("Available tasks:")
+					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Tasks))
 
-					scriptEntries := lo.Entries(pkg.Tasks)
+					if err := taskSelectorUI.Run(); err != nil {
+						return err
+					}
 
-					scriptTableScaffold := table.New().
-						Headers("name", "task")
-
-					lo.ForEach(scriptEntries, func(item lo.Entry[string, string], index int) {
-
-						scriptTableScaffold.Rows([]string{item.Key, item.Value})
-
-					})
-
-					scriptTable := lipgloss.NewStyle().Render(
-						scriptTableScaffold.Render(),
-					)
-					fmt.Println(scriptTable)
-
-					return nil
+					selectedPackage = taskSelectorUI.Value()
 				}
 
 			} else {
@@ -141,8 +127,8 @@ Examples:
 					}
 
 					if len(pkg.Scripts) == 0 {
-						fmt.Fprint(cmd.OutOrStdout(), "No scripts found in package.json")
-						return nil
+
+						return fmt.Errorf("No scripts found in package.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
@@ -152,35 +138,36 @@ Examples:
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Scripts), ","),
 						)
-						return nil
 
 					}
 
-					log.Info("Available scripts:")
+					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
 
-					scriptEntries := lo.Entries(pkg.Scripts)
+					if err := taskSelectorUI.Run(); err != nil {
+						return err
+					}
 
-					scriptTableScaffold := table.New().
-						Headers("name", "script")
+					selectedPackage = taskSelectorUI.Value()
 
-					lo.ForEach(scriptEntries, func(item lo.Entry[string, string], index int) {
-
-						scriptTableScaffold.Rows([]string{item.Key, item.Value})
-
-					})
-
-					scriptTable := lipgloss.NewStyle().Render(
-						scriptTableScaffold.Render(),
-					)
-					fmt.Println(scriptTable)
-
-					return nil
 				}
 
 			}
 
-			scriptName := args[0]
-			scriptArgs := args[1:]
+			scriptName := lo.TernaryF(
+				len(args) == 0,
+				func() string {
+					return selectedPackage
+				},
+				func() string {
+					return args[0]
+				},
+			)
+
+			var scriptArgs []string
+
+			if len(args) > 1 {
+				scriptArgs = args[1:]
+			}
 
 			// Check if script exists when --if-present flag is used
 			ifPresent, _ := cmd.Flags().GetBool("if-present")

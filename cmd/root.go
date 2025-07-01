@@ -113,6 +113,7 @@ type Dependencies struct {
 	CommandUITexter
 	DetectVolta             func() bool
 	NewPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter
+	NewTaskSelectorUI       func(options []string) TaskUISelector
 }
 
 type CommandUITexter interface {
@@ -318,7 +319,7 @@ Available commands:
 
 	// Add all subcommands
 	cmd.AddCommand(NewInstallCmd(deps.DetectVolta, deps.NewPackageMultiSelectUI))
-	cmd.AddCommand(NewRunCmd())
+	cmd.AddCommand(NewRunCmd(deps.NewTaskSelectorUI))
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewUpdateCmd())
 	cmd.AddCommand(NewUninstallCmd())
@@ -351,10 +352,7 @@ func init() {
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			CommandUITexter:             newCommandTextUI(),
 			DetectVolta:                 detect.DetectVolta,
-			NewPackageMultiSelectUI: func(pi []services.PackageInfo) MultiUISelecter {
-
-				return newPackageMultiSelectUI(pi)
-			},
+			NewPackageMultiSelectUI:     newPackageMultiSelectUI,
 		},
 	)
 
