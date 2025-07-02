@@ -2125,6 +2125,51 @@ var _ = Describe("JPD Commands", func() {
 			},
 		)
 
+		Context("deno", func() {
+
+			var denoRootCmd *cobra.Command
+
+			BeforeEach(func() {
+				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+			})
+
+			It("should execute deno remove with package name", func() {
+				_, err := executeCmd(denoRootCmd, "uninstall", "my_module")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("deno", "remove", "my_module"))
+			})
+
+			It("should execute deno uninstall with global flag and package name", func() {
+				_, err := executeCmd(denoRootCmd, "uninstall", "--global", "my-global-tool")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("deno", "uninstall", "my-global-tool"))
+			})
+
+			It("should return an error if no packages are provided for non-global uninstall", func() {
+				// The cobra.MinimumNArgs(1) check should catch this.
+				_, err := executeCmd(denoRootCmd, "uninstall")
+				assert.Error(err)
+				assert.Contains(err.Error(), "requires at least 1 arg(s)")
+				assert.False(mockRunner.HasBeenCalled)
+			})
+
+			It("should return an error if no packages are provided for global uninstall", func() {
+				// The cobra.MinimumNArgs(1) check should catch this, as --global doesn't negate it.
+				_, err := executeCmd(denoRootCmd, "uninstall", "--global")
+				assert.Error(err)
+				assert.Contains(err.Error(), "requires at least 1 arg(s)")
+				assert.False(mockRunner.HasBeenCalled)
+			})
+
+			It("should return an error when both global and interactive flags are used", func() {
+				_, err := executeCmd(denoRootCmd, "uninstall", "--global", "--interactive")
+				assert.Error(err)
+				assert.Contains(err.Error(), "if any flags in the group [global interactive] are set none of the others can be")
+				assert.False(mockRunner.HasBeenCalled)
+			})
+
+		})
+
 		Context("npm", func() {
 			It("should run npm uninstall with package name", func() {
 				_, err := executeCmd(rootCmd, "uninstall", "lodash")
