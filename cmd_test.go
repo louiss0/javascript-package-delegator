@@ -351,7 +351,11 @@ var _ = Describe("JPD Commands", func() {
 				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 					return mockRunner
 				},
-				JS_PackageManagerDetector: func() (string, error) {
+				DetectLockfile: func() (lockfile string, error error) {
+
+					return detect.PACKAGE_LOCK_JSON, nil
+				},
+				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 					return packageManager, err
 				},
@@ -368,7 +372,11 @@ var _ = Describe("JPD Commands", func() {
 				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 					return mockRunner
 				},
-				JS_PackageManagerDetector: func() (string, error) {
+				DetectLockfile: func() (lockfile string, error error) {
+
+					return detect.PACKAGE_LOCK_JSON, nil
+				},
+				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 					return packageManager, nil
 				},
@@ -378,7 +386,6 @@ var _ = Describe("JPD Commands", func() {
 				},
 			})
 	}
-
 	createRootCommandWithBunAsDefault := func(mockRunner *MockCommandRunner, err error) *cobra.Command {
 		return generateRootCommandWithPackageManagerDetector(mockRunner, "bun", err)
 	}
@@ -393,7 +400,11 @@ var _ = Describe("JPD Commands", func() {
 				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 					return mockRunner
 				},
-				JS_PackageManagerDetector: func() (string, error) {
+				DetectLockfile: func() (lockfile string, error error) {
+
+					return "", nil
+				},
+				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 					return "yarn", err
 				},
@@ -414,7 +425,11 @@ var _ = Describe("JPD Commands", func() {
 				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 					return mockRunner
 				},
-				JS_PackageManagerDetector: func() (string, error) {
+				DetectLockfile: func() (lockfile string, error error) {
+
+					return "", nil
+				},
+				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 					return "yarn", err
 				},
@@ -435,7 +450,11 @@ var _ = Describe("JPD Commands", func() {
 				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 					return mockRunner
 				},
-				JS_PackageManagerDetector: func() (string, error) {
+				DetectLockfile: func() (lockfile string, error error) {
+
+					return "", nil
+				},
+				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 					return "yarn", err
 				},
@@ -501,8 +520,11 @@ var _ = Describe("JPD Commands", func() {
 
 						return mockRunner
 					},
-					JS_PackageManagerDetector: func() (string, error) {
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						return "npm", nil
+					},
+					DetectLockfile: func() (lockfile string, error error) {
+						return "", nil
 					},
 					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 					CommandUITexter:             newMockCommandTextUI(),
@@ -639,7 +661,10 @@ var _ = Describe("JPD Commands", func() {
 						CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 							return mockRunner
 						},
-						JS_PackageManagerDetector: func() (string, error) {
+						DetectLockfile: func() (lockfile string, error error) {
+							return "", nil
+						},
+						DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 							return "", detect.ErrNoPackageManager
 						},
@@ -659,7 +684,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It(
 				`propmts the user for which command they would like to use to install package manager
-				 If the user refuses an error is produced.
+					If the user refuses an error is produced.
 				`,
 				func() {
 
@@ -740,10 +765,13 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 						return mockRunner
 					},
+					DetectLockfile: func() (lockfile string, error error) {
+						return "", nil
+					},
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
-					JS_PackageManagerDetector:   func() (string, error) { return "", fmt.Errorf("not detected") },
-					YarnCommandVersionOutputter: mockYarnVersionOutputter,
-					CommandUITexter:             mockCommandUITexter,
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
+					YarnCommandVersionOutputter:           mockYarnVersionOutputter,
+					CommandUITexter:                       mockCommandUITexter,
 				})
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
@@ -799,7 +827,10 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 						return mockRunner
 					},
-					JS_PackageManagerDetector: func() (string, error) {
+					DetectLockfile: func() (lockfile string, error error) {
+						return "", nil
+					},
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						return "npm", nil
 					},
 					NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter {
@@ -1306,7 +1337,10 @@ var _ = Describe("JPD Commands", func() {
 							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 								return mockRunner
 							},
-							JS_PackageManagerDetector: func() (string, error) {
+							DetectLockfile: func() (lockfile string, error error) {
+								return "", nil
+							},
+							DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 								return packageManager, nil // Or "deno" depending on the test context
 							},
 							NewTaskSelectorUI: NewMockTaskSelectUI,
@@ -1351,7 +1385,7 @@ var _ = Describe("JPD Commands", func() {
 							"tasks": {
 
 								}
-						   }
+									}
 						`),
 						os.ModePerm,
 					)
@@ -1417,7 +1451,7 @@ var _ = Describe("JPD Commands", func() {
 								"scripts": {
 
 									}
-							   }
+										}
 							`),
 							os.ModePerm,
 						)
@@ -2138,7 +2172,10 @@ var _ = Describe("JPD Commands", func() {
 							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 								return mockRunner
 							},
-							JS_PackageManagerDetector: func() (string, error) {
+							DetectLockfile: func() (lockfile string, error error) {
+								return "", nil
+							},
+							DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 								return "npm", nil // Assume npm for the test
 							},
 						})
@@ -2196,7 +2233,10 @@ var _ = Describe("JPD Commands", func() {
 								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 									return mockRunner
 								},
-								JS_PackageManagerDetector: func() (string, error) {
+								DetectLockfile: func() (lockfile string, error error) {
+									return "", nil
+								},
+								DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 									return "npm", nil // Assume npm for the test
 								},
 								NewDependencyMultiSelectUI: NewMockDependencySelectUI,
@@ -2261,7 +2301,10 @@ var _ = Describe("JPD Commands", func() {
 								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
 									return mockRunner
 								},
-								JS_PackageManagerDetector: func() (string, error) {
+								DetectLockfile: func() (lockfile string, error error) {
+									return "", nil
+								},
+								DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 									return "deno", nil // Assume npm for the test
 								},
 								NewDependencyMultiSelectUI: NewMockDependencySelectUI,
