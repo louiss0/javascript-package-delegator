@@ -120,7 +120,7 @@ Examples:
 			} else {
 
 				if len(args) == 0 {
-					pkg, err := readPackageJSON()
+					pkg, err := readPackageJSONAndUnmarshalScripts()
 
 					if err != nil {
 						return err
@@ -172,7 +172,7 @@ Examples:
 			// Check if script exists when --if-present flag is used
 			ifPresent, _ := cmd.Flags().GetBool("if-present")
 			if ifPresent {
-				pkg, err := readPackageJSON()
+				pkg, err := readPackageJSONAndUnmarshalScripts()
 				if err != nil {
 					return err
 				}
@@ -252,11 +252,11 @@ Examples:
 	return cmd
 }
 
-type PackageJSON struct {
+type PackageJSONScripts struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-func readPackageJSON() (*PackageJSON, error) {
+func readPackageJSONAndUnmarshalScripts() (*PackageJSONScripts, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -268,7 +268,7 @@ func readPackageJSON() (*PackageJSON, error) {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
 	}
 
-	var pkg PackageJSON
+	var pkg PackageJSONScripts
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return nil, fmt.Errorf("failed to parse package.json: %w", err)
 	}
