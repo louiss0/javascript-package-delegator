@@ -11,6 +11,62 @@ import (
 	"github.com/samber/lo"
 )
 
+// javascript-package-delegator/custom_flags/root.go
+
+// pathFlag represents a flag that must contain a valid POSIX/UNIX path
+type pathFlag struct {
+	value    string
+	flagName string
+}
+
+// NewPathFlag creates a new PathFlag with the given flag name
+func NewPathFlag(flagName string) pathFlag {
+	return pathFlag{
+		flagName: flagName,
+	}
+}
+
+// String returns the flag's value as a string
+func (p pathFlag) String() string {
+	return p.value
+}
+
+// Set validates and sets the flag's value, checking for valid path format
+func (p *pathFlag) Set(value string) error {
+	// First, check if the value is empty or just whitespace
+	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
+		return fmt.Errorf("The %s flag cannot be empty or contain only whitespace", p.flagName)
+	}
+
+	// Regex for general POSIX/UNIX paths (relative or absolute)
+	// Allows:
+	// - Optional leading slash (for absolute paths)
+	// - Segments consisting of alphanumeric, underscore, hyphen, or dot
+	// - Segments can be '.' or '..'
+	// - Segments separated by a single slash
+	// - Does NOT allow consecutive slashes (//)
+	// - Does NOT allow trailing slash unless it's just "/" (handled by the regex structure)
+	posixUnixFolderPathRegex := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/|\/)$`
+
+	match, err := regexp.MatchString(posixUnixFolderPathRegex, value)
+	if err != nil {
+		// This error indicates a problem with the regex itself, not the input value.
+		return fmt.Errorf("internal error: failed to compile path regex: %w", err)
+	}
+
+	if !match {
+		return fmt.Errorf("The %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
+	}
+
+	p.value = value
+	return nil
+}
+
+// Type returns the flag type as a string
+func (p pathFlag) Type() string {
+	return "string"
+}
+
 // emptyStringFlag represents a flag that cannot be empty or contain only whitespace
 type emptyStringFlag struct {
 	value    string

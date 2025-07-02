@@ -33,6 +33,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
+	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/services"
@@ -45,10 +46,11 @@ const PACKAGE_NAME = "package-name"                      // Used for storing det
 const _GO_ENV = "go_env"                                 // Used for storing GoEnv in context
 const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
 
-const _COMMAND_RUNNER_KEY = "command_runner"
+const COMMAND_RUNNER_KEY = "command_runner"
 const JPD_AGENT_ENV_VAR = "JPD_AGENT"
 const DEBUG_FLAG = "debug"
 const AGENT_FLAG = "agent"
+const _CWD_FLAG = "cwd"
 
 // CommandRunner Interface and its implementation
 // This interface allows for mocking command execution in tests.
@@ -63,6 +65,7 @@ type CommandRunner interface {
 	Command(string, ...string)
 	// This method calls the underlying `exec.Run()` to execute the command from `exec.Cmd`!
 	Run() error
+	SetTargetDir(string) error
 }
 
 type _ExecCommandFunc func(string, ...string) *exec.Cmd
@@ -89,6 +92,24 @@ func (e *executor) Command(name string, args ...string) {
 	e.cmd = e.execCommandFunc(name, args...)
 	e.cmd.Stdout = os.Stdout // Ensure output goes to stdout
 	e.cmd.Stderr = os.Stderr // Ensure errors go to stderr
+
+}
+
+func (e *executor) SetTargetDir(dir string) error {
+
+	fileInfo, err := os.Stat(dir) // Get file information
+	if err != nil {
+
+		return err
+	}
+
+	// Check if it's a directory
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("target directory %s is not a directory", dir)
+	}
+
+	e.cmd.Dir = dir
+	return nil
 }
 
 func (e executor) Run() error {
@@ -100,6 +121,7 @@ func (e executor) Run() error {
 
 		log.Debug("Using this command: %s \n", strings.Join(e.cmd.Args, " "))
 
+		log.Debug("Target directory: %s", e.cmd.Dir)
 	}
 
 	return e.cmd.Run()
@@ -179,6 +201,7 @@ func (ui *CommandTextUI) Run() error {
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
 
+	cwdFlag := custom_flags.NewPathFlag(_CWD_FLAG)
 	cmd := &cobra.Command{
 		Use:     "jpd",
 		Version: "0.0.0", // Default version or set via build process
@@ -221,9 +244,19 @@ Available commands:
 
 			commandRunner := deps.CommandRunnerGetter(isDebug)
 
+			if cwd := cwdFlag.String(); cwd != "" {
+
+				err := commandRunner.SetTargetDir(cwd)
+
+				if err != nil {
+					return err
+				}
+
+			}
+
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
-				{_COMMAND_RUNNER_KEY, commandRunner},
+				{COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
@@ -333,6 +366,8 @@ Available commands:
 
 	cmd.PersistentFlags().StringP(AGENT_FLAG, "a", "", "Select the JS package manager you want to use")
 
+	cmd.PersistentFlags().VarP(&cwdFlag, _CWD_FLAG, "C", "Set the working directory for commands")
+
 	cmd.RegisterFlagCompletionFunc(
 		AGENT_FLAG,
 		cobra.FixedCompletions(detect.SupportedJSPackageManagers[:], cobra.ShellCompDirectiveNoFileComp),
@@ -375,7 +410,7 @@ func Execute() {
 
 func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
 
-	return cmd.Context().Value(_COMMAND_RUNNER_KEY).(CommandRunner)
+	return cmd.Context().Value(COMMAND_RUNNER_KEY).(CommandRunner)
 }
 
 func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {
