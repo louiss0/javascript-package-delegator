@@ -30,6 +30,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -100,13 +101,43 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 	return prodAndDevDependenciesMerged, nil
 }
 
+func extractImportsFromDenoJSON() ([]string, error) {
+
+	type DenoJSONDependencies struct {
+		Imports map[string]string `json:"imports"`
+	}
+
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		return nil, err
+	}
+
+	denoJSONPath := filepath.Join(cwd, "deno.json")
+	data, err := os.ReadFile(denoJSONPath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read deno.json: %w", err)
+	}
+
+	var pkg DenoJSONDependencies
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, fmt.Errorf("failed to parse deno.json: %w", err)
+	}
+
+	importValues := lo.Values(pkg.Imports)
+
+	return importValues, nil
+}
+
 const _INTERACTIVE_FLAG = "interactive"
 
 func NewUninstallCmd(newDependencySelectorUI func(options []string) DependencyUIMultiSelector) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <packages...>",
 		Short: "Uninstall packages using the detected package manager",
-		Long: `Uninstall packages using the appropriate package manager.
+		Long: `Uninstall packages using thme appropriate package manager.
 Equivalent to 'nun' command - detects npm, yarn, pnpm, or bun and runs the uninstall command.
 
 Examples:
@@ -152,10 +183,25 @@ Examples:
 
 			if interactive {
 
-				dependencies, err := extractProdAndDevDependenciesFromPackageJSON()
+				packageIsDeno := pm == detect.DENO
 
-				if err != nil {
-					return err
+				var (
+					dependencies []string
+					err          error
+				)
+
+				if packageIsDeno {
+
+					dependencies, err = extractImportsFromDenoJSON()
+					if err != nil {
+						return err
+					}
+				} else {
+
+					dependencies, err = extractProdAndDevDependenciesFromPackageJSON()
+					if err != nil {
+						return err
+					}
 				}
 
 				if len(dependencies) == 0 {
@@ -176,7 +222,7 @@ Examples:
 			// Build command based on package manager and flags
 			var cmdArgs []string
 			switch pm {
-			case "npm":
+			case detect.NPM:
 				cmdArgs = []string{"uninstall"}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
 
@@ -184,26 +230,38 @@ Examples:
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
-			case "yarn":
+			case detect.YARN:
 				cmdArgs = []string{"remove"}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
+
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
-			case "pnpm":
+			case detect.PNPM:
 				cmdArgs = []string{"remove"}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
+
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
-			case "bun":
+			case detect.BUN:
 				cmdArgs = []string{"remove"}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
+
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
+
+			case detect.DENO:
+				if global {
+					cmdArgs = []string{"uninstall"}
+				} else {
+
+					cmdArgs = []string{"remove"}
+				}
+				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
