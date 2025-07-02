@@ -30,20 +30,23 @@ type MockCommandRunner struct {
 	// HasBeenCalled indicates if a command has been set for this run
 	HasBeenCalled bool
 	isDebug       bool
+	WorkingDir    string
 }
 
 // CommandCall represents a single command call with its name and arguments
 type CommandCall struct {
-	Name string
-	Args []string
+	Name       string
+	Args       []string
+	WorkingDir string
 }
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner
-func NewMockCommandRunner() *MockCommandRunner {
+func NewMockCommandRunner(isDebug bool) *MockCommandRunner {
 	return &MockCommandRunner{
 		CommandCall:     CommandCall{},
 		InvalidCommands: []string{},
 		HasBeenCalled:   false,
+		isDebug:         isDebug,
 	}
 }
 
@@ -58,6 +61,10 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 
 func (m MockCommandRunner) IsDebug() bool {
 	return m.isDebug
+}
+
+func (m MockCommandRunner) SetTargetDir(dir string) {
+	m.CommandCall.WorkingDir = dir
 }
 
 // Run simulates running the command and records it.
@@ -315,7 +322,7 @@ var _ = Describe("JPD Commands", func() {
 	assert := assert.New(GinkgoT())
 
 	var rootCmd *cobra.Command
-	mockRunner := NewMockCommandRunner()
+	mockRunner := NewMockCommandRunner(false)
 
 	getSubCommandWithName := func(cmd *cobra.Command, name string) (*cobra.Command, bool) {
 
@@ -462,6 +469,164 @@ var _ = Describe("JPD Commands", func() {
 			assert.NoError(err)
 			assert.Contains(output, "JavaScript Package Delegator")
 			assert.Contains(output, "jpd")
+		})
+
+		Context("CWD Flag (-C)", func() {
+			var currentRootCmd *cobra.Command
+			var mockRunner *MockCommandRunner
+
+			var originalCwd string
+
+			BeforeEach(func() {
+				// Save original CWD
+				var err error
+				originalCwd, err = os.Getwd()
+				assert.NoError(err)
+
+				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
+					CommandRunnerGetter: func(isDebug bool) cmd.CommandRunner {
+						mockRunner = NewMockCommandRunner(isDebug) // MockCommandRunner initialized with the target CWD
+
+						return mockRunner
+					},
+					JS_PackageManagerDetector: func() (string, error) {
+						return "npm", nil
+					},
+					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					CommandUITexter:             newMockCommandTextUI(),
+					DetectVolta:                 func() bool { return false },
+					NewTaskSelectorUI:           NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:  NewMockDependencySelectUI,
+				})
+
+				// Make sure mocks are properly set for the command
+				// Since we're using a custom CommandRunnerGetter, we need to extract the mockRunner from it
+				// and ensure it's the one we expect.
+				// This is a bit of a workaround for the mock being internal to the getter func.
+				// A better pattern might be to pass the mockRunner directly, or have a way to retrieve it.
+				// For now, we assume the getter always returns our mockRunner and can set the internal one.
+			})
+
+			AfterEach(func() {
+				// Clean up the temporary directory if it was created
+				// In a real scenario, you'd want to remove tempDir here.
+				// For now, we'll rely on the OS to clean up temp files eventually.
+
+				// Restore original CWD, though not strictly necessary if test doesn't change it.
+				os.Chdir(originalCwd)
+			})
+
+			It("should reject a --cwd flag value that does not end with '/'", func() {
+				invalidPath := "/tmp/my-project" // Missing trailing slash
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
+				assert.Error(err)
+				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+				assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
+				assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
+			})
+
+			It("should reject a --cwd flag value that is a filename", func() {
+				invalidPath := "my-file.txt" // A file-like path
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "-C", invalidPath)
+				assert.Error(err)
+				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
+			})
+
+			It("should reject a --cwd flag value that is empty", func() {
+				// Cobra's String flag parsing will often treat an empty string as valid input if
+				// the flag is just boolean or string. However, our PathFlag.Set has an explicit check.
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", "")
+				assert.Error(err)
+				assert.Contains(err.Error(), "The cwd flag cannot be empty or contain only whitespace")
+			})
+
+			It("should reject a --cwd flag value that contains only whitespace", func() {
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", "   ")
+				assert.Error(err)
+				assert.Contains(err.Error(), "The cwd flag cannot be empty or contain only whitespace")
+			})
+
+			It("should reject a --cwd flag value with invalid characters", func() {
+				invalidPath := "/path/with:colon/" // Invalid character ':'
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
+				assert.Error(err)
+				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
+			})
+
+			It("should accept a valid root path '/' for --cwd", func() {
+				validPath := "/"
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
+				assert.NoError(err)
+			})
+
+			It("should accept a valid relative folder path './' for --cwd", func() {
+				validPath := "./"
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
+				assert.NoError(err)
+			})
+
+			It("should accept a valid relative parent folder path '../' for --cwd", func() {
+				validPath := "../"
+				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
+				assert.NoError(err)
+			})
+
+			It("should run a command in the specified directory using -C", func() {
+				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-1-*")
+				assert.NoError(err)
+				defer os.RemoveAll(fmt.Sprintf("%s/", tempDir)) // Clean up temp directory
+
+				// Execute a command with -C flag
+				_, err = executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", tempDir)
+				assert.NoError(err)
+
+				// Verify the CommandRunner received the correct working directory
+				// We need to retrieve the actual mockRunner instance used by the command.
+				// This requires a slight adjustment to how we get the mockRunner,
+				// or make it globally accessible in the test suite for simplicity, but that's less ideal.
+				// For now, we assume the CommandRunnerGetter passes our mock.
+				assert.Equal("npm", mockRunner.CommandCall.Name)
+				assert.Contains(mockRunner.CommandCall.Args, "install")
+				assert.Equal(tempDir, mockRunner.CommandCall.WorkingDir)
+			})
+
+			It("should run a command in the specified directory using --cwd", func() {
+				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-2-*")
+				assert.NoError(err)
+				defer os.RemoveAll(fmt.Sprintf("%s/", tempDir)) // Clean up temp directory
+
+				_, err = executeCmd(currentRootCmd, "run", "dev", "--agent", "yarn", "--cwd", tempDir)
+				assert.NoError(err)
+
+				assert.Equal("yarn", mockRunner.CommandCall.Name)
+				assert.Contains(mockRunner.CommandCall.Args, "run")
+				assert.Contains(mockRunner.CommandCall.Args, "dev")
+				assert.Equal(tempDir, mockRunner.CommandCall.WorkingDir)
+			})
+
+			It("should not set a working directory if -C is not provided", func() {
+				_, err := executeCmd(currentRootCmd, "agent", "--agent", "pnpm")
+				assert.NoError(err)
+
+				assert.Equal("pnpm", mockRunner.CommandCall.Name)
+				// When Dir is not explicitly set, it defaults to the current working directory of the process.
+				// An empty string for WorkingDir in our mock implies it wasn't explicitly overridden by -C.
+				// We should verify that `e.cmd.Dir` remains unset (empty string) in the mock,
+				// which indicates the default behavior of exec.Command().
+				assert.Empty(mockRunner.CommandCall.WorkingDir) // Assert that it's empty, implying default behavior
+			})
+
+			It("should handle a non-existent directory gracefully (likely fail at exec.Command level)", func() {
+				nonExistentDir := "/non/existent/path/for/jpd/test" // A path that should not exist
+				_, err := executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", fmt.Sprintf("%s/", nonExistentDir))
+				// Expect an error because the directory doesn't exist. The error will come from os/exec.Command.
+				assert.Error(err)
+				assert.Contains(err.Error(), "no such file or directory") // Specific error message for non-existent path
+			})
 		})
 
 		Context("How it responds to Package Detection Failure", func() {
@@ -2381,7 +2546,7 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			})
 
@@ -2403,7 +2568,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
 			})
 
@@ -2418,7 +2583,7 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
 			})
 
@@ -2433,7 +2598,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
 			})
 
@@ -2499,7 +2664,7 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
 			})
 
@@ -2514,7 +2679,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = NewMockCommandRunner()
+				mockRunner = NewMockCommandRunner(false)
 				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
 			})
 
@@ -2567,7 +2732,7 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("MockCommandRunner Interface (Single Command Expected)", func() {
 		It("should properly record a single command", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 			testRunner.Command("npm", "install", "lodash")
 			err := testRunner.Run()
 			assert.NoError(err)
@@ -2576,14 +2741,14 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should return error if no command is set before run", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 			err := testRunner.Run()
 			assert.Error(err)
 			assert.Contains(err.Error(), "no command set to run")
 		})
 
 		It("should return errors for invalid commands", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 			testRunner.InvalidCommands = []string{"npm"}
 			testRunner.Command("npm", "install")
 			err := testRunner.Run()
@@ -2592,7 +2757,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should correctly check for command execution", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 			testRunner.Command("npm", "install", "lodash")
 			testRunner.Run()
 
@@ -2601,7 +2766,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should properly reset all state", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 			testRunner.Command("npm", "install", "lodash")
 			testRunner.Run()
 			testRunner.InvalidCommands = []string{"yarn"}
@@ -2614,7 +2779,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should return the last executed command", func() {
-			testRunner := NewMockCommandRunner()
+			testRunner := NewMockCommandRunner(false)
 
 			cmdCall, exists := testRunner.LastCommand()
 			assert.False(exists)
