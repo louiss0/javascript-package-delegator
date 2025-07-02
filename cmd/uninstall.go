@@ -100,7 +100,9 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 	return prodAndDevDependenciesMerged, nil
 }
 
-func NewUninstallCmd() *cobra.Command {
+const _INTERACTIVE_FLAG = "interactive"
+
+func NewUninstallCmd(newDependencySelectorUI func(options []string) DependencyUIMultiSelector) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <packages...>",
 		Short: "Uninstall packages using the detected package manager",
@@ -112,7 +114,21 @@ Examples:
   javascript-package-delegator uninstall lodash react # Uninstall multiple packages
   javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
-		Args:    cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+
+			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
+
+			if err != nil {
+				return err
+			}
+
+			return lo.Ternary(
+				!interactive,
+				cobra.MinimumNArgs(1)(cmd, args),
+				nil,
+			)
+
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
@@ -126,33 +142,65 @@ Examples:
 			// Get flags
 			global, _ := cmd.Flags().GetBool("global")
 
+			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
+
+			if err != nil {
+				return err
+			}
+
+			var selectedPackages []string
+
+			if interactive {
+
+				dependencies, err := extractProdAndDevDependenciesFromPackageJSON()
+
+				if err != nil {
+					return err
+				}
+
+				if len(dependencies) == 0 {
+					return fmt.Errorf("No packages found for interactive uninstall.")
+				}
+
+				dependencySelectorUI := newDependencySelectorUI(dependencies)
+
+				if error := dependencySelectorUI.Run(); error != nil {
+
+					return error
+				}
+
+				selectedPackages = dependencySelectorUI.Values()
+
+			}
+
 			// Build command based on package manager and flags
 			var cmdArgs []string
 			switch pm {
 			case "npm":
 				cmdArgs = []string{"uninstall"}
-				cmdArgs = append(cmdArgs, args...)
+				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
+
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
 			case "yarn":
 				cmdArgs = []string{"remove"}
-				cmdArgs = append(cmdArgs, args...)
+				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
 			case "pnpm":
 				cmdArgs = []string{"remove"}
-				cmdArgs = append(cmdArgs, args...)
+				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
 
 			case "bun":
 				cmdArgs = []string{"remove"}
-				cmdArgs = append(cmdArgs, args...)
+				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
 				}
@@ -174,7 +222,10 @@ Examples:
 	}
 
 	// Add flags
-	cmd.Flags().BoolP("global", "g", false, "Uninstall global packages")
+	cmd.Flags().BoolP(_GLOBAL_FLAG, "g", false, "Uninstall global packages")
+	cmd.Flags().BoolP(_INTERACTIVE_FLAG, "i", false, "Uninstall packages interactively")
+
+	cmd.MarkFlagsMutuallyExclusive(_GLOBAL_FLAG, _INTERACTIVE_FLAG)
 
 	return cmd
 }

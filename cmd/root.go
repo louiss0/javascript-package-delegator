@@ -323,7 +323,7 @@ Available commands:
 	cmd.AddCommand(NewRunCmd(deps.NewTaskSelectorUI))
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewUpdateCmd())
-	cmd.AddCommand(NewUninstallCmd())
+	cmd.AddCommand(NewUninstallCmd(deps.NewDependencyMultiSelectUI))
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewAgentCmd())
 
