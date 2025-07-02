@@ -201,7 +201,7 @@ func (ui *MockCommandTextUI) SetValue(value string) string {
 	return ui.value
 }
 
-func newMockCommandTextUI() *MockCommandTextUI {
+func newMockCommandTextUI(string) cmd.CommandUITexter {
 
 	return &MockCommandTextUI{}
 }
@@ -527,7 +527,7 @@ var _ = Describe("JPD Commands", func() {
 						return "", nil
 					},
 					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
-					CommandUITexter:             newMockCommandTextUI(),
+					NewCommandTextUI:            newMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
 					NewTaskSelectorUI:           NewMockTaskSelectUI,
 					NewDependencyMultiSelectUI:  NewMockDependencySelectUI,
@@ -651,10 +651,8 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("How it responds to Package Detection Failure", func() {
-			var commandTextUI *MockCommandTextUI
-			var currentCommand *cobra.Command
-			generateRootCommandUsingPreSelectedValues := func() *cobra.Command {
-				commandTextUI = newMockCommandTextUI()
+
+			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
 
 				return cmd.NewRootCmd(
 					cmd.Dependencies{
@@ -668,25 +666,28 @@ var _ = Describe("JPD Commands", func() {
 
 							return "", detect.ErrNoPackageManager
 						},
-						CommandUITexter: commandTextUI,
+						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
+
+							commandTextUI := newMockCommandTextUI(lockfile).(*MockCommandTextUI)
+
+							commandTextUI.SetValue(value)
+
+							return commandTextUI
+						},
 					},
 				)
 
 			}
-
-			BeforeEach(func() {
-
-				currentCommand = generateRootCommandUsingPreSelectedValues()
-				currentCommand.SetContext(context.Background())
-				currentCommand.ParseFlags([]string{})
-
-			})
 
 			It(
 				`propmts the user for which command they would like to use to install package manager
 					If the user refuses an error is produced.
 				`,
 				func() {
+
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue("")
+					currentCommand.SetContext(context.Background())
+					currentCommand.ParseFlags([]string{})
 
 					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
 					assert.Error(err)
@@ -700,7 +701,9 @@ var _ = Describe("JPD Commands", func() {
 
 					commandString := "winget install pnpm.pnpm"
 
-					commandTextUI.SetValue(commandString)
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(commandString)
+					currentCommand.SetContext(context.Background())
+					currentCommand.ParseFlags([]string{})
 
 					error := currentCommand.PersistentPreRunE(currentCommand, []string{})
 
@@ -720,7 +723,9 @@ var _ = Describe("JPD Commands", func() {
 				"executes the command based typical instaltion commands",
 				func(inputCommand string, expectedCommandName string, expectedCommandArgs []string) {
 
-					commandTextUI.SetValue(inputCommand)
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(inputCommand)
+					currentCommand.SetContext(context.Background())
+					currentCommand.ParseFlags([]string{})
 
 					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
 
@@ -753,11 +758,9 @@ var _ = Describe("JPD Commands", func() {
 		Context("It processes the JPD_AGENT variable properly", func() {
 
 			var currentRootCmd *cobra.Command // Renamed to avoid shadowing and clarify intent
-			var mockCommandUITexter *MockCommandTextUI
 			var mockYarnVersionOutputter *MockYarnCommandVersionOutputer
 
 			BeforeEach(func() {
-				mockCommandUITexter = newMockCommandTextUI()
 				mockYarnVersionOutputter = &MockYarnCommandVersionOutputer{version: "1.0.0"} // Default mock for yarn version
 
 				// Create the root command with *all* necessary dependencies
@@ -771,7 +774,7 @@ var _ = Describe("JPD Commands", func() {
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
 					YarnCommandVersionOutputter:           mockYarnVersionOutputter,
-					CommandUITexter:                       mockCommandUITexter,
+					NewCommandTextUI:                      newMockCommandTextUI,
 				})
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
