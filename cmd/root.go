@@ -243,6 +243,7 @@ Available commands:
 			if agent != "" {
 
 				c.Flags().Set(AGENT_FLAG, agent)
+				c.SetContext(c_ctx)
 				return nil
 			}
 
@@ -266,6 +267,7 @@ Available commands:
 				})
 
 				c.Flags().Set(AGENT_FLAG, agent)
+				c.SetContext(c_ctx)
 				return nil
 
 			}
