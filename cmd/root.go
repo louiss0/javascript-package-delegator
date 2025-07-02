@@ -128,11 +128,13 @@ func (e executor) Run() error {
 }
 
 // Dependencies holds the external dependencies for testing and real execution
+
 type Dependencies struct {
-	CommandRunnerGetter         func(bool) CommandRunner
-	JS_PackageManagerDetector   func() (string, error)
-	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
+	CommandRunnerGetter                   func(bool) CommandRunner
+	DetectJSPacakgeManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
+	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	CommandUITexter
+	DetectLockfile             func() (lockfile string, error error)
 	DetectVolta                func() bool
 	NewPackageMultiSelectUI    func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI          func(options []string) TaskUISelector
@@ -305,8 +307,14 @@ Available commands:
 
 			}
 
+			lockFile, err := deps.DetectLockfile()
+
+			if err != nil {
+				return err
+			}
+
 			// Package manager detection and potential installation logic
-			pm, err := deps.JS_PackageManagerDetector() // Use injected detector
+			pm, err := deps.DetectJSPacakgeManagerBasedOnLockFile(lockFile) // Use injected detector
 
 			if err != nil {
 
@@ -386,11 +394,17 @@ func init() {
 			CommandRunnerGetter: func(b bool) CommandRunner {
 				return newExecutor(exec.Command, b)
 			}, // Use the newExecutor constructor
-			JS_PackageManagerDetector:   detect.DetectJSPacakgeManager,
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, error error) {
+
+				return detect.DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
+			},
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			CommandUITexter:             newCommandTextUI(),
-			DetectVolta:                 detect.DetectVolta,
-			NewPackageMultiSelectUI:     newPackageMultiSelectUI,
+			DetectVolta: func() bool {
+
+				return detect.DetectVolta(detect.RealPathLookup{})
+			},
+			NewPackageMultiSelectUI: newPackageMultiSelectUI,
 		},
 	)
 
