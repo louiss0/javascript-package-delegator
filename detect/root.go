@@ -99,7 +99,7 @@ func DetectLockfile(fs FileSystem) (lockfile string, error error) {
 
 var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
 
-var lockFileToPackageManagerMap = map[string]string{
+var LockFileToPackageManagerMap = map[string]string{
 	DENO_JSON:         DENO,
 	DENO_LOCK:         DENO,
 	DENO_JSONC:        DENO,
@@ -119,7 +119,7 @@ func DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile string, pathLookup P
 
 	}
 
-	packageManagerToFind := lockFileToPackageManagerMap[detectedLockFile]
+	packageManagerToFind := LockFileToPackageManagerMap[detectedLockFile]
 	// Use the injected pathLookup here
 	_, err := pathLookup.LookPath(packageManagerToFind)
 

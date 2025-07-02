@@ -133,12 +133,12 @@ type Dependencies struct {
 	CommandRunnerGetter                   func(bool) CommandRunner
 	DetectJSPacakgeManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
-	CommandUITexter
-	DetectLockfile             func() (lockfile string, error error)
-	DetectVolta                func() bool
-	NewPackageMultiSelectUI    func([]services.PackageInfo) MultiUISelecter
-	NewTaskSelectorUI          func(options []string) TaskUISelector
-	NewDependencyMultiSelectUI func(options []string) DependencyUIMultiSelector
+	NewCommandTextUI                      func(lockfile string) CommandUITexter
+	DetectLockfile                        func() (lockfile string, error error)
+	DetectVolta                           func() bool
+	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
+	NewTaskSelectorUI                     func(options []string) TaskUISelector
+	NewDependencyMultiSelectUI            func(options []string) DependencyUIMultiSelector
 }
 
 type CommandUITexter interface {
@@ -156,12 +156,21 @@ var INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE = []string{
 	"Place flags after the command",
 }
 
-func newCommandTextUI() *CommandTextUI {
+func newCommandTextUI(lockfile string) CommandUITexter {
 
 	return &CommandTextUI{
 		textUI: huh.NewText().
 			Title("Command").
-			Description("The command you want to use to install your js package manager").
+			Description(
+				lo.Ternary(
+					lockfile != "",
+					fmt.Sprintf(
+						"We dectcted a lock file but there is no %s",
+						detect.LockFileToPackageManagerMap[lockfile],
+					),
+					"The command you want to use to install your js package manager",
+				),
+			).
 			Validate(func(s string) error {
 
 				match, error := regexp.MatchString(VALID_INSTALL_COMMAND_STRING_RE, s)
@@ -169,6 +178,12 @@ func newCommandTextUI() *CommandTextUI {
 				if error != nil {
 
 					return error
+				}
+
+				if lockfile != "" && !strings.Contains(s, detect.LockFileToPackageManagerMap[lockfile]) {
+
+					return fmt.Errorf("The command you entered does not contain the package manager command for %s", detect.LockFileToPackageManagerMap[lockfile])
+
 				}
 
 				if match {
@@ -326,7 +341,7 @@ Available commands:
 
 					})
 
-					commandTextUI := deps.CommandUITexter
+					commandTextUI := deps.NewCommandTextUI(lockFile)
 
 					if err := commandTextUI.Run(); err != nil {
 
@@ -399,7 +414,7 @@ func init() {
 				return detect.DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
 			},
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
-			CommandUITexter:             newCommandTextUI(),
+			NewCommandTextUI:            newCommandTextUI,
 			DetectVolta: func() bool {
 
 				return detect.DetectVolta(detect.RealPathLookup{})
