@@ -1986,78 +1986,141 @@ var _ = Describe("JPD Commands", func() {
 					assert.False(mockRunner.HasBeenCalled) // No command should be run
 				})
 
-				It("should uninstall selected packages when user selects multiple packages", func() {
-					// Create a package.json with these dependencies
+				It(
+					"should uninstall selected packages when user selects multiple packages from package.json",
+					func() {
+						// Create a package.json with these dependencies
 
-					dependencies := map[string]string{
-						"react":         "18.2.0",
-						"react-dom":     "18.2.0",
-						"react-scripts": "5.0.1",
-						"lodash":        "4.17.21",
-						"express":       "4.18.2",
-						"vue":           "3.3.4",
-						"angular":       "16.2.0",
-					}
+						dependencies := map[string]string{
+							"react":         "18.2.0",
+							"react-dom":     "18.2.0",
+							"react-scripts": "5.0.1",
+							"lodash":        "4.17.21",
+							"express":       "4.18.2",
+							"vue":           "3.3.4",
+							"angular":       "16.2.0",
+						}
 
-					devDependencies := map[string]string{
-						"jest":       "29.7.0",
-						"typescript": "5.2.2",
-						"webpack":    "5.88.2",
-					}
+						devDependencies := map[string]string{
+							"jest":       "29.7.0",
+							"typescript": "5.2.2",
+							"webpack":    "5.88.2",
+						}
 
-					marshalledDependencies, err := json.Marshal(devDependencies)
-					assert.NoError(err)
-					marshalledDevDependencies, err := json.Marshal(dependencies)
-					assert.NoError(err)
+						marshalledDependencies, err := json.Marshal(devDependencies)
+						assert.NoError(err)
+						marshalledDevDependencies, err := json.Marshal(dependencies)
+						assert.NoError(err)
 
-					pkgJsonContent := fmt.Sprintf(
-						`{
+						pkgJsonContent := fmt.Sprintf(
+							`{
 						"name": "test-project",
 						"version": "1.0.0",
 						"dependencies": %s,
 						"devDependencies": %s
 					}`,
-						marshalledDependencies,
-						marshalledDevDependencies,
-					)
+							marshalledDependencies,
+							marshalledDevDependencies,
+						)
 
-					err = os.WriteFile("package.json", []byte(pkgJsonContent), os.ModePerm)
-					assert.NoError(err)
+						err = os.WriteFile("package.json", []byte(pkgJsonContent), os.ModePerm)
+						assert.NoError(err)
 
-					// Override the root command to inject our custom mock UI
-					rootCmdForSelection := cmd.NewRootCmd(
-						cmd.Dependencies{
-							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-								return mockRunner
-							},
-							JS_PackageManagerDetector: func() (string, error) {
-								return "npm", nil // Assume npm for the test
-							},
-							NewDependencyMultiSelectUI: NewMockDependencySelectUI,
-							DetectVolta: func() bool {
-								return false
-							},
-						})
+						// Override the root command to inject our custom mock UI
+						rootCmdForSelection := cmd.NewRootCmd(
+							cmd.Dependencies{
+								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+									return mockRunner
+								},
+								JS_PackageManagerDetector: func() (string, error) {
+									return "npm", nil // Assume npm for the test
+								},
+								NewDependencyMultiSelectUI: NewMockDependencySelectUI,
+								DetectVolta: func() bool {
+									return false
+								},
+							})
 
-					_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
+						_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
 
-					assert.NoError(cmdErr)
-					assert.True(mockRunner.HasBeenCalled)
+						assert.NoError(cmdErr)
+						assert.True(mockRunner.HasBeenCalled)
 
-					prodAndDevDependencies := lo.Map(
-						lo.Entries(lo.Assign(dependencies, devDependencies)),
-						func(entry lo.Entry[string, string], _ int) string {
-							return entry.Key + "@" + entry.Value
-						})
+						prodAndDevDependencies := lo.Map(
+							lo.Entries(lo.Assign(dependencies, devDependencies)),
+							func(entry lo.Entry[string, string], _ int) string {
+								return entry.Key + "@" + entry.Value
+							})
 
-					assert.True(
-						lo.Some(
-							prodAndDevDependencies,
-							mockRunner.CommandCall.Args,
-						),
-					)
+						assert.True(
+							lo.Some(
+								prodAndDevDependencies,
+								mockRunner.CommandCall.Args,
+							),
+						)
 
-				})
+					})
+
+				It(
+					"should uninstall selected packages when user selects multiple packages from deno.json",
+					func() {
+						// Create a package.json with these dependencies
+
+						imports := map[string]string{
+							"uuid":     "jsr:@std/uuid@^1.0.0",
+							"path":     "jsr:@std/path@^1.0.0",
+							"hono":     "jsr:@hono/hono@^3.12.0",
+							"zod":      "jsr:@zod/zod@^3.23.8",
+							"supabase": "jsr:@supabase/supabase-js@^2.43.4",
+							"faker":    "jsr:@faker-js/faker@^8.4.1",
+							"dotenv":   "jsr:@deno-core/dotenv@^0.5.0",
+						}
+
+						marshalledImports, err := json.Marshal(imports)
+						assert.NoError(err)
+
+						pkgJsonContent := fmt.Sprintf(
+							`{
+						"name": "test-project",
+						"version": "1.0.0",
+						"imports": %s
+					}`,
+							marshalledImports,
+						)
+
+						err = os.WriteFile("deno.json", []byte(pkgJsonContent), os.ModePerm)
+						assert.NoError(err)
+
+						// Override the root command to inject our custom mock UI
+						rootCmdForSelection := cmd.NewRootCmd(
+							cmd.Dependencies{
+								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+									return mockRunner
+								},
+								JS_PackageManagerDetector: func() (string, error) {
+									return "deno", nil // Assume npm for the test
+								},
+								NewDependencyMultiSelectUI: NewMockDependencySelectUI,
+								DetectVolta: func() bool {
+									return false
+								},
+							})
+
+						_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
+
+						assert.NoError(cmdErr)
+						assert.True(mockRunner.HasBeenCalled)
+
+						importsValues := lo.Values(imports)
+
+						assert.True(
+							lo.Some(
+								importsValues,
+								mockRunner.CommandCall.Args,
+							),
+						)
+
+					})
 
 			},
 		)
