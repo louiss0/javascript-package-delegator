@@ -35,9 +35,8 @@ type MockCommandRunner struct {
 
 // CommandCall represents a single command call with its name and arguments
 type CommandCall struct {
-	Name       string
-	Args       []string
-	WorkingDir string
+	Name string
+	Args []string
 }
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner
@@ -63,8 +62,21 @@ func (m MockCommandRunner) IsDebug() bool {
 	return m.isDebug
 }
 
-func (m MockCommandRunner) SetTargetDir(dir string) {
-	m.CommandCall.WorkingDir = dir
+func (m *MockCommandRunner) SetTargetDir(dir string) error {
+
+	fileInfo, err := os.Stat(dir) // Get file information
+	if err != nil {
+
+		return err
+	}
+
+	// Check if it's a directory
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("target directory %s is not a directory", dir)
+	}
+
+	m.WorkingDir = dir
+	return nil
 }
 
 // Run simulates running the command and records it.
@@ -576,7 +588,7 @@ var _ = Describe("JPD Commands", func() {
 				// For now, we assume the CommandRunnerGetter passes our mock.
 				assert.Equal("npm", mockRunner.CommandCall.Name)
 				assert.Contains(mockRunner.CommandCall.Args, "install")
-				assert.Equal(tempDir, mockRunner.CommandCall.WorkingDir)
+				assert.Equal(tempDir, mockRunner.WorkingDir)
 			})
 
 			It("should run a command in the specified directory using --cwd", func() {
@@ -592,7 +604,7 @@ var _ = Describe("JPD Commands", func() {
 				assert.Equal("yarn", mockRunner.CommandCall.Name)
 				assert.Contains(mockRunner.CommandCall.Args, "run")
 				assert.Contains(mockRunner.CommandCall.Args, "dev")
-				assert.Equal(tempDir, mockRunner.CommandCall.WorkingDir)
+				assert.Equal(tempDir, mockRunner.WorkingDir)
 			})
 
 			It("should not set a working directory if -C is not provided", func() {
@@ -604,7 +616,7 @@ var _ = Describe("JPD Commands", func() {
 				// An empty string for WorkingDir in our mock implies it wasn't explicitly overridden by -C.
 				// We should verify that `e.cmd.Dir` remains unset (empty string) in the mock,
 				// which indicates the default behavior of exec.Command().
-				assert.Empty(mockRunner.CommandCall.WorkingDir) // Assert that it's empty, implying default behavior
+				assert.Empty(mockRunner.WorkingDir) // Assert that it's empty, implying default behavior
 			})
 
 			It("should handle a non-existent directory gracefully (likely fail at exec.Command level)", func() {
