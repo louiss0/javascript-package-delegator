@@ -534,51 +534,36 @@ var _ = Describe("JPD Commands", func() {
 				assert.Contains(err.Error(), invalidPath)
 			})
 
-			It("should reject a --cwd flag value that is empty", func() {
-				// Cobra's String flag parsing will often treat an empty string as valid input if
-				// the flag is just boolean or string. However, our PathFlag.Set has an explicit check.
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", "")
-				assert.Error(err)
-				assert.Contains(err.Error(), "The cwd flag cannot be empty or contain only whitespace")
-			})
+			DescribeTable(
+				"should reject invalid --cwd flag values",
+				func(invalidPath string, expectedErrors ...string) {
+					_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
+					assert.Error(err)
+					for _, expectedErr := range expectedErrors {
+						assert.Contains(err.Error(), expectedErr)
+					}
+				},
+				Entry("an empty string", "", "The cwd flag cannot be empty or contain only whitespace"),
+				Entry("a string with only whitespace", "   ", "The cwd flag cannot be empty or contain only whitespace"),
+				Entry("a path with invalid characters", "/path/with:colon/", "is not a valid POSIX/UNIX folder path", "cwd", "/path/with:colon/"),
+			)
 
-			It("should reject a --cwd flag value that contains only whitespace", func() {
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", "   ")
-				assert.Error(err)
-				assert.Contains(err.Error(), "The cwd flag cannot be empty or contain only whitespace")
-			})
-
-			It("should reject a --cwd flag value with invalid characters", func() {
-				invalidPath := "/path/with:colon/" // Invalid character ':'
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
-				assert.Error(err)
-				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
-				assert.Contains(err.Error(), "cwd")
-				assert.Contains(err.Error(), invalidPath)
-			})
-
-			It("should accept a valid root path '/' for --cwd", func() {
-				validPath := "/"
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
-				assert.NoError(err)
-			})
-
-			It("should accept a valid relative folder path './' for --cwd", func() {
-				validPath := "./"
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
-				assert.NoError(err)
-			})
-
-			It("should accept a valid relative parent folder path '../' for --cwd", func() {
-				validPath := "../"
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
-				assert.NoError(err)
-			})
+			DescribeTable(
+				"should accept valid folder paths for --cwd",
+				func(validPath string) {
+					_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
+					assert.NoError(err)
+				},
+				Entry("a valid root path '/'", "/"),
+				Entry("a valid relative folder path './'", "./"),
+				Entry("a valid relative parent folder path '../'", "../"),
+			)
 
 			It("should run a command in the specified directory using -C", func() {
 				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-1-*")
 				assert.NoError(err)
-				defer os.RemoveAll(fmt.Sprintf("%s/", tempDir)) // Clean up temp directory
+				tempDir = fmt.Sprintf("%s/", tempDir)
+				defer os.RemoveAll(tempDir) // Clean up temp directory
 
 				// Execute a command with -C flag
 				_, err = executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", tempDir)
@@ -597,7 +582,9 @@ var _ = Describe("JPD Commands", func() {
 			It("should run a command in the specified directory using --cwd", func() {
 				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-2-*")
 				assert.NoError(err)
-				defer os.RemoveAll(fmt.Sprintf("%s/", tempDir)) // Clean up temp directory
+				tempDir = fmt.Sprintf("%s/", tempDir)
+
+				defer os.RemoveAll(tempDir) // Clean up temp directory
 
 				_, err = executeCmd(currentRootCmd, "run", "dev", "--agent", "yarn", "--cwd", tempDir)
 				assert.NoError(err)
