@@ -111,9 +111,10 @@ type Dependencies struct {
 	JS_PackageManagerDetector   func() (string, error)
 	YarnCommandVersionOutputter detect.YarnCommandVersionOutputter
 	CommandUITexter
-	DetectVolta             func() bool
-	NewPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter
-	NewTaskSelectorUI       func(options []string) TaskUISelector
+	DetectVolta                func() bool
+	NewPackageMultiSelectUI    func([]services.PackageInfo) MultiUISelecter
+	NewTaskSelectorUI          func(options []string) TaskUISelector
+	NewDependencyMultiSelectUI func(options []string) DependencyUIMultiSelector
 }
 
 type CommandUITexter interface {

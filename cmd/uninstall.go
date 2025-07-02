@@ -22,12 +22,83 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
+
+type DependencyUIMultiSelector interface {
+	Values() []string
+	Run() error
+}
+
+type dependencyMultiSelectUI struct {
+	selectedValues []string
+	selectUI       huh.MultiSelect[string]
+}
+
+func newDependencySelectorUI(options []string) DependencyUIMultiSelector {
+
+	return &dependencyMultiSelectUI{
+		selectUI: *huh.NewMultiSelect[string]().
+			Title("Select a dependency to uninstall").
+			Description("Pick a dependency to uninstall").
+			Options(huh.NewOptions(options...)...),
+	}
+}
+
+func (t dependencyMultiSelectUI) Values() []string {
+	return t.selectedValues
+}
+
+func (t dependencyMultiSelectUI) Run() error {
+
+	return t.selectUI.Value(&t.selectedValues).Run()
+}
+
+func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
+
+	type PackageJSONDependencies struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		return nil, err
+	}
+
+	packageJSONPath := filepath.Join(cwd, "package.json")
+	data, err := os.ReadFile(packageJSONPath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read package.json: %w", err)
+	}
+
+	var pkg PackageJSONDependencies
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, fmt.Errorf("failed to parse package.json: %w", err)
+	}
+
+	prodAndDevDependenciesMerged := lo.Map(
+		lo.Entries(lo.Assign(pkg.Dependencies, pkg.DevDependencies)),
+		func(item lo.Entry[string, string], index int) string {
+
+			return fmt.Sprintf("%s@%s", item.Key, item.Value)
+		},
+	)
+
+	return prodAndDevDependenciesMerged, nil
+}
 
 func NewUninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{

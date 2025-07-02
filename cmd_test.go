@@ -279,6 +279,35 @@ func (t *MockTaskSelectUI) Run() error {
 	return nil
 }
 
+type MockDependencyUISelector struct {
+	selectedValues []string
+	options        []string
+}
+
+func (m MockDependencyUISelector) Values() []string {
+	return m.selectedValues
+}
+
+func (m *MockDependencyUISelector) Run() error {
+	if len(m.options) == 0 {
+		return fmt.Errorf("no dependencies available for selection")
+	}
+
+	// Randomly select one option
+	source := rand.NewSource(uint64(time.Now().UnixNano()))
+	rng := rand.New(source)
+	randomIndex := rng.Intn(len(m.options))
+	m.selectedValues = append(m.selectedValues, m.options[randomIndex])
+
+	return nil
+}
+
+func NewMockDependencySelectUI(options []string) cmd.DependencyUIMultiSelector {
+	return &MockDependencyUISelector{
+		options: options,
+	}
+}
+
 // It ensures that each command has access to the package manager name and CommandRunner
 
 var _ = Describe("JPD Commands", func() {
@@ -1896,6 +1925,142 @@ var _ = Describe("JPD Commands", func() {
 			_, error := executeCmd(rootCmd, "uninstall")
 			assert.Error(error)
 		})
+
+		Context(
+			"Interactive Uninstall",
+			func() {
+
+				var (
+					tempDir string
+					err     error
+					cwd     string
+				)
+
+				BeforeEach(func() {
+
+					cwd, err = os.Getwd()
+					assert.NoError(err)
+
+					tempDir, err = os.MkdirTemp("", "jpd-test-*")
+					assert.NoError(err)
+					assert.DirExists(tempDir)
+
+					os.Chdir(tempDir)
+
+				})
+
+				AfterEach(func() {
+					os.Chdir(cwd)
+					os.RemoveAll(tempDir)
+				})
+
+				It("should return an error if no packages are found for interactive uninstall", func() {
+					//Create a package.json with no dependencies/devDependencies
+					err := os.WriteFile("package.json", []byte(
+						`{
+							"name": "test-project",
+							"version": "1.0.0",
+							"dependencies": {},
+							"devDependencies": {}
+									}`),
+						os.ModePerm,
+					)
+					assert.NoError(err)
+
+					// Override the root command to ensure the MultiSelectUI is mocked properly
+					// for the interactive uninstall where no packages will be returned by the detector.
+					rootCmdForNoPackages := cmd.NewRootCmd(
+						cmd.Dependencies{
+							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+								return mockRunner
+							},
+							JS_PackageManagerDetector: func() (string, error) {
+								return "npm", nil // Assume npm for the test
+							},
+						})
+
+					_, cmdErr := executeCmd(rootCmdForNoPackages, "uninstall", "--interactive")
+
+					assert.Error(cmdErr)
+					assert.Contains(cmdErr.Error(), "No packages found for interactive uninstall.")
+					assert.False(mockRunner.HasBeenCalled) // No command should be run
+				})
+
+				It("should uninstall selected packages when user selects multiple packages", func() {
+					// Create a package.json with these dependencies
+
+					dependencies := map[string]string{
+						"react":         "18.2.0",
+						"react-dom":     "18.2.0",
+						"react-scripts": "5.0.1",
+						"lodash":        "4.17.21",
+						"express":       "4.18.2",
+						"vue":           "3.3.4",
+						"angular":       "16.2.0",
+					}
+
+					devDependencies := map[string]string{
+						"jest":       "29.7.0",
+						"typescript": "5.2.2",
+						"webpack":    "5.88.2",
+					}
+
+					marshalledDependencies, err := json.Marshal(devDependencies)
+					assert.NoError(err)
+					marshalledDevDependencies, err := json.Marshal(dependencies)
+					assert.NoError(err)
+
+					pkgJsonContent := fmt.Sprintf(
+						`{
+						"name": "test-project",
+						"version": "1.0.0",
+						"dependencies": %s,
+						"devDependencies": %s
+					}`,
+						marshalledDependencies,
+						marshalledDevDependencies,
+					)
+
+					err = os.WriteFile("package.json", []byte(pkgJsonContent), os.ModePerm)
+					assert.NoError(err)
+
+					// Override the root command to inject our custom mock UI
+					rootCmdForSelection := cmd.NewRootCmd(
+						cmd.Dependencies{
+							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+								return mockRunner
+							},
+							JS_PackageManagerDetector: func() (string, error) {
+								return "npm", nil // Assume npm for the test
+							},
+							NewDependencyMultiSelectUI: NewMockDependencySelectUI,
+							DetectVolta: func() bool {
+								return false
+							},
+						})
+
+					_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
+
+					assert.NoError(cmdErr)
+					assert.True(mockRunner.HasBeenCalled)
+
+					prodAndDevDependencies := lo.Map(
+						lo.Entries(lo.Assign(dependencies, devDependencies)),
+						func(entry lo.Entry[string, string], _ int) string {
+							return entry.Key + "@" + entry.Value
+						})
+
+					assert.True(
+						lo.Some(
+							prodAndDevDependencies,
+							mockRunner.CommandCall.Args,
+						),
+					)
+
+				})
+
+			},
+		)
 
 		Context("npm", func() {
 			It("should run npm uninstall with package name", func() {
