@@ -1,12 +1,46 @@
 package detect
 
 import (
-	"errors" // Import the errors package
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
+	"os/exec" // Keep this import for RealPathLookup
 	"path/filepath"
+
+	"github.com/samber/lo"
 )
+
+// PathLookup interface abstracts the exec.LookPath functionality.
+type PathLookup interface {
+	LookPath(file string) (string, error)
+}
+
+// RealPathLookup is the production implementation of PathLookup.
+type RealPathLookup struct{}
+
+// LookPath implements PathLookup using the real exec.LookPath.
+func (r RealPathLookup) LookPath(file string) (string, error) {
+	return exec.LookPath(file)
+}
+
+// FileSystem interface abstracts file system operations for testability.
+type FileSystem interface {
+	Stat(name string) (os.FileInfo, error)
+	Getwd() (string, error)
+}
+
+// RealFileSystem is the production implementation of FileSystem.
+type RealFileSystem struct{}
+
+// Stat implements FileSystem using the real os.Stat.
+func (r RealFileSystem) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
+}
+
+// Getwd implements FileSystem using the real os.Getwd.
+func (r RealFileSystem) Getwd() (string, error) {
+	return os.Getwd()
+}
 
 const DENO = "deno"
 const BUN = "bun"
@@ -14,58 +48,90 @@ const NPM = "npm"
 const PNPM = "pnpm"
 const YARN = "yarn"
 
-var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
-
 // ErrNoPackageManager is returned when no supported JavaScript package manager
 // lock file or configuration file is found in the current directory.
 var ErrNoPackageManager = errors.New("no supported JavaScript package manager found")
 
-func DetectJSPacakgeManager() (string, error) {
+const (
+	BUN_LOCKB         = "bun.lockb"
+	DENO_JSONC        = "deno.jsonc"
+	DENO_JSON         = "deno.json"
+	DENO_LOCK         = "deno.lock"
+	PNPM_LOCK_YAML    = "pnpm-lock.yaml"
+	YARN_LOCK         = "yarn.lock"
+	PACKAGE_LOCK_JSON = "package-lock.json"
+	YARN_LOCK_JSON    = "yarn.lock.json"
+	BUN_LOCK_JSON     = "bun.lock.json"
+)
 
-	var LOCKFILES = [7][2]string{
-		{"deno.lock", SupportedJSPackageManagers[0]},
-		{"deno.json", SupportedJSPackageManagers[0]},
-		{"deno.jsonc", SupportedJSPackageManagers[0]},
-		{"bun.lockb", SupportedJSPackageManagers[1]},
-		{"pnpm-lock.yaml", SupportedJSPackageManagers[3]},
-		{"yarn.lock", SupportedJSPackageManagers[4]},
-		{"package-lock.json", SupportedJSPackageManagers[2]},
-	}
+var lockFiles = [7]string{
+	DENO_LOCK,
+	DENO_JSON,
+	DENO_JSONC,
+	BUN_LOCKB,
+	PNPM_LOCK_YAML,
+	YARN_LOCK,
+	PACKAGE_LOCK_JSON,
+}
 
-	cwd, err := os.Getwd()
+func DetectLockfile(fs FileSystem) (lockfile string, error error) {
+
+	cwd, err := fs.Getwd() // Use the injected FileSystem
 
 	if err != nil {
-		// Pass through the original error from os.Getwd().
-		// This error is already descriptive (e.g., *os.PathError).
-		return "", fmt.Errorf("failed to get current working directory: %w", err)
+		return "", err
 	}
 
-	// Check for lock files and config files in order of preference
-	for _, lockFileAndPakageName := range LOCKFILES {
-
-		lockFile := lockFileAndPakageName[0]
-		packageName := lockFileAndPakageName[1]
-
-		filePath := filepath.Join(cwd, lockFile)
-		_, err := os.Stat(filePath)
+	for _, lockFile := range lockFiles {
+		// Use the injected FileSystem's Stat method
+		// fmt.Sprintf ensures correct path joining, especially for Windows if needed later.
+		_, err := fs.Stat(filepath.Join(cwd, lockFile))
 
 		if err == nil {
-			// File exists, we found the package manager
-			return packageName, nil
+			return lockFile, nil // Return the lockFile and nil error if found
 		}
-
-		// If the error indicates the file simply does not exist, continue to the next one.
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-
-		// If it's any other error, it's a deeper issue (e.g., permissions, corrupted file system).
-		// Return this error immediately. Wrap it for context.
-		return "", fmt.Errorf("failed to stat file %q while detecting package manager: %w", filePath, err)
+		// DO NOT BREAK HERE! The original code had a bug where it would break after the first iteration.
+		// We need to check all lock files.
 	}
 
-	// Return our specific error for this condition
-	return "", ErrNoPackageManager
+	return "", fmt.Errorf("No lock file found") // Return our specific error if no lockfile is found after checking all
+}
+
+var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
+
+var lockFileToPackageManagerMap = map[string]string{
+	DENO_JSON:         DENO,
+	DENO_LOCK:         DENO,
+	DENO_JSONC:        DENO,
+	PACKAGE_LOCK_JSON: NPM,
+	BUN_LOCKB:         BUN,
+	BUN_LOCK_JSON:     BUN,
+	YARN_LOCK:         YARN,
+	YARN_LOCK_JSON:    YARN,
+}
+
+// DetectJSPacakgeManagerBasedOnLockFile now accepts a PathLookup interface.
+func DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
+
+	if !lo.Contains(lockFiles[:], detectedLockFile) {
+
+		return "", fmt.Errorf("unsupported lockfile %s it must be one of these %v", detectedLockFile, lockFiles)
+
+	}
+
+	packageManagerToFind := lockFileToPackageManagerMap[detectedLockFile]
+	// Use the injected pathLookup here
+	_, err := pathLookup.LookPath(packageManagerToFind)
+
+	if err != nil {
+		// If LookPath returns os.ErrNotExist, return our specific error
+		if errors.Is(err, os.ErrNotExist) {
+			return "", ErrNoPackageManager
+		}
+		return "", err // Return other errors as they are
+	}
+
+	return packageManagerToFind, nil // Return the actual package manager name
 }
 
 type YarnCommandVersionOutputter interface {
@@ -113,14 +179,14 @@ const VOLTA = "volta"
 
 var VOLTA_RUN_COMMNAD = []string{VOLTA, "run"}
 
-func DetectVolta() bool {
+// DetectVolta now accepts a PathLookup interface to enable mocking.
+func DetectVolta(pathLookup PathLookup) bool {
 
-	_, err := exec.LookPath(VOLTA)
+	_, err := pathLookup.LookPath(VOLTA) // Use the injected pathLookup
 
 	if err != nil {
 		return false
 	}
 
 	return true
-
 }
