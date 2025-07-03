@@ -1,0 +1,23 @@
+# Example for GitHub Actions workflow (.github/workflows/release.yml)
+on:
+  push:
+    tags:
+      - "v*" # Trigger on new tag pushes, e.g., v1.0.0, v1.0.1, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for goreleaser to find all tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This is where the token is injected
