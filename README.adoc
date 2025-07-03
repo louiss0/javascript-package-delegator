@@ -30,8 +30,12 @@ This eliminates the need to remember different commands or continuously switch b
     ** `jpd clean-install` (`ci`):** Performs a clean installation with a frozen lockfile, ideal for CI/CD environments and production builds.
     ** `jpd agent` (`a`):** Displays the detected package manager for the current project.
 *   **Intelligent Yarn Version Handling:** Differentiates between Yarn v1 and Yarn v2+ for `clean-install` and `exec` commands, applying the correct flags (`--frozen-lockfile` vs. `--immutable` / `yarn` vs. `yarn dlx`).
-*   **Interactive Package Manager Installation:** If no package manager is detected, `jpd` can interactively prompt you to provide a command to install one, ensuring you can quickly get started.
+*   **Interactive Package Installation (`-s`, `--search`):** Provides an interactive interface for users to search for packages on the npm registry and select which ones to install.
+*   **Interactive Script/Task Selection (`jpd run` without arguments):** When `jpd run` is executed without arguments, it displays an interactive list of available scripts from `package.json` (or tasks from `deno.json`) for you to choose from.
+*   **Interactive Uninstall (`-i`, `--interactive`):** Offers an interactive way to select and uninstall dependencies from your project.
+*   **Automatic Package Manager Installation Prompt:** If `jpd` detects a lock file for a specific package manager (e.g., `yarn.lock`) but that package manager is not installed on your system, `jpd` will now interactively prompt you to provide a command to install it globally, ensuring you can quickly get started without manual setup.
 *   **Flexible Agent Selection:** Override automatic detection using the `--agent` (`-a`) flag or the `JPD_AGENT` environment variable to explicitly specify your preferred package manager for a command or session.
+*   **Change Directory Flag (`-C`, `--cwd`):** Allows you to execute `jpd` commands in a specified directory without changing your current shell's working directory. This is particularly useful for scripting or managing multiple projects.
 *   **Debugging Capabilities:** Enable a debug mode (`--debug` or `-d`) to view verbose logging, aiding in troubleshooting and understanding command execution.
 *   **Shell Auto-completion:** Supports shell auto-completion for the `--agent` flag, providing a convenient list of supported package managers.
 *   **Go-based Performance:** Written in Go, `jpd` is compiled into a single static binary, offering fast execution and easy distribution without runtime dependencies.
@@ -118,7 +122,7 @@ Here are some common use cases for `jpd`:
     # For Deno: deno task dev
     ----
 
-*   **List all available scripts/tasks:**
+*   **List all available scripts/tasks interactively:**
     [source,bash]
     ----
     jpd run
@@ -145,6 +149,12 @@ Here are some common use cases for `jpd`:
     # Equivalent to: npm uninstall lodash, yarn remove lodash, pnpm remove lodash, bun remove lodash
     ----
 
+*   **Interactively uninstall packages:**
+    [source,bash]
+    ----
+    jpd uninstall -i
+    ----
+
 *   **Perform a clean install (for CI/CD):**
     [source,bash]
     ----
@@ -168,6 +178,13 @@ Here are some common use cases for `jpd`:
     [source,bash]
     ----
     jpd install --debug
+    ----
+
+*   **Run a command in a different directory:**
+    [source,bash]
+    ----
+    jpd install -C /path/to/your/project/
+    jpd run dev --cwd ../another-project/
     ----
 
 NOTE:
@@ -200,15 +217,14 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   └── update.go       // 'update' command logic
 ├── custom_errors       // Custom error definitions
 │   └── root.go
-├── custom_flags        // Custom Cobra flags for common use cases
+├── custom_flags        // Custom Cobra flags for common use cases, including path validation
 │   └── root.go
-├── detect              // Package manager detection logic
+├── detect              // Package manager detection logic, now with mockable file system and path lookup
 │   └── root.go
 ├── env                 // Environment-related utilities (e.g., Go environment checks)
 │   └── root.go
 ├── jpd-test            // Test utilities and helpers
 ├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
-├── testutils           // General testing utilities
 ├── .gitignore
 ├── LICENSE
 ├── README.adoc         // This documentation file
@@ -225,8 +241,8 @@ The project follows a modular structure to ensure maintainability and testabilit
 
 *   The `cmd` package contains the implementation for all `jpd` commands, organized into separate files for clarity.
 *   `custom_errors` is designed for creating named, reusable error types.
-*   `custom_flags` provides generic flag definitions for Cobra commands.
-*   The `detect` package encapsulates the logic for identifying the JavaScript package manager in a project.
+*   `custom_flags` provides generic flag definitions for Cobra commands, now including robust path validation.
+*   The `detect` package encapsulates the logic for identifying the JavaScript package manager in a project, now with improved testability via injected file system and path lookup interfaces.
 *   The `env` package contains environment-related utilities, potentially including checks for production/development modes.
 
 == Tools and Libraries Used
