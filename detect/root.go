@@ -97,7 +97,20 @@ func DetectLockfile(fs FileSystem) (lockfile string, error error) {
 	return "", fmt.Errorf("No lock file found") // Return our specific error if no lockfile is found after checking all
 }
 
-var SupportedJSPackageManagers = [5]string{DENO, BUN, NPM, PNPM, YARN}
+// This is a list of the JS package managers
+// ! NPM must be last if the user has node on their computer it will be detected before the others
+var SupportedJSPackageManagers = [5]string{DENO, BUN, PNPM, YARN, NPM}
+
+func DetectJSPackageManager(pathLookup PathLookup) (string, error) {
+
+	for _, manager := range SupportedJSPackageManagers {
+		if _, err := pathLookup.LookPath(manager); err == nil {
+			return manager, nil
+		}
+	}
+
+	return "", ErrNoPackageManager
+}
 
 var LockFileToPackageManagerMap = map[string]string{
 	DENO_JSON:         DENO,
@@ -110,7 +123,6 @@ var LockFileToPackageManagerMap = map[string]string{
 	YARN_LOCK_JSON:    YARN,
 }
 
-// DetectJSPacakgeManagerBasedOnLockFile now accepts a PathLookup interface.
 func DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
 
 	if !lo.Contains(lockFiles[:], detectedLockFile) {
