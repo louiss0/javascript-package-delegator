@@ -232,7 +232,7 @@ func (ui MockPackageMultiSelectUI) Values() []string {
 	return ui.values
 }
 
-func NewMockPackageMultiSelectUI(packages []services.PackageInfo) *MockPackageMultiSelectUI {
+func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISelecter {
 
 	return &MockPackageMultiSelectUI{
 		values: lo.Map(packages, func(item services.PackageInfo, index int) string {
@@ -500,6 +500,94 @@ var _ = Describe("JPD Commands", func() {
 			assert.NoError(err)
 			assert.Contains(output, "JavaScript Package Delegator")
 			assert.Contains(output, "jpd")
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(rootCmd, "--help")
+			assert.NoError(err)
+			assert.Contains(output, "JavaScript Package Delegator")
+			assert.Contains(output, "jpd")
+		})
+
+		Context("How it responds when no lockfile or global PM is detected", func() {
+
+			//Helper function to create a root command where both DetectLockfile and DetectJSPackageManager fail,
+			// forcing the flow to prompt the user for an install command.
+			generateRootCommandWithNoDetectionAtAll := func(mockRunner *MockCommandRunner, commandTextUIValue string) *cobra.Command {
+				return cmd.NewRootCmd(
+					cmd.Dependencies{
+						CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+							return mockRunner
+						},
+						DetectLockfile: func() (lockfile string, error error) {
+							// Simulate no lock file found
+							return "", os.ErrNotExist
+						},
+						DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+							// This path should not be reached if DetectLockfile errors
+							return "", nil
+						},
+						DetectJSPacakgeManager: func() (string, error) {
+							// Simulate no globally installed package manager found
+							return "", detect.ErrNoPackageManager
+						},
+						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
+							mockUI := newMockCommandTextUI(lockfile).(*MockCommandTextUI)
+							// Set the value that the MockCommandTextUI will "return" when Run() is called
+							mockUI.SetValue(commandTextUIValue)
+							return mockUI
+						},
+						YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(), // Required, even if not used in this flow
+						DetectVolta:                 func() bool { return false },             // Required
+						NewPackageMultiSelectUI:     NewMockPackageMultiSelectUI,              // Required
+						NewTaskSelectorUI:           NewMockTaskSelectUI,                      // Required
+						NewDependencyMultiSelectUI:  NewMockDependencySelectUI,                // Required
+					},
+				)
+			}
+
+			It("should prompt user for install command and return error if input is invalid", func() {
+				// Simulate no lockfile and no globally detected PM, leading to a prompt for an install command.
+				// An empty string for commandTextUIValue will cause MockCommandTextUI.Run() to fail its validation.
+				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, "")
+				// Set context and parse flags before calling PersistentPreRunE directly
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "A command for installing a package is at least three words")
+				assert.False(mockRunner.HasBeenCalled, "CommandRunner should not have been called for installation if input is invalid")
+			})
+
+			It("should prompt user for install command and execute it if input is valid", func() {
+				const validInstallCommand = "npm install -g npm"
+				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, validInstallCommand)
+				// Set context and parse flags before calling PersistentPreRunE directly
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.NoError(err)
+				assert.True(mockRunner.HasBeenCalled, "CommandRunner should have been called for installation")
+
+				expectedCmdParts := strings.Fields(validInstallCommand)
+				assert.Equal(expectedCmdParts[0], mockRunner.CommandCall.Name)
+				assert.Equal(expectedCmdParts[1:], mockRunner.CommandCall.Args)
+			})
+
+			It("should return an error if the user-provided install command fails to execute", func() {
+				const validInstallCommand = "npm install -g npm"
+				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, validInstallCommand)
+				mockRunner.InvalidCommands = []string{"npm"} // Configure the mock runner to make "npm" command fail
+				// Set context and parse flags before calling PersistentPreRunE directly
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+			})
 		})
 
 		Context("CWD Flag (-C)", func() {
