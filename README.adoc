@@ -31,13 +31,14 @@ This eliminates the need to remember different commands or continuously switch b
     ** `jpd agent` (`a`):** Displays the detected package manager for the current project.
 *   **Intelligent Yarn Version Handling:** Differentiates between Yarn v1 and Yarn v2+ for `clean-install` and `exec` commands, applying the correct flags (`--frozen-lockfile` vs. `--immutable` / `yarn` vs. `yarn dlx`).
 *   **Interactive Package Installation (`-s`, `--search`):** Provides an interactive interface for users to search for packages on the npm registry and select which ones to install.
-*   **Interactive Script/Task Selection (`jpd run` without arguments):** When `jpd run` is executed without arguments, it displays an interactive list of available scripts from `package.json` (or tasks from `deno.json`) for you to choose from.
-*   **Interactive Uninstall (`-i`, `--interactive`):** Offers an interactive way to select and uninstall dependencies from your project.
+*   **Interactive Script/Task Selection:** When `jpd run` is executed without arguments, `jpd` displays an interactive list of available scripts from `package.json` (or tasks from `deno.json`) for you to choose from.
+*   **Interactive Uninstall:** Use `jpd uninstall` without arguments or with the `-i` flag to interactively select and remove dependencies from your project.
 *   **Automatic Package Manager Installation Prompt:** If `jpd` detects a lock file for a specific package manager (e.g., `yarn.lock`) but that package manager is not installed on your system, `jpd` will now interactively prompt you to provide a command to install it globally, ensuring you can quickly get started without manual setup.
 *   **Flexible Agent Selection:** Override automatic detection using the `--agent` (`-a`) flag or the `JPD_AGENT` environment variable to explicitly specify your preferred package manager for a command or session.
-*   **Change Directory Flag (`-C`, `--cwd`):** Allows you to execute `jpd` commands in a specified directory without changing your current shell's working directory. This is particularly useful for scripting or managing multiple projects.
+*   **Change Directory Execution:** Use the `--cwd` (`-C`) flag to execute any `jpd` command within a specified directory without changing your current shell's working directory. This is particularly useful for running commands in sub-projects or remote locations without manually navigating.
+*   **Comprehensive Shell Completion:** `jpd` provides scripts to enable tab-completion for its commands and flags in popular shells, including Bash, Zsh, Fish, PowerShell, and Nushell.
+*   **Volta Integration:** Automatically uses Volta to run Node.js package manager commands if Volta is detected on your system, ensuring the correct Node.js version (as defined by Volta) is used.
 *   **Debugging Capabilities:** Enable a debug mode (`--debug` or `-d`) to view verbose logging, aiding in troubleshooting and understanding command execution.
-*   **Shell Auto-completion:** Supports shell auto-completion for the `--agent` flag, providing a convenient list of supported package managers.
 *   **Go-based Performance:** Written in Go, `jpd` is compiled into a single static binary, offering fast execution and easy distribution without runtime dependencies.
 
 == Installation
@@ -153,6 +154,7 @@ Here are some common use cases for `jpd`:
     [source,bash]
     ----
     jpd uninstall -i
+    # Prompts an interactive selection of installed dependencies to remove
     ----
 
 *   **Perform a clean install (for CI/CD):**
@@ -180,11 +182,24 @@ Here are some common use cases for `jpd`:
     jpd install --debug
     ----
 
-*   **Run a command in a different directory:**
+*   **Run command in a specific directory:**
     [source,bash]
     ----
-    jpd install -C /path/to/your/project/
-    jpd run dev --cwd ../another-project/
+    jpd install --cwd ./my-frontend-app/
+    # Equivalent to running 'npm install' or 'yarn install' inside './my-frontend-app/'
+    ----
+
+*   **Generate shell completion for Bash:**
+    [source,bash]
+    ----
+    jpd completion bash > /etc/bash_completion.d/jpd
+    ----
+
+*   **Generate shell completion for Nushell and save to file:**
+    [source,bash]
+    ----
+    jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
+    # Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
     ----
 
 NOTE:
@@ -209,17 +224,20 @@ The project follows a modular structure to ensure maintainability and testabilit
 ├── cmd
 │   ├── agent.go        // 'agent' command logic
 │   ├── clean-install.go// 'clean-install' command logic
+│   ├── completion.go   // 'completion' command logic, including all shell completions
 │   ├── exec.go         // 'exec' command logic
 │   ├── install.go      // 'install' command logic
 │   ├── root.go         // Main Cobra root command setup and persistent logic
 │   ├── run.go          // 'run' command logic
 │   ├── uninstall.go    // 'uninstall' command logic
 │   └── update.go       // 'update' command logic
+├── cmd/assets          // Contains embedded assets for commands (e.g., Nushell completion script)
+│   └── jpd-extern.nu
 ├── custom_errors       // Custom error definitions
 │   └── root.go
 ├── custom_flags        // Custom Cobra flags for common use cases, including path validation
 │   └── root.go
-├── detect              // Package manager detection logic, now with mockable file system and path lookup
+├── detect              // Package manager detection logic, including file system and path lookup abstractions for testability
 │   └── root.go
 ├── env                 // Environment-related utilities (e.g., Go environment checks)
 │   └── root.go
@@ -240,10 +258,12 @@ The project follows a modular structure to ensure maintainability and testabilit
 ----
 
 *   The `cmd` package contains the implementation for all `jpd` commands, organized into separate files for clarity.
+*   `cmd/assets` is a new directory storing assets embedded directly with their Go code.
 *   `custom_errors` is designed for creating named, reusable error types.
 *   `custom_flags` provides generic flag definitions for Cobra commands, now including robust path validation.
 *   The `detect` package encapsulates the logic for identifying the JavaScript package manager in a project, now with improved testability via injected file system and path lookup interfaces.
 *   The `env` package contains environment-related utilities, potentially including checks for production/development modes.
+*   `assets_embed.go` is a new file at the root responsible for embedding assets that are also located at the root of the project, making them accessible to other packages.
 
 == Tools and Libraries Used
 
