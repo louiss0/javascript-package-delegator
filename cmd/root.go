@@ -135,6 +135,7 @@ type Dependencies struct {
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
 	DetectLockfile                        func() (lockfile string, error error)
+	DetectJSPacakgeManager                func() (string, error)
 	DetectVolta                           func() bool
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
@@ -325,7 +326,40 @@ Available commands:
 			lockFile, err := deps.DetectLockfile()
 
 			if err != nil {
-				return err
+
+				pm, err := deps.DetectJSPacakgeManager()
+
+				if err != nil {
+
+					commandTextUI := deps.NewCommandTextUI("")
+
+					if err := commandTextUI.Run(); err != nil {
+
+						return err
+					}
+
+					goEnv.ExecuteIfModeIsProduction(func() {
+
+						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
+
+					})
+
+					re := regexp.MustCompile(`\s+`)
+					splitCommandString := re.Split(commandTextUI.Value(), -1)
+
+					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
+
+					if err := commandRunner.Run(); err != nil {
+
+						return err
+					}
+
+					return nil
+				}
+
+				c.Flags().Set(AGENT_FLAG, pm)
+				c.SetContext(c_ctx)
+				return nil
 			}
 
 			// Package manager detection and potential installation logic
@@ -367,7 +401,6 @@ Available commands:
 					return nil
 				}
 
-				return err
 			}
 
 			c.Flags().Set(AGENT_FLAG, pm)
@@ -418,6 +451,9 @@ func init() {
 			DetectVolta: func() bool {
 
 				return detect.DetectVolta(detect.RealPathLookup{})
+			},
+			DetectJSPacakgeManager: func() (string, error) {
+				return detect.DetectJSPackageManager(detect.RealPathLookup{})
 			},
 			NewPackageMultiSelectUI: newPackageMultiSelectUI,
 		},
