@@ -14,10 +14,21 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w # Strip symbols and omit DWARF symbol table for smaller binaries
-      # These flags will be populated by GoReleaser based on the Git tag
-      - -X '{{ .ModulePath }}/buildinfo.Version={{ .Version }}'
-      - -X '{{ .ModulePath }}/buildinfo.GO_MODE=production'
+      - -s -w # Common flags to strip debug information for smaller binaries
+
+      # Inject CLI_VERSION using the Git tag
+      # Target: github.com/louiss0/javascript-package-delegator/build_info.rawCLI_VERSION
+      - -X '{{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}'
+
+      # Inject GO_MODE, forcing it to "production" for release builds
+      # Target: github.com/louiss0/javascript-package-delegator/build_info.rawGO_MODE
+      - -X '{{ .ModulePath }}/build_info.rawGO_MODE=production'
+
+      # Inject BUILD_DATE using the release date, formatted as YYYY-MM-DD (time.DateOnly)
+      # .Date is RFC3339, so we need to reformat it to match your build_info.go validation.
+      # Target: github.com/louiss0/javascript-package-delegator/build_info.rawBUILD_DATE
+      - -X '{{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date | time "2006-01-02" }}'
+
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
