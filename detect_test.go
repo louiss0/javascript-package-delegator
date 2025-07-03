@@ -83,6 +83,126 @@ func (m *MockFileInfo) Sys() interface{}   { return m.SysVal }
 var _ = Describe("Detect", func() {
 	assert := assert.New(GinkgoT()) // Initialize assert for each spec
 
+	Context("DetectJSPacakgeManager", func() {
+
+		var mockPath *MockPathLookup
+
+		BeforeEach(func() {
+			mockPath = NewMockPathLookup()
+		})
+
+		type TestCase struct {
+			MockLookPath map[string]struct {
+				Path  string
+				Error error
+			}
+			ExpectedManager string
+		}
+
+		DescribeTable("should detect the correct package manager based on priority",
+			func(
+				tc TestCase,
+			) {
+				// The mockPath is reset by the outer BeforeEach, ensuring a clean state for each entry.
+				// Populate the mockPath with specific expectations for this test case.
+				for pm, result := range tc.MockLookPath {
+					mockPath.ExpectedLookPathResults[pm] = result
+				}
+
+				manager, err := detect.DetectJSPackageManager(mockPath)
+
+				assert.NoError(err)
+				assert.Equal(tc.ExpectedManager, manager, "expected manager to be %s", tc.ExpectedManager)
+			},
+			Entry("should detect Deno if it is available in PATH",
+				TestCase{
+					MockLookPath: map[string]struct {
+						Path  string
+						Error error
+					}{
+						detect.DENO: {Path: "/usr/local/bin/deno", Error: nil},
+						// Other package managers could also be present, but Deno should be prioritized as it's first in the list
+						detect.NPM: {Path: "/usr/bin/npm", Error: nil},
+					},
+					ExpectedManager: detect.DENO,
+				},
+			),
+			Entry("should detect Bun if Deno is not available but Bun is",
+				TestCase{
+					MockLookPath: map[string]struct {
+						Path  string
+						Error error
+					}{
+						detect.DENO: {Path: "", Error: os.ErrNotExist},
+						detect.BUN:  {Path: "/usr/local/bin/bun", Error: nil},
+						// Other package managers could also be present, but Bun should be prioritized over them
+						detect.YARN: {Path: "/usr/bin/yarn", Error: nil},
+					},
+					ExpectedManager: detect.BUN,
+				},
+			),
+			Entry("should detect PNPM if Deno and Bun are not available but PNPM is",
+				TestCase{
+					MockLookPath: map[string]struct {
+						Path  string
+						Error error
+					}{
+						detect.DENO: {Path: "", Error: os.ErrNotExist},
+						detect.BUN:  {Path: "", Error: os.ErrNotExist},
+						detect.PNPM: {Path: "/opt/pnpm/bin/pnpm", Error: nil},
+					},
+					ExpectedManager: detect.PNPM,
+				},
+			),
+			Entry("should detect Yarn if Deno, Bun, and PNPM are not available but Yarn is",
+				TestCase{
+					MockLookPath: map[string]struct {
+						Path  string
+						Error error
+					}{
+						detect.DENO: {Path: "", Error: os.ErrNotExist},
+						detect.BUN:  {Path: "", Error: os.ErrNotExist},
+						detect.PNPM: {Path: "", Error: os.ErrNotExist},
+						detect.YARN: {Path: "/usr/bin/yarn", Error: nil},
+					},
+					ExpectedManager: detect.YARN,
+				},
+			),
+			Entry("should detect NPM if it's the only package manager available",
+				TestCase{
+					MockLookPath: map[string]struct {
+						Path  string
+						Error error
+					}{
+						// Explicitly set all preceding managers as not found
+						detect.DENO: {Path: "", Error: os.ErrNotExist},
+						detect.BUN:  {Path: "", Error: os.ErrNotExist},
+						detect.PNPM: {Path: "", Error: os.ErrNotExist},
+						detect.YARN: {Path: "", Error: os.ErrNotExist},
+						detect.NPM:  {Path: "/usr/bin/npm", Error: nil},
+					},
+					ExpectedManager: detect.NPM,
+				},
+			),
+		)
+
+		It("should return ErrNoPackageManager if no supported package managers are found in PATH", func() {
+			// Set all supported package managers to not be found
+			for _, manager := range detect.SupportedJSPackageManagers {
+				mockPath.ExpectedLookPathResults[manager] = struct {
+					Path  string
+					Error error
+				}{Path: "", Error: os.ErrNotExist}
+			}
+
+			manager, err := detect.DetectJSPackageManager(mockPath)
+			assert.Error(err)
+			assert.Equal(detect.ErrNoPackageManager, err)
+			assert.Empty(manager) // Manager should be an empty string
+		})
+
+	})
+
 	Context("DetectLockfile", func() {
 		var mockFs *MockFileSystem
 
