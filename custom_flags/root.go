@@ -13,26 +13,80 @@ import (
 
 // javascript-package-delegator/custom_flags/root.go
 
-// pathFlag represents a flag that must contain a valid POSIX/UNIX path
-type pathFlag struct {
+// filePathFlag represents a flag that must contain a valid POSIX/UNIX file path
+type filePathFlag struct {
 	value    string
 	flagName string
 }
 
-// NewPathFlag creates a new PathFlag with the given flag name
-func NewPathFlag(flagName string) pathFlag {
-	return pathFlag{
+// NewFilePathFlag creates a new FilePathFlag with the given flag name
+func NewFilePathFlag(flagName string) filePathFlag {
+	return filePathFlag{
 		flagName: flagName,
 	}
 }
 
 // String returns the flag's value as a string
-func (p pathFlag) String() string {
+func (p filePathFlag) String() string {
+	return p.value
+}
+
+// Set validates and sets the flag's value, checking for valid file path format
+func (p *filePathFlag) Set(value string) error {
+	// First, check if the value is empty or just whitespace
+	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
+		return fmt.Errorf("The %s flag cannot be empty or contain only whitespace", p.flagName)
+	}
+
+	// Regex for general POSIX/UNIX file paths (relative or absolute)
+	// Allows:
+	// - Optional leading slash (for absolute paths)
+	// - Segments consisting of alphanumeric, underscore, hyphen, or dot, or '.'/'..'
+	// - Segments separated by a single slash
+	// - Ends with a filename (alphanumeric, underscore, hyphen, or dot - not '.' or '..')
+	// - Does NOT allow consecutive slashes (//)
+	// - Does NOT allow trailing slash
+	posixUnixFilePathRegex := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*)?/?([a-zA-Z0-9._-]+)$`
+
+	match, err := regexp.MatchString(posixUnixFilePathRegex, value)
+	if err != nil {
+		// This error indicates a problem with the regex itself, not the input value.
+		return fmt.Errorf("internal error: failed to compile file path regex: %w", err)
+	}
+
+	if !match {
+		return fmt.Errorf("The %s flag value '%s' is not a valid POSIX/UNIX file path", p.flagName, value)
+	}
+
+	p.value = value
+	return nil
+}
+
+// Type returns the flag type as a string
+func (p filePathFlag) Type() string {
+	return "string"
+}
+
+// folderPathFlag represents a flag that must contain a valid POSIX/UNIX path
+type folderPathFlag struct {
+	value    string
+	flagName string
+}
+
+// NewFolderPathFlag creates a new PathFlag with the given flag name
+func NewFolderPathFlag(flagName string) folderPathFlag {
+	return folderPathFlag{
+		flagName: flagName,
+	}
+}
+
+// String returns the flag's value as a string
+func (p folderPathFlag) String() string {
 	return p.value
 }
 
 // Set validates and sets the flag's value, checking for valid path format
-func (p *pathFlag) Set(value string) error {
+func (p *folderPathFlag) Set(value string) error {
 	// First, check if the value is empty or just whitespace
 	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
 		return fmt.Errorf("The %s flag cannot be empty or contain only whitespace", p.flagName)
@@ -63,7 +117,7 @@ func (p *pathFlag) Set(value string) error {
 }
 
 // Type returns the flag type as a string
-func (p pathFlag) Type() string {
+func (p folderPathFlag) Type() string {
 	return "string"
 }
 

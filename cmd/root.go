@@ -219,7 +219,7 @@ func (ui *CommandTextUI) Run() error {
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
 
-	cwdFlag := custom_flags.NewPathFlag(_CWD_FLAG)
+	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 	cmd := &cobra.Command{
 		Use:     "jpd",
 		Version: "0.0.0", // Default version or set via build process
@@ -417,6 +417,7 @@ Available commands:
 	cmd.AddCommand(NewUninstallCmd(deps.NewDependencyMultiSelectUI))
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewAgentCmd())
+	cmd.AddCommand(NewCompletionCmd())
 
 	cmd.PersistentFlags().BoolP(DEBUG_FLAG, "d", false, "Make commands run in debug mode")
 
@@ -451,6 +452,10 @@ func init() {
 			DetectVolta: func() bool {
 
 				return detect.DetectVolta(detect.RealPathLookup{})
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+
+				return detect.DetectLockfile(detect.RealFileSystem{})
 			},
 			DetectJSPacakgeManager: func() (string, error) {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
