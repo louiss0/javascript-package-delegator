@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "extends": "nx/release",
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "{workspaceRoot}/main.go",
+        "{workspaceRoot}/buildinfo/**/*.go",
+        "{workspaceRoot}/cmd/**/*.go",
+        "{workspaceRoot}/detect/**/*.go",
+        "{workspaceRoot}/env/**/*.go",
+        "{workspaceRoot}/custom_errors/**/*.go",
+        "{workspaceRoot}/custom_flags/**/*.go",
+        "{workspaceRoot}/services/**/*.go"
+      ],
+      "outputs": ["{projectRoot}/bin"]
+    },
+    "test": {
+      "inputs": ["default", "^default"]
+    },
+    "release-build": {
+      "cache": false,
+      "inputs": ["default", "{workspaceRoot}/goreleaser.yaml"],
+      "dependsOn": ["build"]
+    }
+  },
+  "projects": {
+    "javascript-package-delegator": {
+      "root": ".",
+      "targets": {}
+    }
+  },
+  "release": {
+    "projects": ["javascript-package-delegator"],
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github",
+        "file": "CHANGELOG.md"
+      }
+    },
+    "git": {
+      "commit": true,
+      "tag": true
+    },
+    "version": {
+      "conventionalCommits": true
+    }
+  }
+}

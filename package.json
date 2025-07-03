@@ -1,0 +1,14 @@
+{
+  "name": "javascript-package-delegator",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "nx": "nx",
+    "build": "nx build javascript-package-delegator",
+    "test": "nx test javascript-package-delegator",
+    "release": "nx release"
+  },
+  "devDependencies": {
+    "nx": "^22.0.0"
+  }
+}
