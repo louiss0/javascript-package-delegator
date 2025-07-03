@@ -13,6 +13,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    ldflags:
+      - -s -w # Strip symbols and omit DWARF symbol table for smaller binaries
+      # These flags will be populated by GoReleaser based on the Git tag
+      - -X '{{ .ModulePath }}/buildinfo.Version={{ .Version }}'
+      - -X '{{ .ModulePath }}/buildinfo.GO_MODE=production'
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"

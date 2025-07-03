@@ -33,6 +33,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
+	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
@@ -222,7 +223,7 @@ func NewRootCmd(deps Dependencies) *cobra.Command {
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 	cmd := &cobra.Command{
 		Use:     "jpd",
-		Version: "0.0.0", // Default version or set via build process
+		Version: build_info.CLI_VERSION.String(), // Default version or set via build process
 		Short:   "JavaScript Package Delegator - A universal package manager interface",
 		Long: `JavaScript Package Delegator (jpd) - A universal package manager interface that detects
 and delegates to the appropriate package manager (npm, yarn, pnpm, bun, or deno) based on
@@ -249,7 +250,7 @@ Available commands:
 				log.Error(err.Error()) // Log error, but don't stop execution unless critical
 			}
 
-			goEnv, err := env.NewGoEnv() // Instantiate GoEnv
+			goEnv := env.NewGoEnv() // Instantiate GoEnv
 
 			// Store dependencies and other derived values in the command context
 			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
