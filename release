@@ -132,6 +132,8 @@ let new_version = match $type {
   },
 }
 
+goreleaser check
+
 git tag $"v($new_version)" -m $"Releasing version v($new_version)"
 git push --tags
 
