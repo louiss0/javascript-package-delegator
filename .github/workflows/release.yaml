@@ -23,18 +23,6 @@ jobs:
         with:
           go-version: "stable"
 
-      # --- Essential SSH Setup Steps ---
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.8.0 # This action securely sets up ssh-agent
-        with:
-          ssh-private-key: ${{ secrets.GORELEASER_DEPLOY_KEY }} # Your private key from GitHub Secrets
-
-      - name: Add GitHub to known hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-      # --- End SSH Setup Steps ---
       - name: Echo deploy key
         run: |
           echo "Deploy key is present ${{ secrets.GORELEASER_DEPLOY_KEY }}"
