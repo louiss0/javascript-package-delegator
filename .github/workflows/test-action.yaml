@@ -17,7 +17,7 @@ jobs:
       - name: Install NuShell
         uses: hustcer/setup-nu@v3
         with:
-          version: "latest"
+          version: "0.105.1"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
