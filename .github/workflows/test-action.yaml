@@ -18,11 +18,11 @@ jobs:
         uses: hustcer/setup-nu@v3
         with:
           version: "v0.105.1"
+      - name: Ensure REQUIRED_VAR Exists
+        shell: nu {0}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
-      - name: Ensure REQUIRED_VAR Exists
-        shell: nu {0}
         run: |
           if not ($env.GITHUB_TOKEN | in (env).name) {
             print $"🚨 GITHUB_TOKEN is missing!"
