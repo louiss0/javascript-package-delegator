@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+
 jobs:
   log-with-nushell:
     name: Log Env Vars & Test Git Stat with NuShell
@@ -13,54 +14,40 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install NuShell
-        uses: hustcer/setup-nu@v3
-        with:
-          version: "v0.105.1"
-      - name: Ensure REQUIRED_VAR Exists
-        shell: nu {0}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
-        run: |
-          if not ('GITHUB_TOKEN' in env) {
-            print $"🚨 GITHUB_TOKEN is missing!"
-            exit 1
-          }
+      - name: Ensure REQUIRED_VAR Exists
 
-          if not ('GORELEASER_DEPLOY_KEY' in env ) {
-            print $"🚨 GORELEASER_DEPLOY_KEY is missing!"
+        run: |
+          if ! echo "${GITHUB_TOKEN}" | grep -q .; then
+            echo "🚨 GITHUB_TOKEN is missing!"
             exit 1
-          }
+          fi
+
+          if ! echo "${GORELEASER_DEPLOY_KEY}" | grep -q .; then
+            echo "🚨 GORELEASER_DEPLOY_KEY is missing!"
+            exit 1
+          fi
 
       - name: Log All Env Vars
-        shell: nu {0}
         run: |
-          env
-          | lines
-          | split column "=" key value
-          | sort-by key
-          | default column value '' # prevent nulls
+          printenv | sort
 
       - name: Create dummy public key file
         run: |
-          echo $env.GORELEASER_DEPLOY_KEY > goreleaser_pubkey
+          echo "${GORELEASER_DEPLOY_KEY}" > goreleaser_pubkey
 
-      - name: Test git stat on public key
-        shell: nu {0}
+      - name: Test git status on public key
         run: |
-          let exists = (git status --ignored=no --untracked-files=all --short goreleaser_pubkey | is-empty)
-          if exists {
-            print $"❌ goreleaser_pubkey is not under version control!"
+          if git status --ignored=no --untracked-files=all --short goreleaser_pubkey | grep -q .; then
+            echo "✅ goreleaser_pubkey is tracked by git."
+          else
+            echo "❌ goreleaser_pubkey is not under version control!"
             exit 1
-          } else {
-            print $"✅ goreleaser_pubkey is tracked by git."
-          }
+          fi
 
       - name: Print specific vars
-        shell: nu {0}
         run: |
-          echo $"GORELEASER_DEPLOY_KEY: ($env.GORELEASER_DEPLOY_KEY)"
-          echo $"GITHUB_TOKEN: ($env.GITHUB_TOKEN)"
-          echo $"REQUIRED_VAR: ($env.REQUIRED_VAR)"
+          echo "GORELEASER_DEPLOY_KEY: ${GORELEASER_DEPLOY_KEY}"
+          echo "GITHUB_TOKEN: ${GITHUB_TOKEN}"
