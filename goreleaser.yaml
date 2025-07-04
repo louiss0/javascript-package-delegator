@@ -18,16 +18,16 @@ builds:
 
       # Inject CLI_VERSION using the Git tag
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawCLI_VERSION
-      - -X '{{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}'
+      - "-X '{{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}'"
 
       # Inject GO_MODE, forcing it to "production" for release builds
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawGO_MODE
-      - -X '{{ .ModulePath }}/build_info.rawGO_MODE=production'
+      - "-X '{{ .ModulePath }}/build_info.rawGO_MODE=production'"
 
       # Inject BUILD_DATE using the release date, formatted as YYYY-MM-DD (time.DateOnly)
       # .Date is RFC3339, so we need to reformat it to match your build_info.go validation.
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawBUILD_DATE
-      - -X '{{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date | time "2006-01-02" }}'
+      - "-X {{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date }}"
 
 archives:
   - formats: [tar.gz]

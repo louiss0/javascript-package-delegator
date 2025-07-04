@@ -55,7 +55,7 @@ func init() {
 		// "dev" is explicitly allowed for local development builds.
 	} else {
 		// Full semver regex including optional 'v' prefix
-		semverRegex := `^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
+		semverRegex := `^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
 		match, err := regexp.MatchString(semverRegex, CLI_VERSION.String()) // CORRECTED: Checking CLI_VERSION
 		if err != nil {
 			panic(fmt.Errorf("build_info: internal regex error for CLI_VERSION validation: %w", err))
@@ -75,7 +75,7 @@ func init() {
 		}
 	} else {
 		// Attempt to parse the date to ensure its format is correct
-		_, err := time.Parse(time.DateOnly, BUILD_DATE.String())
+		_, err := time.Parse(time.RFC3339, BUILD_DATE.String())
 		if err != nil {
 			panic(fmt.Sprintf("build_info: invalid BUILD_DATE format: '%s'. Must be YYYY-MM-DD or 'unknown': %v", BUILD_DATE.String(), err))
 		}
