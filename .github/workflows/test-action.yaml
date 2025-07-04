@@ -10,14 +10,13 @@ jobs:
   log-with-nushell:
     name: Log Env Vars & Test Git Stat with NuShell
     runs-on: ubuntu-latest
-
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Ensure REQUIRED_VAR Exists
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
         run: |
           if ! echo "${GITHUB_TOKEN}" | grep -q .; then
             echo "🚨 GITHUB_TOKEN is missing!"
