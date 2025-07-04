@@ -248,7 +248,8 @@ scoops:
 
       git:
         url: ssh://git@github.com:louiss0/javascript-package-delegator.git
-        private_key: "{{ .Env.SCOOP_PRIVATE_KEY }}"
+        private_key: |
+          "{{ .Env.SCOOP_PRIVATE_KEY }}"
 
 nix:
   - #
