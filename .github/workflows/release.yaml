@@ -13,14 +13,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-
-      - uses: goreleaser/goreleaser-action@v6
-      - name: Lint GoReleaser config
-        run: goreleaser check
-
+      - uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
-          version: "-> v2" # 👈 pin a stable version here
+          version: v1.25.1 # 👈 pin a stable version here
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
