@@ -20,10 +20,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "stable"
-      - name: Write deploy key
+      - name: Echo deploy key
         run: |
-          echo "${{ secrets.GORELEASER_DEPLOY_KEY }}" > goreleaser_ed25519
-          chmod 600 goreleaser_ed25519
+          echo "Deploy key is present ${{ secrets.GORELEASER_DEPLOY_KEY }}"
       - name: Run Goreleaser
         uses: goreleaser/goreleaser-action@v6
         with:
