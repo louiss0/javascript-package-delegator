@@ -55,7 +55,7 @@ func init() {
 		// "dev" is explicitly allowed for local development builds.
 	} else {
 		// Full semver regex including optional 'v' prefix
-		semverRegex := `^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
+		semverRegex := `^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
 		match, err := regexp.MatchString(semverRegex, CLI_VERSION.String()) // CORRECTED: Checking CLI_VERSION
 		if err != nil {
 			panic(fmt.Errorf("build_info: internal regex error for CLI_VERSION validation: %w", err))

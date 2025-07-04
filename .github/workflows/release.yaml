@@ -1,8 +1,7 @@
-# Example for GitHub Actions workflow (.github/workflows/release.yml)
 on:
   push:
     tags:
-      - "v*" # Trigger on new tag pushes, e.g., v1.0.0, v1.0.1, etc.
+      - "v*"
 
 jobs:
   release:
@@ -10,14 +9,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for goreleaser to find all tags
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-      - uses: goreleaser/goreleaser-action@v5
+
+      - name: Lint GoReleaser config
+        run: goreleaser check
+
+      - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: "-> v2" # 👈 pin a stable version here
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This is where the token is injected
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
