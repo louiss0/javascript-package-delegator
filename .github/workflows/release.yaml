@@ -14,10 +14,10 @@ jobs:
         with:
           go-version: "1.22"
 
+      - uses: goreleaser/goreleaser-action@v6
       - name: Lint GoReleaser config
         run: goreleaser check
 
-      - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "-> v2" # 👈 pin a stable version here

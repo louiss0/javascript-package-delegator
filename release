@@ -132,7 +132,7 @@ let new_version = match $type {
   },
 }
 
-git tag $new_version -m $"Releasing version ($new_version) For JPD!"
+git tag $"v($new_version)" -m $"Releasing version v($new_version)"
 git push --tags
 
 }
