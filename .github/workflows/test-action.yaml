@@ -24,12 +24,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_DEPLOY_KEY: ${{ secrets.GORELEASER_DEPLOY_KEY }}
         run: |
-          if not ($env.GITHUB_TOKEN | in (env).name) {
+          if not ('GITHUB_TOKEN' in env) {
             print $"🚨 GITHUB_TOKEN is missing!"
             exit 1
           }
 
-          if not ($env.GORELEASER_DEPLOY_KEY | in (env).name) {
+          if not ('GORELEASER_DEPLOY_KEY' in env ) {
             print $"🚨 GORELEASER_DEPLOY_KEY is missing!"
             exit 1
           }
