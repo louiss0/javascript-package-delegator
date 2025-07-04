@@ -106,7 +106,7 @@ winget:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     # Release notes.
     #
@@ -190,7 +190,7 @@ homebrew_casks:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -213,6 +213,7 @@ homebrew_casks:
 
 scoops:
   - # Name of the recipe
+    name: javascript-package-delegator
 
     commit_author:
       name: louiss0
@@ -247,6 +248,7 @@ scoops:
 
       git:
         url: ssh://git@github.com:louiss0/javascript-package-delegator.git
+        private_key: "{{ .Env.SCOOP_PRIVATE_KEY }}"
 
 nix:
   - #
@@ -304,7 +306,7 @@ nix:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -312,7 +314,6 @@ nix:
       #
       # Templates: allowed.
       owner: louiss0
-
       # Repository name.
       #
       # Templates: allowed.
