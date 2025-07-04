@@ -1,4 +1,2 @@
-go.sum
 dist/
 .env
-node_modules/
