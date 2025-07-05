@@ -144,7 +144,7 @@ winget:
       name: javascript-package-delegator
 
       git:
-        url: ssh://git@github.com:louiss0/javascript-package-delegator.git
+        url: git@github.com:louiss0/javascript-package-delegator.git
         private_key: ./goreleaser_ed25519
 
 homebrew_casks:
@@ -213,7 +213,7 @@ homebrew_casks:
       # Notice that this will only have any effect if the given URL is not
       # empty.
       git:
-        url: ssh://git@github.com:louiss0/javascript-package-delegator.git
+        url: git@github.com:louiss0/javascript-package-delegator.git
         private_key: ./goreleaser_ed25519
 
 scoops:
@@ -252,7 +252,7 @@ scoops:
       branch: main
 
       git:
-        url: ssh://git@github.com:louiss0/javascript-package-delegator.git
+        url: git@github.com:louiss0/javascript-package-delegator.git
         private_key: ./goreleaser_ed25519
 
 nix:
@@ -334,5 +334,5 @@ nix:
         # The Git URL to push.
         #
         # Templates: allowed.
-        url: "ssh://git@github.com:louiss0/javascript-package-delegator.git"
+        url: "git@github.com:louiss0/javascript-package-delegator.git"
         private_key: ./goreleaser_ed25519
