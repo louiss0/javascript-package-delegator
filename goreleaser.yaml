@@ -2,6 +2,9 @@
 #
 version: 2
 project_name: javascript-package-delegator
+env_files:
+  github_token: ./.env
+
 builds:
   - main: ./main.go
     id: jpd
