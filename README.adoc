@@ -95,6 +95,7 @@ jpd <command> --help
 Here are some common use cases for `jpd`:
 
 *   **Install all dependencies:**
+
     [source,bash]
     ----
     jpd install
@@ -102,6 +103,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Add a new package:**
+
     [source,bash]
     ----
     jpd install lodash
@@ -109,6 +111,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Add a development dependency:**
+
     [source,bash]
     ----
     jpd install -D vitest
@@ -116,6 +119,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Run a script:**
+
     [source,bash]
     ----
     jpd run dev
@@ -124,12 +128,14 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **List all available scripts/tasks interactively:**
+
     [source,bash]
     ----
     jpd run
     ----
 
 *   **Execute a binary from node_modules or a remote package:**
+
     [source,bash]
     ----
     jpd exec create-react-app my-app
@@ -137,6 +143,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Update all packages:**
+
     [source,bash]
     ----
     jpd update
@@ -144,6 +151,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Uninstall a package:**
+
     [source,bash]
     ----
     jpd uninstall lodash
@@ -151,6 +159,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Interactively uninstall packages:**
+
     [source,bash]
     ----
     jpd uninstall -i
@@ -158,6 +167,7 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Perform a clean install (for CI/CD):**
+
     [source,bash]
     ----
     jpd clean-install
@@ -165,24 +175,28 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Check the detected package manager:**
+
     [source,bash]
     ----
     jpd agent
     ----
 
 *   **Force a specific package manager (e.g., Yarn) for a command:**
+
     [source,bash]
     ----
     jpd install --agent yarn
     ----
 
 *   **Enable debug mode:**
+
     [source,bash]
     ----
     jpd install --debug
     ----
 
 *   **Run command in a specific directory:**
+
     [source,bash]
     ----
     jpd install --cwd ./my-frontend-app/
@@ -190,12 +204,14 @@ Here are some common use cases for `jpd`:
     ----
 
 *   **Generate shell completion script for Bash:**
+
     [source,bash]
     ----
     jpd completion bash > /etc/bash_completion.d/jpd
     ----
 
 *   **Generate shell completion for Nushell and save to file:**
+
     [source,bash]
     ----
     jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
