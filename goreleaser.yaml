@@ -109,7 +109,7 @@ winget:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    # skip_upload: true
+    skip_upload: true
 
     # Release notes.
     #
@@ -143,9 +143,10 @@ winget:
       # Templates: allowed.
       name: javascript-package-delegator
 
-      git:
-        url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      # For uploading to git!
+      # git:
+      #   url: git@github.com:louiss0/javascript-package-delegator.git
+      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 homebrew_casks:
   - # Name of the cask
@@ -194,7 +195,7 @@ homebrew_casks:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    # skip_upload: true
+    skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -212,9 +213,10 @@ homebrew_casks:
       #
       # Notice that this will only have any effect if the given URL is not
       # empty.
-      git:
-        url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      # For uploading to git!
+      # git:
+      #   url: git@github.com:louiss0/javascript-package-delegator.git
+      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 scoops:
   - # Name of the recipe
@@ -232,6 +234,15 @@ scoops:
     commit_msg_template: "Scoop update for {{ .ProjectName }} version {{ .Tag }}"
 
     goamd64: v3
+
+    # Setting this will prevent goreleaser to actually try to commit the updated
+    # cask - instead, the cask file will be stored on the dist directory
+    # only, leaving the responsibility of publishing it to the user.
+    # If set to auto, the release will not be uploaded to the homebrew tap
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    #
+    # Templates: allowed.
+    skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -251,9 +262,10 @@ scoops:
       # Templates: allowed.
       branch: main
 
-      git:
-        url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      # For uploading to git!
+      # git:
+      #   url: git@github.com:louiss0/javascript-package-delegator.git
+      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 nix:
   - #
@@ -311,7 +323,7 @@ nix:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    # skip_upload: true
+    skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -330,9 +342,10 @@ nix:
       # Templates: allowed.
       branch: main
 
-      git:
-        # The Git URL to push.
-        #
-        # Templates: allowed.
-        url: "git@github.com:louiss0/javascript-package-delegator.git"
-        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      # For uploading to git!
+      # git:
+      #   # The Git URL to push.
+      #   #
+      #   # Templates: allowed.
+      #   url: "git@github.com:louiss0/javascript-package-delegator.git"
+      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
