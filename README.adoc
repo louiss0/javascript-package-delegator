@@ -126,18 +126,18 @@ jpd install -D vitest
 
 .Run a script:
 [TIP]
-=====
+====
 [source,bash]
 ----
 jpd run dev
 # Equivalent to: npm run dev, yarn run dev, pnpm run dev, bun run dev
 # For Deno: deno task dev
 ----
-=====
+====
 
 .List all available scripts/tasks interactively:
 [TIP]
-=====
+====
 [source,bash]
 ----
 jpd run
@@ -156,7 +156,7 @@ jpd exec create-react-app my-app
 
 .Update all packages:
 [TIP]
-=====
+====
 [source,bash]
 ----
 jpd update
@@ -201,6 +201,7 @@ jpd clean-install
 ----
 jpd agent
 ----
+====
 
 .Force a specific package manager (e.g., Yarn) for a command:
 [TIP]
