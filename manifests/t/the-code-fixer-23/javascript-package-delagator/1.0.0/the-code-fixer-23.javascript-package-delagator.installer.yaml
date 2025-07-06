@@ -4,7 +4,7 @@ PackageIdentifier: the-code-fixer-23.javascript-package-delagator
 PackageVersion: 1.0.0
 InstallerLocale: en-US
 InstallerType: zip
-ReleaseDate: "2025-07-04"
+ReleaseDate: "2025-07-05"
 Installers:
   - Architecture: arm64
     NestedInstallerType: portable
@@ -12,7 +12,7 @@ Installers:
       - RelativeFilePath: jpd.exe
         PortableCommandAlias: jpd
     InstallerUrl: https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_windows_arm64.zip
-    InstallerSha256: 9ce54531e1b96d588a1933381b2121c4d5f66f6d82dd97cc5e57717e3758e185
+    InstallerSha256: d73f58ec098562bb4a5340df28e0b89d7b460a7369d3def94cf1a254645058e5
     UpgradeBehavior: uninstallPrevious
   - Architecture: x64
     NestedInstallerType: portable
@@ -20,7 +20,7 @@ Installers:
       - RelativeFilePath: jpd.exe
         PortableCommandAlias: jpd
     InstallerUrl: https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_windows_amd64.zip
-    InstallerSha256: 49182bfd72883b59df87775dce579cec5aa10b5c35eacd2cd4f849de224b3a4f
+    InstallerSha256: 0a687f346da0cf14d669ef1c1ac7e83ffeab3ae011355bad5b1dd5852ed69149
     UpgradeBehavior: uninstallPrevious
 ManifestType: installer
 ManifestVersion: 1.10.0
