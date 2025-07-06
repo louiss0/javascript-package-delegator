@@ -198,6 +198,12 @@ homebrew_casks:
 
     homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
 
+    # Your app's description.
+    #
+    # Templates: allowed.
+    # Default: inferred from global metadata.
+    description: "A tool to delegate package installation to JavaScript package managers."
+
     # Repository to push the generated files to.
     repository:
       # Repository owner.
@@ -246,6 +252,12 @@ scoops:
     skip_upload: true
 
     homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
+
+    # Your app's description.
+    #
+    # Templates: allowed.
+    # Default: inferred from global metadata.
+    description: "A tool to delegate package installation to JavaScript package managers."
 
     # Repository to push the generated files to.
     repository:
