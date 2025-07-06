@@ -19,6 +19,10 @@ Tags:
   - bun
 ReleaseNotes: |
   ## Changelog
+  * 07b5c49348fb06175a25bafed433f2facd2a3139 Merge branch 'main' of github.com:louiss0/javascript-package-delegator
+  * b93751f3facfbc0ff31de239cc7141abd6ba9c3b Brew cask update for javascript-package-delegator version v1.0.0
+  * 17528c8b9108e730a2aeb8d452fdeded7d01fccd the-code-fixer-23.javascript-package-delagator: v1.0.0
+  * 6d07a3192b85add2e151344be630c1fccaa5de9e javascript-package-delegator: v1.0.0
   * 5eda366f8ce66fafff5843b5515b690eb3a7d41d Merge branch 'main' of github.com:louiss0/javascript-package-delegator I need this to help push with goreleaser!
   * 85cb4b6b1e9074d468fb51c0ba4e2344d1aa233b Brew cask update for javascript-package-delegator version v1.0.0
   * 91c065fc97a022921b330f9f6adc46e63b8e35cc the-code-fixer-23.javascript-package-delagator: v1.0.0

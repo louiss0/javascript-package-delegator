@@ -12,7 +12,7 @@ Installers:
       - RelativeFilePath: jpd.exe
         PortableCommandAlias: jpd
     InstallerUrl: https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_windows_arm64.zip
-    InstallerSha256: 9726f5f999c085985bbc0a3ad2d08989be59b32387eff4365ba22d165462198e
+    InstallerSha256: c9d5f16ca08c0564046c7e2b11f0ae92b1d4b89bd647c0fce938c95cb8826187
     UpgradeBehavior: uninstallPrevious
   - Architecture: x64
     NestedInstallerType: portable
@@ -20,7 +20,7 @@ Installers:
       - RelativeFilePath: jpd.exe
         PortableCommandAlias: jpd
     InstallerUrl: https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_windows_amd64.zip
-    InstallerSha256: 93a4d22bb28e52d86facdc23dbd547c36d65ff8458cb0b16f1b56e23cfb42168
+    InstallerSha256: 20d8f2a3d001f5c5a725e62491274d15f26f006b13b8e0ea6fd10c2da837899e
     UpgradeBehavior: uninstallPrevious
 ManifestType: installer
 ManifestVersion: 1.10.0
