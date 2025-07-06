@@ -19,6 +19,7 @@ Tags:
   - bun
 ReleaseNotes: |
   ## Changelog
+  * be9b3a252c58c8071cdbcce7ee5601cbafac1515 fix: use env to reference the private key instead of a file
   * b97da055142088628fd329011eb2315eb3574dc5 chore: ignore localenv file from nu I'm using this file to load the env files that are needed from nu before release
   * db31b82a613da054697f1e89e0d21854447bb453 chore: igore all local ssh files
   * cd99a561abf3f971009153d8da236f279e96f64a fix: ignore the local go releaser file
