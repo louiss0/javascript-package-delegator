@@ -145,7 +145,7 @@ winget:
 
       git:
         url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: ./goreleaser_ed25519
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 homebrew_casks:
   - # Name of the cask
@@ -214,7 +214,7 @@ homebrew_casks:
       # empty.
       git:
         url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: ./goreleaser_ed25519
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 scoops:
   - # Name of the recipe
@@ -253,7 +253,7 @@ scoops:
 
       git:
         url: git@github.com:louiss0/javascript-package-delegator.git
-        private_key: ./goreleaser_ed25519
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 nix:
   - #
@@ -335,4 +335,4 @@ nix:
         #
         # Templates: allowed.
         url: "git@github.com:louiss0/javascript-package-delegator.git"
-        private_key: ./goreleaser_ed25519
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
