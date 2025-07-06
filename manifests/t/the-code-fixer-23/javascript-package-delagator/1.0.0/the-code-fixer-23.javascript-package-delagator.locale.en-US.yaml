@@ -19,8 +19,22 @@ Tags:
   - bun
 ReleaseNotes: |
   ## Changelog
+  * 5eda366f8ce66fafff5843b5515b690eb3a7d41d Merge branch 'main' of github.com:louiss0/javascript-package-delegator I need this to help push with goreleaser!
+  * 85cb4b6b1e9074d468fb51c0ba4e2344d1aa233b Brew cask update for javascript-package-delegator version v1.0.0
+  * 91c065fc97a022921b330f9f6adc46e63b8e35cc the-code-fixer-23.javascript-package-delagator: v1.0.0
+  * 15479e5d3cde770a71b39be2438d2f2d3cd92221 javascript-package-delegator: v1.0.0
+  * 48c0e465b2b428408bf1c9af24ba4d65a6591599 Brew cask update for javascript-package-delegator version v1.0.0
+  * 02915fa7de7a5d9fa412b1fd1d8eb7e0125628db the-code-fixer-23.javascript-package-delagator: v1.0.0
+  * 3c2192a671955a42b8d9bd2ab7161e5104bcfc94 javascript-package-delegator: v1.0.0
   * be9b3a252c58c8071cdbcce7ee5601cbafac1515 fix: use env to reference the private key instead of a file
+  * a2a35f6cace17efc15d6bc0b945a9ae9a43cc5bc Brew cask update for javascript-package-delegator version v1.0.0
+  * e1578fe31e59d8d70eb4214c7dcaad2db5b5511f the-code-fixer-23.javascript-package-delagator: v1.0.0
+  * e01fb2aad8d0ffbcea4d0d0594f7c74971f4d552 javascript-package-delegator: v1.0.0
   * b97da055142088628fd329011eb2315eb3574dc5 chore: ignore localenv file from nu I'm using this file to load the env files that are needed from nu before release
+  * c536a259da7dd2063b6430e77123dd6bd553a320 Brew cask update for javascript-package-delegator version v1.0.0
+  * 99b16eda9101067f3634adeb90bb9c4c03b424e8 the-code-fixer-23.javascript-package-delagator: v1.0.0
+  * 0d2c76700447830c981b2cbdab1e025a6eab152d javascript-package-delegator: v1.0.0
+  * 7d330f99fb87888d229c85984e7432a178740bb3 Scoop update for javascript-package-delegator version v1.0.0
   * db31b82a613da054697f1e89e0d21854447bb453 chore: igore all local ssh files
   * cd99a561abf3f971009153d8da236f279e96f64a fix: ignore the local go releaser file
   * dbd3be7adb1d385f797da96b887d38c6ddcd9930 fix: url's for ssh
