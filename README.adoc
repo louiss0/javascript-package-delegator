@@ -316,7 +316,6 @@ The project follows a modular structure to ensure maintainability and testabilit
 *   `custom_flags` provides generic flag definitions for Cobra commands, now including robust path validation.
 *   The `detect` package encapsulates the logic for identifying the JavaScript package manager in a project, now with improved testability via injected file system and path lookup interfaces.
 *   The `env` package contains environment-related utilities, potentially including checks for production/development modes.
-*   `assets_embed.go` is a new file at the root responsible for embedding assets that are also located at the root of the project, making them accessible to other packages.
 
 == Tools and Libraries Used
 
