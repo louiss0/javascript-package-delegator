@@ -189,7 +189,7 @@ Here are some common use cases for `jpd`:
     # Equivalent to running 'npm install' or 'yarn install' inside './my-frontend-app/'
     ----
 
-*   **Generate shell completion for Bash:**
+*   **Generate shell completion script for Bash:**
     [source,bash]
     ----
     jpd completion bash > /etc/bash_completion.d/jpd
@@ -201,6 +201,12 @@ Here are some common use cases for `jpd`:
     jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
     # Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
     ----
+
+== Configuring automatic installation of JavaScript package managers
+
+If a detected JavaScript package manager is not found a suitable installation command will be asked from you in an interative prompt. Once that happens the value will be stored in a file
+
+== Contributing
 
 NOTE:
 .This project is developed using a Test-Driven Development (TDD) approach.
@@ -243,7 +249,6 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   └── root.go
 ├── jpd-test            // Test utilities and helpers
 ├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
-├── .gitignore
 ├── LICENSE
 ├── README.adoc         // This documentation file
 ├── cmd_test.go         // Tests for commands in `cmd` package
