@@ -13,22 +13,22 @@ cask "javascript-package-delegator" do
   on_macos do
     on_intel do
       url "https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_darwin_amd64.tar.gz"
-      sha256 "6692a66313c6db4bb6a865aab45276adad743820ec47a96fc63637a039829aad"
+      sha256 "21fcaddf9803c9b4da3741acdf69ea420dce32997ac40cb5c9d86b6bf476e460"
     end
     on_arm do
       url "https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_darwin_arm64.tar.gz"
-      sha256 "00cb8708c864c95b697760872e29a215d545387cb28ba1c6d9ef71c68d00929a"
+      sha256 "034f17d3c43aa601ee28ac952d92a880038a04a6e993439588cf955097d7e49c"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_linux_amd64.tar.gz"
-      sha256 "87b1be580c6187043d2177b93fa28eb27473992e51110806349c9a31d5e3b69d"
+      sha256 "5dd8158331b7a81bb16352e3e7b0dc16e0ba852dda85ce20ac1929f8da6bbccd"
     end
     on_arm do
       url "https://github.com/louiss0/javascript-package-delegator/releases/download/v1.0.0/javascript-package-delegator_1.0.0_linux_arm64.tar.gz"
-      sha256 "bead7ca84bdf8d2704905784b85accc9f990c15049de1ac4dee50f69cab2f497"
+      sha256 "3a6bb65bbac4d08d4100cab960c451e42cd1a2d0d3c2f3861977b66c6f2f4a17"
     end
   end
 
