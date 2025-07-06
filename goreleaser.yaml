@@ -4,7 +4,6 @@ version: 2
 project_name: javascript-package-delegator
 env_files:
   github_token: ./.env
-
 builds:
   - main: ./main.go
     id: jpd
@@ -64,6 +63,8 @@ winget:
     # Required
     # Default: inferred from global metadata.
     short_description: "A tool to delegate package installation to JavaScript package managers."
+
+    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
 
     # License name.
     #
@@ -186,8 +187,6 @@ homebrew_casks:
     # Templates: allowed.
     commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
 
-    description: "Software to create fast and easy drum rolls."
-
     # Setting this will prevent goreleaser to actually try to commit the updated
     # cask - instead, the cask file will be stored on the dist directory
     # only, leaving the responsibility of publishing it to the user.
@@ -196,6 +195,8 @@ homebrew_casks:
     #
     # Templates: allowed.
     skip_upload: true
+
+    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
 
     # Repository to push the generated files to.
     repository:
@@ -243,6 +244,8 @@ scoops:
     #
     # Templates: allowed.
     skip_upload: true
+
+    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
 
     # Repository to push the generated files to.
     repository:
@@ -302,7 +305,7 @@ nix:
     #
     # Templates: allowed.
     # Default: inferred from global metadata.
-    # homepage: "https://example.com/"
+    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
 
     # Your app's description.
     #
