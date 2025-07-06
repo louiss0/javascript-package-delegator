@@ -94,129 +94,160 @@ jpd <command> --help
 
 Here are some common use cases for `jpd`:
 
-*   **Install all dependencies:**
+.Install all dependencies:
+[TIP]
+====
+[source,bash]
+----
+jpd install
+# Equivalent to: npm install, yarn install, pnpm install, bun install
+----
+====
 
-    [source,bash]
-    ----
-    jpd install
-    # Equivalent to: npm install, yarn install, pnpm install, bun install
-    ----
+.Add a new package:
+[TIP]
+====
+[source,bash]
+----
+jpd install lodash
+# Equivalent to: npm install lodash, yarn add lodash, pnpm add lodash, bun add lodash
+----
+====
 
-*   **Add a new package:**
+.Add a development dependency:
+[TIP]
+====
+[source,bash]
+----
+jpd install -D vitest
+# Equivalent to: npm install --save-dev vitest, yarn add --dev vitest, pnpm add --save-dev vitest, bun add --development vitest
+----
+====
 
-    [source,bash]
-    ----
-    jpd install lodash
-    # Equivalent to: npm install lodash, yarn add lodash, pnpm add lodash, bun add lodash
-    ----
+.Run a script:
+[TIP]
+=====
+[source,bash]
+----
+jpd run dev
+# Equivalent to: npm run dev, yarn run dev, pnpm run dev, bun run dev
+# For Deno: deno task dev
+----
+=====
 
-*   **Add a development dependency:**
+.List all available scripts/tasks interactively:
+[TIP]
+=====
+[source,bash]
+----
+jpd run
+----
+====
 
-    [source,bash]
-    ----
-    jpd install -D vitest
-    # Equivalent to: npm install --save-dev vitest, yarn add --dev vitest, pnpm add --save-dev vitest, bun add --development vitest
-    ----
+.Execute a binary from node_modules or a remote package:
+[TIP]
+====
+[source,bash]
+----
+jpd exec create-react-app my-app
+# Equivalent to: npx create-react-app my-app, yarn dlx create-react-app my-app, pnpm dlx create-react-app my-app, bunx create-react-app my-app
+----
+====
 
-*   **Run a script:**
+.Update all packages:
+[TIP]
+=====
+[source,bash]
+----
+jpd update
+# Equivalent to: npm update, yarn upgrade, pnpm update, bun update, deno outdated
+----
+====
 
-    [source,bash]
-    ----
-    jpd run dev
-    # Equivalent to: npm run dev, yarn run dev, pnpm run dev, bun run dev
-    # For Deno: deno task dev
-    ----
+.Uninstall a package:
+[TIP]
+====
+[source,bash]
+----
+jpd uninstall lodash
+# Equivalent to: npm uninstall lodash, yarn remove lodash, pnpm remove lodash, bun remove lodash
+----
+====
 
-*   **List all available scripts/tasks interactively:**
+.Interactively uninstall packages:
+[TIP]
+====
+[source,bash]
+----
+jpd uninstall -i
+# Prompts an interactive selection of installed dependencies to remove
+----
+====
 
-    [source,bash]
-    ----
-    jpd run
-    ----
+.Perform a clean install (for CI/CD):
+[TIP]
+====
+[source,bash]
+----
+jpd clean-install
+# Equivalent to: npm ci, yarn install --frozen-lockfile/--immutable, pnpm install --frozen-lockfile, bun install --frozen-lockfile
+----
+====
 
-*   **Execute a binary from node_modules or a remote package:**
+.Check the detected package manager:
+[TIP]
+====
+[source,bash]
+----
+jpd agent
+----
 
-    [source,bash]
-    ----
-    jpd exec create-react-app my-app
-    # Equivalent to: npx create-react-app my-app, yarn dlx create-react-app my-app, pnpm dlx create-react-app my-app, bunx create-react-app my-app
-    ----
+.Force a specific package manager (e.g., Yarn) for a command:
+[TIP]
+====
+[source,bash]
+----
+jpd install --agent yarn
+----
+====
 
-*   **Update all packages:**
+.Enable debug mode:
+[TIP]
+====
+[source,bash]
+----
+jpd install --debug
+----
+====
 
-    [source,bash]
-    ----
-    jpd update
-    # Equivalent to: npm update, yarn upgrade, pnpm update, bun update, deno outdated
-    ----
+.Run command in a specific directory:
+[TIP]
+====
+[source,bash]
+----
+jpd install --cwd ./my-frontend-app/
+# Equivalent to running 'npm install' or 'yarn install' inside './my-frontend-app/'
+----
+====
 
-*   **Uninstall a package:**
+.Generate shell completion script for Bash:
+[TIP]
+====
+[source,bash]
+----
+jpd completion bash > /etc/bash_completion.d/jpd
+----
+====
 
-    [source,bash]
-    ----
-    jpd uninstall lodash
-    # Equivalent to: npm uninstall lodash, yarn remove lodash, pnpm remove lodash, bun remove lodash
-    ----
-
-*   **Interactively uninstall packages:**
-
-    [source,bash]
-    ----
-    jpd uninstall -i
-    # Prompts an interactive selection of installed dependencies to remove
-    ----
-
-*   **Perform a clean install (for CI/CD):**
-
-    [source,bash]
-    ----
-    jpd clean-install
-    # Equivalent to: npm ci, yarn install --frozen-lockfile/--immutable, pnpm install --frozen-lockfile, bun install --frozen-lockfile
-    ----
-
-*   **Check the detected package manager:**
-
-    [source,bash]
-    ----
-    jpd agent
-    ----
-
-*   **Force a specific package manager (e.g., Yarn) for a command:**
-
-    [source,bash]
-    ----
-    jpd install --agent yarn
-    ----
-
-*   **Enable debug mode:**
-
-    [source,bash]
-    ----
-    jpd install --debug
-    ----
-
-*   **Run command in a specific directory:**
-
-    [source,bash]
-    ----
-    jpd install --cwd ./my-frontend-app/
-    # Equivalent to running 'npm install' or 'yarn install' inside './my-frontend-app/'
-    ----
-
-*   **Generate shell completion script for Bash:**
-
-    [source,bash]
-    ----
-    jpd completion bash > /etc/bash_completion.d/jpd
-    ----
-
-*   **Generate shell completion for Nushell and save to file:**
-
-    [source,bash]
-    ----
-    jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
-    # Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
-    ----
+.Generate shell completion for Nushell and save to file:
+[TIP]
+====
+[source,bash]
+----
+jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
+# Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
+----
+====
 
 == Configuring automatic installation of JavaScript package managers
 
