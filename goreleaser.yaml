@@ -64,7 +64,7 @@ winget:
     # Default: inferred from global metadata.
     short_description: "A tool to delegate package installation to JavaScript package managers."
 
-    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
+    homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # License name.
     #
@@ -80,7 +80,7 @@ winget:
     # Publisher support URL.
     #
     # Templates: allowed.
-    publisher_support_url: "https://github.com/user/louiss0/issues/new"
+    publisher_support_url: "https://github.com/louiss0/javascript-package-delegator/issues/new"
 
     # Privacy URL.
     #
@@ -196,7 +196,7 @@ homebrew_casks:
     # Templates: allowed.
     skip_upload: true
 
-    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
+    homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # Your app's description.
     #
@@ -251,7 +251,7 @@ scoops:
     # Templates: allowed.
     skip_upload: true
 
-    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
+    homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # Your app's description.
     #
@@ -317,7 +317,7 @@ nix:
     #
     # Templates: allowed.
     # Default: inferred from global metadata.
-    homepage: "https://github.com/louiss0/javascript-package-delegator/tree/main?tab=readme-ov-file#javascript-package-delegator-a-universal-javascript-package-manager-cli"
+    homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # Your app's description.
     #

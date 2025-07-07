@@ -1,3 +1,4 @@
 dist/
 local-env.nu
 goreleaser_ed25519*
+forks/
