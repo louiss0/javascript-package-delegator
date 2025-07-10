@@ -1,9 +1,8 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-#
+
 version: 2
 project_name: javascript-package-delegator
-env_files:
-  github_token: ./.env
+
 builds:
   - main: ./main.go
     id: jpd
@@ -62,10 +61,13 @@ winget:
     #
     # Templates: allowed.
     # Required
-    # Default: inferred from global metadata.
+    # Default: inferred from global metadata.manifests/t/the-code-fixer23/{{.ProjectName}}
     short_description: "A tool to delegate package installation to JavaScript package managers."
 
     homepage: "https://github.com/louiss0/javascript-package-delegator"
+
+    # Default: 'manifests/<lowercased first char of publisher>/<publisher>/<name>/<version>'.
+    path: "manifests/t/the-code-fixer23/javascript-package-delegator/{{ .Version }}"
 
     # License name.
     #
@@ -111,7 +113,7 @@ winget:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     # Release notes.
     #
@@ -143,12 +145,12 @@ winget:
       # Repository name.
       #
       # Templates: allowed.
-      name: javascript-package-delegator
+      name: winget-pkgs
 
       # For uploading to git!
-      # git:
-      #   url: git@github.com:louiss0/javascript-package-delegator.git
-      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      git:
+        url: ssh://git@github.com:louiss0/winget-pkgs.git
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 homebrew_casks:
   - # Name of the cask
@@ -182,7 +184,7 @@ homebrew_casks:
     # Templates: allowed.
     commit_author:
       name: louiss0
-      email: louisshelton0@gmail.com
+      email: louishelton0@gmail.com
     # The project name and current git tag are used in the format string.
     #
     # Templates: allowed.
@@ -195,36 +197,32 @@ homebrew_casks:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # Your app's description.
     #
     # Templates: allowed.
-    # Default: inferred from global metadata.
     description: "A tool to delegate package installation to JavaScript package managers."
-
     # Repository to push the generated files to.
     repository:
       # Repository owner.
-      #
-      # Templates: allowed.
       owner: louiss0
 
       # Repository name.
       #
       # Templates: allowed.
-      name: javascript-package-delegator
+      name: homebrew-jpd
 
       # Clone, create the file, commit and push, to a regular Git repository.
       #
       # Notice that this will only have any effect if the given URL is not
       # empty.
       # For uploading to git!
-      # git:
-      #   url: git@github.com:louiss0/javascript-package-delegator.git
-      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      git:
+        url: git@github.com:louiss0/homebrew-tap.git
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 scoops:
   - # Name of the recipe
@@ -232,7 +230,7 @@ scoops:
 
     commit_author:
       name: louiss0
-      email: louisshelton0@gmail.com
+      email: louishelton0@gmail.com
 
     shortcuts: [[javascript-package-delegator.exe, jpd]]
 
@@ -246,31 +244,32 @@ scoops:
     # Setting this will prevent goreleaser to actually try to commit the updated
     # cask - instead, the cask file will be stored on the dist directory
     # only, leaving the responsibility of publishing it to the user.
-    # If set to auto, the release will not be uploaded to the homebrew tap
+    #
+    # If set to auto, the release will not be uploaded to the repository
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     homepage: "https://github.com/louiss0/javascript-package-delegator"
+
+    directory: bucket
 
     # Your app's description.
     #
     # Templates: allowed.
     # Default: inferred from global metadata.
-    description: "A tool to delegate package installation to JavaScript package managers."
+    description: "A CLI for executing Javascript Package Manager Commands based on lock files. Supported's deno,bun, and all node package managers"
 
     # Repository to push the generated files to.
     repository:
       # Repository owner.
-      #
-      # Templates: allowed.
       owner: louiss0
 
       # Repository name.
       #
       # Templates: allowed.
-      name: javascript-package-delegator
+      name: the-code-fixer-23-buckets
 
       # Optionally a branch can be provided.
       #
@@ -279,9 +278,9 @@ scoops:
       branch: main
 
       # For uploading to git!
-      # git:
-      #   url: git@github.com:louiss0/javascript-package-delegator.git
-      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      git:
+        url: git@github.com:louiss0/the-code-fixer-23-buckets.git
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 nix:
   - #
@@ -301,7 +300,7 @@ nix:
     # Templates: allowed.
     commit_author:
       name: louiss0
-      email: louisshelton0@gmail.com
+      email: louishelton0@gmail.com
 
     # The project name and current git tag are used in the format string.
     #
@@ -339,7 +338,7 @@ nix:
     # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
     #
     # Templates: allowed.
-    skip_upload: true
+    # skip_upload: true
 
     # Repository to push the generated files to.
     repository:
@@ -359,9 +358,9 @@ nix:
       branch: main
 
       # For uploading to git!
-      # git:
-      #   # The Git URL to push.
-      #   #
-      #   # Templates: allowed.
-      #   url: "git@github.com:louiss0/javascript-package-delegator.git"
-      #   private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
+      git:
+        # The Git URL to push.
+        #
+        # Templates: allowed.
+        url: "git@github.com:louiss0/the-code-fixer-23-nur.git"
+        private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
