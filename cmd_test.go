@@ -910,12 +910,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("DLX Command", func() {
-		var dlxCmd *cobra.Command
-
-		BeforeEach(func() {
-			dlxCmd, _ = getSubCommandWithName(rootCmd, "dlx")
-			_ = dlxCmd // Prevent unused variable error
-		})
 
 		It("should show help", func() {
 			output, err := executeCmd(rootCmd, "dlx", "--help")
