@@ -34,7 +34,7 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	err = os.Chdir(tempDir)
 	if err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)
@@ -113,7 +113,7 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	err = os.Chdir(tempDir)
 	if err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)
@@ -121,8 +121,8 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 
 	// Test different shell types
 	testCases := []struct {
-		shell      string
-		outputFile string
+		shell           string
+		outputFile      string
 		expectedContent string
 	}{
 		{"bash", "test_bash.bash", "bash completion"},
@@ -198,7 +198,7 @@ func TestCompletionCommand_DefaultFilenames(t *testing.T) {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	err = os.Chdir(tempDir)
 	if err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)
