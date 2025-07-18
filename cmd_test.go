@@ -914,6 +914,7 @@ var _ = Describe("JPD Commands", func() {
 
 		BeforeEach(func() {
 			dlxCmd, _ = getSubCommandWithName(rootCmd, "dlx")
+			_ = dlxCmd // Prevent unused variable error
 		})
 
 		It("should show help", func() {
@@ -2966,7 +2967,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(7, userCommands)
+			assert.Equal(8, userCommands)
 		})
 	})
 
