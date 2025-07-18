@@ -4,6 +4,7 @@ import (
 	_ "embed" // Required for the embed directive
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -125,24 +126,39 @@ Examples:
 			defer file.Close()
 			outputWriter := file // All output will now go to this file
 
+			// Get the absolute path for the success message
+			absPath, err := filepath.Abs(finalOutputFile)
+			if err != nil {
+				// If we can't get absolute path, use the original filename
+				absPath = finalOutputFile
+			}
+
+			var completionErr error
 			switch shell {
 			case "bash":
-				return cmd.GenBashCompletionV2(outputWriter, false)
+				completionErr = cmd.GenBashCompletionV2(outputWriter, false)
 			case "zsh":
-				return cmd.GenZshCompletion(outputWriter)
+				completionErr = cmd.GenZshCompletion(outputWriter)
 			case "fish":
-				return cmd.GenFishCompletion(outputWriter, false)
+				completionErr = cmd.GenFishCompletion(outputWriter, false)
 			case "powershell":
-				return cmd.GenPowerShellCompletionWithDesc(outputWriter)
+				completionErr = cmd.GenPowerShellCompletionWithDesc(outputWriter)
 			case "nushell":
-				_, err := fmt.Fprint(outputWriter, NushellCompletionScript())
-				if err != nil {
-					return fmt.Errorf("failed to write Nushell completion script: %w", err)
+				_, completionErr = fmt.Fprint(outputWriter, NushellCompletionScript())
+				if completionErr != nil {
+					completionErr = fmt.Errorf("failed to write Nushell completion script: %w", completionErr)
 				}
-				return nil
 			default:
-				return fmt.Errorf("unsupported shell: %s. Supported shells are: bash, zsh, fish, powershell, nushell", shell)
+				completionErr = fmt.Errorf("unsupported shell: %s. Supported shells are: bash, zsh, fish, powershell, nushell", shell)
 			}
+
+			if completionErr != nil {
+				return completionErr
+			}
+
+			// Print success message with full path
+			fmt.Fprintf(cmd.OutOrStdout(), "Successfully generated %s completion script at %s\n", shell, absPath)
+			return nil
 		},
 	}
 
