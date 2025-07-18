@@ -157,7 +157,7 @@ Examples:
 			}
 
 			// Print success message with full path
-			fmt.Fprintf(cmd.OutOrStdout(), "Successfully generated %s completion script at %s\n", shell, absPath)
+			fmt.Fprintf(cmd.OutOrStdout(), "Completion script created at: %s\n", absPath)
 			return nil
 		},
 	}

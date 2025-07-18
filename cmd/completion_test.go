@@ -86,7 +86,7 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 
 	// Check that the command returns the success line with the full path
 	output := buf.String()
-	expectedSuccessMessage := fmt.Sprintf("Successfully generated bash completion script at %s", fullPath)
+	expectedSuccessMessage := fmt.Sprintf("Completion script created at: %s", fullPath)
 	if !strings.Contains(output, expectedSuccessMessage) {
 		t.Fatalf("Success message missing. Expected: %s, Got: %s", expectedSuccessMessage, output)
 	}
@@ -170,7 +170,7 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 			// For nushell, check the embedded content
 			if tc.shell == "nushell" {
 				contentStr := string(content)
-				if !strings.Contains(contentStr, "extern jpd") {
+				if !strings.Contains(contentStr, "export extern \"jpd\"") {
 					t.Fatalf("Generated nushell completion file does not contain expected content")
 				}
 			}
