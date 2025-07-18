@@ -909,6 +909,114 @@ var _ = Describe("JPD Commands", func() {
 
 	})
 
+	Describe("DLX Command", func() {
+		var dlxCmd *cobra.Command
+
+		BeforeEach(func() {
+			dlxCmd, _ = getSubCommandWithName(rootCmd, "dlx")
+			_ = dlxCmd // Prevent unused variable error
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(rootCmd, "dlx", "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Execute packages with package runner")
+			assert.Contains(output, "jpd dlx")
+		})
+
+		It("should require at least one argument", func() {
+			_, err := executeCmd(rootCmd, "dlx")
+			assert.Error(err)
+			assert.Contains(err.Error(), "requires at least 1 arg(s)")
+		})
+
+		Context("npm", func() {
+			It("should execute npx with package name", func() {
+				_, err := executeCmd(rootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("npx", "create-react-app"))
+			})
+
+			It("should execute npx with package name and args", func() {
+				_, err := executeCmd(rootCmd, "dlx", "create-react-app", "--", "my-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("npx", "create-react-app", "my-app"))
+			})
+		})
+
+		Context("yarn", func() {
+			It("should execute yarn with package name for yarn v1", func() {
+				yarnRootCmd := createRootCommandWithYarnOneAsDefault(mockRunner, nil)
+				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("yarn", "create-react-app"))
+			})
+
+			It("should execute yarn dlx with package name for yarn v2+", func() {
+				yarnRootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("yarn", "dlx", "create-react-app"))
+			})
+
+			It("should handle yarn version detection error (fallback to v1)", func() {
+				yarnRootCmd := createRootCommandWithNoYarnVersion(mockRunner, nil)
+				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("yarn", "create-react-app"))
+			})
+		})
+
+		Context("pnpm", func() {
+			It("should execute pnpm dlx with package name", func() {
+				pnpmRootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				_, err := executeCmd(pnpmRootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("pnpm", "dlx", "create-react-app"))
+			})
+
+			It("should execute pnpm dlx with package name and args", func() {
+				pnpmRootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				_, err := executeCmd(pnpmRootCmd, "dlx", "create-react-app", "--", "my-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
+			})
+		})
+
+		Context("bun", func() {
+			It("should execute bunx with package name", func() {
+				bunRootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
+				_, err := executeCmd(bunRootCmd, "dlx", "create-react-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("bunx", "create-react-app"))
+			})
+
+			It("should execute bunx with package name and args", func() {
+				bunRootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
+				_, err := executeCmd(bunRootCmd, "dlx", "create-react-app", "--", "my-app")
+				assert.NoError(err)
+				assert.True(mockRunner.HasCommand("bunx", "create-react-app", "my-app"))
+			})
+		})
+
+		Context("Error Handling", func() {
+			It("should return error when command runner fails", func() {
+				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				mockRunner.InvalidCommands = []string{"npx"}
+				_, err := executeCmd(rootCmd, "dlx", "test-command")
+				assert.Error(err)
+				assert.Contains(err.Error(), "mock error: command 'npx' is configured to fail")
+			})
+
+			It("should return error for unsupported package manager", func() {
+				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				_, err := executeCmd(rootCmd, "dlx", "some-package")
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager: unknown")
+			})
+		})
+	})
+
 	Describe("Install Command", func() {
 
 		createRootCommandWithPackageManagerAndMultiSelectUI := func(mockRunner *MockCommandRunner) *cobra.Command {
@@ -2859,7 +2967,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(7, userCommands)
+			assert.Equal(8, userCommands)
 		})
 	})
 
