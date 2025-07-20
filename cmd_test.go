@@ -1544,29 +1544,22 @@ var _ = Describe("JPD Commands", func() {
 				}
 
 				var (
-					tempDir string
-					error   error
 					cwd     string
 					rootCmd *cobra.Command
 				)
 				BeforeEach(func() {
-
-					cwd, error = os.Getwd()
-					assert.NoError(error)
-
+					cwd, _ = os.Getwd()
 					rootCmd = createRootCommandWithTaskSelectorUI(mockRunner, "npm")
-					tempDir, error = os.MkdirTemp("", "jpd-test-*")
-
-					assert.NoError(error)
-					assert.DirExists(tempDir)
-
-					os.Chdir(tempDir)
-
+					
+					// Create jpd-test directory
+					err := os.MkdirAll("jpd-test", 0755)
+					assert.NoError(err)
+					os.Chdir("jpd-test")
 				})
 
 				AfterEach(func() {
 					os.Chdir(cwd)
-					os.RemoveAll(tempDir)
+					os.RemoveAll("jpd-test")
 				})
 
 				It("Should output an indicator saying there are no tasks in deno for deno.json", func() {
@@ -1707,16 +1700,21 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run npm run with script name", func() {
 				originalDir, _ := os.Getwd()
-				path, _ := os.MkdirTemp("", "jpd-test*")
-				os.Chdir(path)
-				defer os.Chdir(originalDir)
-				defer os.RemoveAll(path)
+				
+				// Create jpd-test directory
+				err := os.MkdirAll("jpd-test", 0755)
+				assert.NoError(err)
+				os.Chdir("jpd-test")
+				defer func() {
+					os.Chdir(originalDir)
+					os.RemoveAll("jpd-test")
+				}()
 
 				content := `{ "scripts": { "test": "echo 'test'" } }`
 				os.WriteFile("package.json", []byte(content), 0644)
 				os.WriteFile(".env", []byte("GO_ENV=development"), 0644)
 
-				_, err := executeCmd(rootCmd, "run", "test")
+				_, err = executeCmd(rootCmd, "run", "test")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("npm", "run", "test"))
 			})
@@ -1729,16 +1727,21 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run npm run with if-present flag", func() {
 				originalDir, _ := os.Getwd()
-				path, _ := os.MkdirTemp("", "jpd-test*")
-				os.Chdir(path)
-				defer os.Chdir(originalDir)
-				defer os.RemoveAll(path)
+				
+				// Create jpd-test directory
+				err := os.MkdirAll("jpd-test", 0755)
+				assert.NoError(err)
+				os.Chdir("jpd-test")
+				defer func() {
+					os.Chdir(originalDir)
+					os.RemoveAll("jpd-test")
+				}()
 
 				content := `{ "scripts": { "test": "echo 'test'" } }`
 				os.WriteFile("package.json", []byte(content), 0644)
 				os.WriteFile(".env", []byte("GO_MODE=development"), 0644)
 
-				_, err := executeCmd(rootCmd, "run", "--if-present", "test")
+				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("npm", "run", "--if-present", "test"))
 			})
@@ -1792,13 +1795,19 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run pnpm script using the if-present flag", func() {
 				cwd, _ := os.Getwd()
-				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
-				os.Chdir(jpdDir)
+				
+				// Create jpd-test directory
+				err := os.MkdirAll("jpd-test", 0755)
+				assert.NoError(err)
+				os.Chdir("jpd-test")
+				defer func() {
+					os.Chdir(cwd)
+					os.RemoveAll("jpd-test")
+				}()
+				
 				os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
-				defer os.Chdir(cwd)
-				defer os.RemoveAll(jpdDir)
 
-				_, err := executeCmd(pnpmRootCmd, "run", "--if-present", "test")
+				_, err = executeCmd(pnpmRootCmd, "run", "--if-present", "test")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("pnpm", "run", "--if-present", "test"))
 			})
@@ -1833,13 +1842,19 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should return an error if deno is the package manager and the eval flag is passed", func() {
 				cwd, _ := os.Getwd()
-				jpdDir, _ := os.MkdirTemp(cwd, "jpd-test")
-				os.Chdir(jpdDir)
+				
+				// Create jpd-test directory
+				err := os.MkdirAll("jpd-test", 0755)
+				assert.NoError(err)
+				os.Chdir("jpd-test")
+				defer func() {
+					os.Chdir(cwd)
+					os.RemoveAll("jpd-test")
+				}()
+				
 				os.WriteFile("deno.json", []byte(`{"tasks": {"test": "vitest"}}`), 0644)
-				defer os.Chdir(cwd)
-				defer os.RemoveAll(jpdDir)
 
-				_, err := executeCmd(denoRootCmd, "run", "--", "test", "--eval")
+				_, err = executeCmd(denoRootCmd, "run", "--", "test", "--eval")
 				assert.Error(err)
 				assert.Contains(err.Error(), fmt.Sprintf("Don't pass %s here use the exec command instead", "--eval"))
 			})
@@ -2322,27 +2337,21 @@ var _ = Describe("JPD Commands", func() {
 			func() {
 
 				var (
-					tempDir string
-					err     error
-					cwd     string
+					cwd string
 				)
 
 				BeforeEach(func() {
-
-					cwd, err = os.Getwd()
+					cwd, _ = os.Getwd()
+					
+					// Create jpd-test directory
+					err := os.MkdirAll("jpd-test", 0755)
 					assert.NoError(err)
-
-					tempDir, err = os.MkdirTemp("", "jpd-test-*")
-					assert.NoError(err)
-					assert.DirExists(tempDir)
-
-					os.Chdir(tempDir)
-
+					os.Chdir("jpd-test")
 				})
 
 				AfterEach(func() {
 					os.Chdir(cwd)
-					os.RemoveAll(tempDir)
+					os.RemoveAll("jpd-test")
 				})
 
 				It("should return an error if no packages are found for interactive uninstall", func() {
