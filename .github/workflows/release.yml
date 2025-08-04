@@ -27,6 +27,43 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
+    - name: Install Nix
+      uses: cachix/install-nix-action@v27
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        install_url: https://releases.nixos.org/nix/nix-2.18.1/install
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Verify Nix installation
+      run: |
+        echo "Nix version:"
+        nix --version
+        echo "Nix PATH:"
+        echo $PATH
+        echo "NIX_PATH:"
+        echo $NIX_PATH
+        # Export Nix paths for subsequent steps
+        echo "PATH=$PATH" >> $GITHUB_ENV
+        echo "NIX_PATH=$NIX_PATH" >> $GITHUB_ENV
+        if [ -n "$NIX_PROFILES" ]; then
+          echo "NIX_PROFILES=$NIX_PROFILES" >> $GITHUB_ENV
+        fi
+        if [ -n "$NIX_SSL_CERT_FILE" ]; then
+          echo "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" >> $GITHUB_ENV
+        fi
+
+    - name: Test Nix in shell
+      run: |
+        # Test that Nix commands are available
+        which nix
+        nix --version
+        # Test nix-prefetch-url which GoReleaser might use
+        which nix-prefetch-url || echo "nix-prefetch-url not found"
+        # Ensure nix tools are in PATH
+        export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
+        echo "PATH=$PATH" >> $GITHUB_ENV
+
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v6
       with:
