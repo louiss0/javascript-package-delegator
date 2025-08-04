@@ -91,6 +91,7 @@ func (e executor) IsDebug() bool {
 
 func (e *executor) Command(name string, args ...string) {
 	e.cmd = e.execCommandFunc(name, args...)
+	e.cmd.Stdin = os.Stdin   // Ensure stdin is connected for interactive commands
 	e.cmd.Stdout = os.Stdout // Ensure output goes to stdout
 	e.cmd.Stderr = os.Stderr // Ensure errors go to stderr
 
