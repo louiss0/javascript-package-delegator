@@ -85,9 +85,9 @@ winget:
     # Templates: allowed.
     publisher_support_url: "https://github.com/louiss0/javascript-package-delegator/issues/new"
 
-    # Privacy URL.
+    # Package Identifier
     #
-    package_identifier: the-code-fixer-23.javascript-package-delagator
+    package_identifier: the-code-fixer-23.javascript-package-delegator
 
     # Product code to be used.
     #
