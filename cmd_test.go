@@ -1550,7 +1550,7 @@ var _ = Describe("JPD Commands", func() {
 				BeforeEach(func() {
 					cwd, _ = os.Getwd()
 					rootCmd = createRootCommandWithTaskSelectorUI(mockRunner, "npm")
-					
+
 					// Create jpd-test directory
 					err := os.MkdirAll("jpd-test", 0755)
 					assert.NoError(err)
@@ -1700,7 +1700,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run npm run with script name", func() {
 				originalDir, _ := os.Getwd()
-				
+
 				// Create jpd-test directory
 				err := os.MkdirAll("jpd-test", 0755)
 				assert.NoError(err)
@@ -1727,7 +1727,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run npm run with if-present flag", func() {
 				originalDir, _ := os.Getwd()
-				
+
 				// Create jpd-test directory
 				err := os.MkdirAll("jpd-test", 0755)
 				assert.NoError(err)
@@ -1795,7 +1795,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should run pnpm script using the if-present flag", func() {
 				cwd, _ := os.Getwd()
-				
+
 				// Create jpd-test directory
 				err := os.MkdirAll("jpd-test", 0755)
 				assert.NoError(err)
@@ -1804,7 +1804,7 @@ var _ = Describe("JPD Commands", func() {
 					os.Chdir(cwd)
 					os.RemoveAll("jpd-test")
 				}()
-				
+
 				os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
 
 				_, err = executeCmd(pnpmRootCmd, "run", "--if-present", "test")
@@ -1842,7 +1842,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should return an error if deno is the package manager and the eval flag is passed", func() {
 				cwd, _ := os.Getwd()
-				
+
 				// Create jpd-test directory
 				err := os.MkdirAll("jpd-test", 0755)
 				assert.NoError(err)
@@ -1851,7 +1851,7 @@ var _ = Describe("JPD Commands", func() {
 					os.Chdir(cwd)
 					os.RemoveAll("jpd-test")
 				}()
-				
+
 				os.WriteFile("deno.json", []byte(`{"tasks": {"test": "vitest"}}`), 0644)
 
 				_, err = executeCmd(denoRootCmd, "run", "--", "test", "--eval")
@@ -2342,7 +2342,7 @@ var _ = Describe("JPD Commands", func() {
 
 				BeforeEach(func() {
 					cwd, _ = os.Getwd()
-					
+
 					// Create jpd-test directory
 					err := os.MkdirAll("jpd-test", 0755)
 					assert.NoError(err)

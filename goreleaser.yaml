@@ -87,7 +87,7 @@ winget:
 
     # Privacy URL.
     #
-    package_identifier: the-code-fixer-23.javascript-package-delagator
+    package_identifier: the-code-fixer-23.javascript-package-delegator
 
     # Product code to be used.
     #
@@ -254,6 +254,8 @@ scoops:
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     directory: bucket
+
+    license: MIT
 
     # Your app's description.
     #

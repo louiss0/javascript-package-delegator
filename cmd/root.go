@@ -287,7 +287,8 @@ Available commands:
 				)
 			})
 
-			agent, error := c.Flags().GetString(AGENT_FLAG)
+			persistentFlags := c.Flags()
+			agent, error := persistentFlags.GetString(AGENT_FLAG)
 
 			if error != nil {
 
@@ -296,7 +297,7 @@ Available commands:
 
 			if agent != "" {
 
-				c.Flags().Set(AGENT_FLAG, agent)
+				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -320,7 +321,7 @@ Available commands:
 
 				})
 
-				c.Flags().Set(AGENT_FLAG, agent)
+				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 
@@ -360,7 +361,7 @@ Available commands:
 					return nil
 				}
 
-				c.Flags().Set(AGENT_FLAG, pm)
+				persistentFlags.Set(AGENT_FLAG, pm)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -406,7 +407,7 @@ Available commands:
 
 			}
 
-			c.Flags().Set(AGENT_FLAG, pm)
+			persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},

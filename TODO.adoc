@@ -14,6 +14,39 @@ Description:
 • Users don't know where completion files were created
 ====
 
+[CAUTION]
+.EmptyAgent
+====
+
+File: cmd/root.go
+Function: PersistentPreRunE - Line 290-302
+Description:
+• Agent flag might be retrieved as empty string without proper error handling
+• No validation that agent was successfully set before returning
+• Early return when agent is set might bypass required initialization
+
+File: cmd/root.go  
+Function: PersistentPreRunE - Line 330-367
+Description:
+• When DetectLockfile fails, DetectJSPackageManager might return empty string
+• No validation that pm variable contains a valid package manager before setting AGENT_FLAG
+• Missing error handling for edge cases where both detection methods fail
+
+File: cmd/root.go
+Function: PersistentPreRunE - Line 369-412  
+Description:
+• When DetectJSPackageManagerBasedOnLockFile fails, agent might not be set
+• Interactive command UI flow doesn't set the agent flag after installation
+• No verification that pm variable is non-empty before setting AGENT_FLAG
+
+File: cmd/agent.go
+Function: RunE - Line 36
+Description:
+• No error handling when GetString returns empty string
+• Should validate that pm is not empty before attempting to execute command
+• Missing user-friendly error message when agent is empty
+====
+
 == Refactors
 
 == Features

@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +35,15 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Retrieve the detected package manager name from the command's flags.
 			// This flag is populated by the root command's PersistentPreRunE logic.
-			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
+			pm, err := cmd.Flags().GetString(AGENT_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to get agent flag: %w", err)
+			}
+
+			// Validate that the package manager was actually detected
+			if pm == "" {
+				return fmt.Errorf("no package manager detected. Please ensure you have a lock file (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, deno.json, etc.) in your project directory")
+			}
 
 			// Get the environment configuration to determine if logging should be verbose.
 			goEnv := getGoEnvFromCommandContext(cmd)
