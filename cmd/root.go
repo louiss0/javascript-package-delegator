@@ -75,6 +75,7 @@ type executor struct {
 	execCommandFunc _ExecCommandFunc
 	cmd             *exec.Cmd
 	debug           bool
+	targetDir       string
 }
 
 func newExecutor(execCommandFunc _ExecCommandFunc, debug bool) *executor {
@@ -95,13 +96,15 @@ func (e *executor) Command(name string, args ...string) {
 	e.cmd.Stdout = os.Stdout // Ensure output goes to stdout
 	e.cmd.Stderr = os.Stderr // Ensure errors go to stderr
 
+	// Apply any previously set target directory
+	if e.targetDir != "" {
+		e.cmd.Dir = e.targetDir
+	}
 }
 
 func (e *executor) SetTargetDir(dir string) error {
-
 	fileInfo, err := os.Stat(dir) // Get file information
 	if err != nil {
-
 		return err
 	}
 
@@ -110,7 +113,13 @@ func (e *executor) SetTargetDir(dir string) error {
 		return fmt.Errorf("target directory %s is not a directory", dir)
 	}
 
-	e.cmd.Dir = dir
+	// Persist the target directory regardless of command initialization state
+	e.targetDir = dir
+
+	// If a command has already been created, update it immediately
+	if e.cmd != nil {
+		e.cmd.Dir = dir
+	}
 	return nil
 }
 
@@ -120,10 +129,10 @@ func (e executor) Run() error {
 	}
 
 	if e.debug {
-
 		log.Debug("Using this command: %s \n", strings.Join(e.cmd.Args, " "))
-
-		log.Debug("Target directory: %s", e.cmd.Dir)
+		if e.cmd.Dir != "" {
+			log.Debug("Target directory: %s", e.cmd.Dir)
+		}
 	}
 
 	return e.cmd.Run()
@@ -220,7 +229,33 @@ func (ui *CommandTextUI) Run() error {
 
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
-
+	// Provide safe defaults for any missing dependencies to prevent panics in tests
+	if deps.CommandRunnerGetter == nil {
+		deps.CommandRunnerGetter = func(b bool) CommandRunner { return newExecutor(exec.Command, b) }
+	}
+	if deps.DetectJSPacakgeManagerBasedOnLockFile == nil {
+		deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+			return detect.DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
+		}
+	}
+	if deps.YarnCommandVersionOutputter == nil {
+		deps.YarnCommandVersionOutputter = detect.NewRealYarnCommandVersionRunner()
+	}
+	if deps.NewCommandTextUI == nil {
+		deps.NewCommandTextUI = newCommandTextUI
+	}
+	if deps.DetectLockfile == nil {
+		deps.DetectLockfile = func() (string, error) { return detect.DetectLockfile(detect.RealFileSystem{}) }
+	}
+	if deps.DetectJSPacakgeManager == nil {
+		deps.DetectJSPacakgeManager = func() (string, error) { return "", detect.ErrNoPackageManager }
+	}
+	if deps.DetectVolta == nil {
+		deps.DetectVolta = func() bool { return detect.DetectVolta(detect.RealPathLookup{}) }
+	}
+	if deps.NewPackageMultiSelectUI == nil {
+		deps.NewPackageMultiSelectUI = newPackageMultiSelectUI
+	}
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -287,7 +322,8 @@ Available commands:
 				)
 			})
 
-			agent, error := c.Flags().GetString(AGENT_FLAG)
+			persistentFlags := c.Flags()
+			agent, error := persistentFlags.GetString(AGENT_FLAG)
 
 			if error != nil {
 
@@ -296,7 +332,7 @@ Available commands:
 
 			if agent != "" {
 
-				c.Flags().Set(AGENT_FLAG, agent)
+				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -320,7 +356,7 @@ Available commands:
 
 				})
 
-				c.Flags().Set(AGENT_FLAG, agent)
+				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 
@@ -360,7 +396,7 @@ Available commands:
 					return nil
 				}
 
-				c.Flags().Set(AGENT_FLAG, pm)
+				persistentFlags.Set(AGENT_FLAG, pm)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -371,11 +407,29 @@ Available commands:
 			if err != nil {
 
 				if errors.Is(detect.ErrNoPackageManager, err) {
-
+					// The package manager indicated by the lock file is not installed
+					// Let's check if any other package manager is available in PATH
 					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Warn("The package manager wasn't detected:")
-						log.Warn("You be asked to fill in which command you'd like to use to install it")
+						log.Warn("Package manager indicated by lock file is not installed")
+						log.Info("Checking for other available package managers...")
+					})
 
+					// Try to detect any available package manager from PATH
+					pm, err := deps.DetectJSPacakgeManager()
+					if err == nil {
+						// Found an alternative package manager!
+						goEnv.ExecuteIfModeIsProduction(func() {
+							log.Infof("Found %s as an alternative package manager\n", pm)
+						})
+						persistentFlags.Set(AGENT_FLAG, pm)
+						c.SetContext(c_ctx)
+						return nil
+					}
+
+					// No package manager found at all, prompt for installation
+					goEnv.ExecuteIfModeIsProduction(func() {
+						log.Warn("No package manager found on the system")
+						log.Warn("You'll be asked to provide a command to install one")
 					})
 
 					commandTextUI := deps.NewCommandTextUI(lockFile)
@@ -404,9 +458,11 @@ Available commands:
 					return nil
 				}
 
+				// Return any other errors as-is
+				return err
 			}
 
-			c.Flags().Set(AGENT_FLAG, pm)
+			persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},

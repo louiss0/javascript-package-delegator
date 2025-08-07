@@ -14,6 +14,51 @@ Description:
 • Users don't know where completion files were created
 ====
 
+[CAUTION]
+.EmptyAgent
+====
+
+File: cmd/root.go
+Function: PersistentPreRunE - Line 290-302
+Description:
+• Agent flag might be retrieved as empty string without proper error handling
+• No validation that agent was successfully set before returning
+• Early return when agent is set might bypass required initialization
+
+File: cmd/root.go  
+Function: PersistentPreRunE - Line 330-367
+Description:
+• When DetectLockfile fails, DetectJSPackageManager might return empty string
+• No validation that pm variable contains a valid package manager before setting AGENT_FLAG
+• Missing error handling for edge cases where both detection methods fail
+
+File: cmd/root.go
+Function: PersistentPreRunE - Line 369-412  
+Description:
+• ~~When DetectJSPackageManagerBasedOnLockFile fails, agent might not be set~~ FIXED: Now falls back to PATH detection
+• Interactive command UI flow doesn't set the agent flag after installation
+• No verification that pm variable is non-empty before setting AGENT_FLAG
+
+File: cmd/agent.go
+Function: RunE - Line 36
+Description:
+• ~~No error handling when GetString returns empty string~~ FIXED: Added error handling
+• ~~Should validate that pm is not empty before attempting to execute command~~ FIXED: Added validation
+• ~~Missing user-friendly error message when agent is empty~~ FIXED: Added helpful error message
+====
+
+[CAUTION]
+.NilTargetDir
+====
+
+File: cmd/root.go
+Function: executor.SetTargetDir
+Description:
+• Handle nil e.cmd when -C flag is used during PersistentPreRunE
+• Persist target directory and apply on Command()
+• Add tests for both pre/post Command() scenarios
+====
+
 == Refactors
 
 == Features
@@ -27,4 +72,14 @@ Function: RunE in NewCompletionCmd()
 Description:
 • Add verbose flag for detailed completion installation process
 • Show more information about completion file installation
+====
+
+[IMPORTANT]
+.CwdConfidence
+====
+
+File: cmd/root.go
+Function: executor.Command
+Description:
+• Apply stored target directory automatically when creating a command
 ====

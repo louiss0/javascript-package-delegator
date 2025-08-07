@@ -149,7 +149,7 @@ winget:
 
       # For uploading to git!
       git:
-        url: ssh://git@github.com:louiss0/winget-pkgs.git
+        url: git@github.com:louiss0/winget-pkgs.git
         private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 homebrew_casks:
@@ -221,7 +221,7 @@ homebrew_casks:
       # empty.
       # For uploading to git!
       git:
-        url: git@github.com:louiss0/homebrew-tap.git
+        url: git@github.com:louiss0/homebrew-the-code-fixer-23.git
         private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 scoops:
@@ -254,6 +254,8 @@ scoops:
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     directory: bucket
+
+    license: MIT
 
     # Your app's description.
     #
