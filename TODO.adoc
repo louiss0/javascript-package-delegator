@@ -35,16 +35,28 @@ Description:
 File: cmd/root.go
 Function: PersistentPreRunE - Line 369-412  
 Description:
-• When DetectJSPackageManagerBasedOnLockFile fails, agent might not be set
+• ~~When DetectJSPackageManagerBasedOnLockFile fails, agent might not be set~~ FIXED: Now falls back to PATH detection
 • Interactive command UI flow doesn't set the agent flag after installation
 • No verification that pm variable is non-empty before setting AGENT_FLAG
 
 File: cmd/agent.go
 Function: RunE - Line 36
 Description:
-• No error handling when GetString returns empty string
-• Should validate that pm is not empty before attempting to execute command
-• Missing user-friendly error message when agent is empty
+• ~~No error handling when GetString returns empty string~~ FIXED: Added error handling
+• ~~Should validate that pm is not empty before attempting to execute command~~ FIXED: Added validation
+• ~~Missing user-friendly error message when agent is empty~~ FIXED: Added helpful error message
+====
+
+[CAUTION]
+.NilTargetDir
+====
+
+File: cmd/root.go
+Function: executor.SetTargetDir
+Description:
+• Handle nil e.cmd when -C flag is used during PersistentPreRunE
+• Persist target directory and apply on Command()
+• Add tests for both pre/post Command() scenarios
 ====
 
 == Refactors
@@ -60,4 +72,14 @@ Function: RunE in NewCompletionCmd()
 Description:
 • Add verbose flag for detailed completion installation process
 • Show more information about completion file installation
+====
+
+[IMPORTANT]
+.CwdConfidence
+====
+
+File: cmd/root.go
+Function: executor.Command
+Description:
+• Apply stored target directory automatically when creating a command
 ====
