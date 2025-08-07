@@ -12,6 +12,7 @@ import (
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/services"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -1494,6 +1495,30 @@ var _ = Describe("JPD Commands", func() {
 				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
 			})
 		})
+
+		It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
+			var mock *MockCommandRunner
+
+			deps := cmd.Dependencies{
+				CommandRunnerGetter: func(debug bool) cmd.CommandRunner { mock = NewMockCommandRunner(debug); return mock },
+				DetectLockfile: func() (string, error) { return "", fmt.Errorf("no lockfile") },
+				DetectJSPacakgeManager: func() (string, error) { return detect.NPM, nil },
+				DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return detect.NPM, nil },
+				YarnCommandVersionOutputter: MockYarnCommandVersionOutputer{version: "1.0.0"},
+				DetectVolta: func() bool { return false },
+				NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter { return NewMockPackageMultiSelectUI(pi) },
+				NewTaskSelectorUI:      NewMockTaskSelectUI,
+				NewDependencyMultiSelectUI: NewMockDependencySelectUI,
+			}
+
+			root := cmd.NewRootCmd(deps)
+			tmpDir := fmt.Sprintf("%s/", GinkgoT().TempDir())
+
+			_, err := executeCmd(root, "install", "-D", "tsup", "-C", tmpDir)
+			assert.NoError(err)
+			assert.True(mock.HasCommand("npm", "install", "tsup", "--save-dev"))
+			assert.Equal(tmpDir, mock.WorkingDir)
+		})
 	})
 
 	Describe("Run Command", func() {
@@ -2941,6 +2966,173 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(rootCmd, "agent")
 				assert.Error(err)
 				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+			})
+		})
+	})
+
+	Describe("Agent Detection Fallback", func() {
+		Context("When lock file indicates a package manager that is not installed", func() {
+			It("should fallback to an available package manager in PATH", func() {
+				// Setup: package-lock.json exists (indicates npm) but npm is not installed
+				// However, pnpm is available in PATH
+				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
+					DetectLockfile: func() (lockfile string, error error) {
+						// Found package-lock.json
+						return detect.PACKAGE_LOCK_JSON, nil
+					},
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+						// npm is not installed
+						return "", detect.ErrNoPackageManager
+					},
+					DetectJSPacakgeManager: func() (string, error) {
+						// But pnpm is available in PATH
+						return "pnpm", nil
+					},
+					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					NewCommandTextUI: newMockCommandTextUI,
+					DetectVolta: func() bool { return false },
+				})
+
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				// Execute PersistentPreRunE which handles agent detection
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.NoError(err)
+
+				// Verify that pnpm was set as the agent
+				agent, err := currentRootCmd.Flags().GetString(cmd.AGENT_FLAG)
+				assert.NoError(err)
+				assert.Equal("pnpm", agent)
+			})
+
+			It("should prompt for installation when no package manager is available", func() {
+				// Setup: yarn.lock exists but yarn is not installed
+				// No other package manager is available either
+				commandTextUI := newMockCommandTextUI("yarn.lock").(*MockCommandTextUI)
+				commandTextUI.SetValue("npm install -g yarn")
+
+				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
+					DetectLockfile: func() (lockfile string, error error) {
+						return detect.YARN_LOCK, nil
+					},
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+						// yarn is not installed
+						return "", detect.ErrNoPackageManager
+					},
+					DetectJSPacakgeManager: func() (string, error) {
+						// No package manager available in PATH
+						return "", detect.ErrNoPackageManager
+					},
+					NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
+						return commandTextUI
+					},
+					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					DetectVolta: func() bool { return false },
+				})
+
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				// Execute PersistentPreRunE
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.NoError(err)
+
+				// Verify the install command was executed
+				assert.True(mockRunner.HasBeenCalled)
+				assert.Equal("npm", mockRunner.CommandCall.Name)
+				assert.Equal([]string{"install", "-g", "yarn"}, mockRunner.CommandCall.Args)
+			})
+
+			It("should use different package manager when deno.json exists but deno is not installed", func() {
+				// Setup: deno.json exists but deno is not installed, npm is available
+				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
+					DetectLockfile: func() (lockfile string, error error) {
+						return detect.DENO_JSON, nil
+					},
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+						// deno is not installed
+						return "", detect.ErrNoPackageManager
+					},
+					DetectJSPacakgeManager: func() (string, error) {
+						// npm is available as fallback
+						return "npm", nil
+					},
+					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					NewCommandTextUI: newMockCommandTextUI,
+					DetectVolta: func() bool { return false },
+				})
+
+				currentRootCmd.SetContext(context.Background())
+				currentRootCmd.ParseFlags([]string{})
+
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				assert.NoError(err)
+
+				// Verify npm was set as the agent instead of deno
+				agent, err := currentRootCmd.Flags().GetString(cmd.AGENT_FLAG)
+				assert.NoError(err)
+				assert.Equal("npm", agent)
+			})
+		})
+
+		Context("When using the agent command", func() {
+			It("should show error when no agent is detected", func() {
+				// Create agent command with a mock context
+				agentCmd := cmd.NewAgentCmd()
+				
+				// Set up the command context with necessary values
+				ctx := context.Background()
+				ctx = context.WithValue(ctx, "command_runner", mockRunner)
+				ctx = context.WithValue(ctx, "go_env", env.NewGoEnv())
+				
+				agentCmd.SetContext(ctx)
+				agentCmd.Flags().String(cmd.AGENT_FLAG, "", "")
+				
+				// Execute the command
+				err := agentCmd.RunE(agentCmd, []string{})
+				
+				// Should get an error about no package manager detected
+				assert.Error(err)
+				assert.Contains(err.Error(), "no package manager detected")
+				assert.Contains(err.Error(), "lock file")
+			})
+
+			It("should execute the detected package manager", func() {
+				// Create a root command with npm detected
+				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						return mockRunner
+					},
+					DetectLockfile: func() (lockfile string, error error) {
+						return detect.PACKAGE_LOCK_JSON, nil
+					},
+					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+						return "npm", nil
+					},
+					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					NewCommandTextUI: newMockCommandTextUI,
+					DetectVolta: func() bool { return false },
+				})
+
+				// Execute the full command to set up the agent
+				output, err := executeCmd(currentRootCmd, "agent", "--version")
+				
+				assert.NoError(err)
+				assert.Empty(output)
+				
+				// Verify npm was called with --version
+				assert.Equal("npm", mockRunner.CommandCall.Name)
+				assert.Equal([]string{"--version"}, mockRunner.CommandCall.Args)
 			})
 		})
 	})
