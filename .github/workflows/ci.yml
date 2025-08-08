@@ -46,3 +46,13 @@ jobs:
       - name: Run tests
         run: |
           go test ./...
+
+      - name: Check for dirty repository
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Error: Repository is dirty after running tests. Test artifacts may have been generated."
+            echo "Files that were modified:"
+            git status --porcelain
+            exit 1
+          fi
+          echo "Repository is clean after tests ✓"
