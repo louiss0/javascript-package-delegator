@@ -64,13 +64,15 @@ const (
 	BUN_LOCK_JSON     = "bun.lock.json"
 )
 
-var lockFiles = [7]string{
+var lockFiles = [9]string{
 	DENO_LOCK,
 	DENO_JSON,
 	DENO_JSONC,
 	BUN_LOCKB,
+	BUN_LOCK_JSON,
 	PNPM_LOCK_YAML,
 	YARN_LOCK,
+	YARN_LOCK_JSON,
 	PACKAGE_LOCK_JSON,
 }
 
@@ -117,6 +119,7 @@ var LockFileToPackageManagerMap = map[string]string{
 	DENO_LOCK:         DENO,
 	DENO_JSONC:        DENO,
 	PACKAGE_LOCK_JSON: NPM,
+	PNPM_LOCK_YAML:    PNPM,
 	BUN_LOCKB:         BUN,
 	BUN_LOCK_JSON:     BUN,
 	YARN_LOCK:         YARN,
