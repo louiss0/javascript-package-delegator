@@ -2,13 +2,51 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/louiss0/javascript-package-delegator/services"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// FakeCommandRunner is a test double that doesn't execute real commands
+type FakeCommandRunner struct {
+	debug      bool
+	targetDir  string
+	commandSet bool
+}
+
+func NewFakeCommandRunner(debug bool) CommandRunner {
+	return &FakeCommandRunner{debug: debug}
+}
+
+func (f *FakeCommandRunner) IsDebug() bool {
+	return f.debug
+}
+
+func (f *FakeCommandRunner) Command(name string, args ...string) {
+	f.commandSet = true
+}
+
+func (f *FakeCommandRunner) SetTargetDir(dir string) error {
+	fileInfo, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("target directory %s is not a directory", dir)
+	}
+	f.targetDir = dir
+	return nil
+}
+
+func (f *FakeCommandRunner) Run() error {
+	if !f.commandSet {
+		return fmt.Errorf("no command set to run")
+	}
+	return nil
+}
 
 type dummyYarnVersionRunner struct{}
 
@@ -35,7 +73,7 @@ var _ = Describe("root -C flag regression", func() {
 	It("does not panic when executing root with only the -C flag before any Command() call", func() {
 		// Build a NewRootCmd with stubbed dependencies per spec
 		root := NewRootCmd(Dependencies{
-			CommandRunnerGetter: func(debug bool) CommandRunner { return newExecutor(exec.Command, false) },
+			CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
 			DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
 			DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
 			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
@@ -59,7 +97,7 @@ Expect(func() { _ = root.Execute() }).NotTo(Panic())
 
 	It("rejects absolute path without trailing slash for -C", func() {
         root := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return newExecutor(exec.Command, false) },
+            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
             DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
             DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
             DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
@@ -81,7 +119,7 @@ Expect(func() { _ = root.Execute() }).NotTo(Panic())
 
 	It("accepts relative path with trailing slash and rejects without it", func() {
         rootValid := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return newExecutor(exec.Command, false) },
+            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
             DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
             DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
             DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
@@ -106,7 +144,7 @@ Expect(func() { _ = root.Execute() }).NotTo(Panic())
 
         // Invalid without trailing slash
         rootInvalid := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return newExecutor(exec.Command, false) },
+            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
             DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
             DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
             DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },

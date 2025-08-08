@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 )
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes
+// This ensures no real commands are executed during tests - it only records what would be run
 type MockCommandRunner struct {
 	// CommandCall stores the single command that has been called
 	CommandCall CommandCall
@@ -131,6 +133,7 @@ func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
 	return m.CommandCall, true
 }
 
+// MockYarnCommandVersionOutputer is a fake implementation that doesn't execute real yarn commands
 type MockYarnCommandVersionOutputer struct {
 	version string
 }
@@ -151,6 +154,11 @@ func (my MockYarnCommandVersionOutputer) Output() (string, error) {
 
 	return my.version, nil
 
+}
+
+// NewMockYarnCommandVersionOutputer creates a fake yarn version outputer for tests
+func NewMockYarnCommandVersionOutputer(version string) MockYarnCommandVersionOutputer {
+	return MockYarnCommandVersionOutputer{version: version}
 }
 
 // This function executes a cobra command with the given arguments and returns the output and error.
@@ -538,7 +546,7 @@ var _ = Describe("JPD Commands", func() {
 							mockUI.SetValue(commandTextUIValue)
 							return mockUI
 						},
-						YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(), // Required, even if not used in this flow
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"), // Required, even if not used in this flow
 						DetectVolta:                 func() bool { return false },             // Required
 						NewPackageMultiSelectUI:     NewMockPackageMultiSelectUI,              // Required
 						NewTaskSelectorUI:           NewMockTaskSelectUI,                      // Required
@@ -615,7 +623,7 @@ var _ = Describe("JPD Commands", func() {
 					DetectLockfile: func() (lockfile string, error error) {
 						return "", nil
 					},
-					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:            newMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
 					NewTaskSelectorUI:           NewMockTaskSelectUI,
@@ -631,12 +639,15 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			AfterEach(func() {
-				// Clean up the temporary directory if it was created
-				// In a real scenario, you'd want to remove tempDir here.
-				// For now, we'll rely on the OS to clean up temp files eventually.
-
-				// Restore original CWD, though not strictly necessary if test doesn't change it.
-				os.Chdir(originalCwd)
+				// Restore original CWD
+				if originalCwd != "" {
+					err := os.Chdir(originalCwd)
+					// Log error but don't fail test if we can't restore
+					if err != nil {
+						GinkgoWriter.Printf("Warning: Failed to restore original working directory: %v\n", err)
+					}
+				}
+				// TempDir is automatically cleaned up by Ginkgo
 			})
 
 			It("should reject a --cwd flag value that does not end with '/'", func() {
@@ -682,14 +693,12 @@ var _ = Describe("JPD Commands", func() {
 				Entry("a valid relative parent folder path '../'", "../"),
 			)
 
-			It("should run a command in the specified directory using -C", func() {
-				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-1-*")
-				assert.NoError(err)
-				tempDir = fmt.Sprintf("%s/", tempDir)
-				defer os.RemoveAll(tempDir) // Clean up temp directory
+		It("should run a command in the specified directory using -C", func() {
+			tempDir := GinkgoT().TempDir()
+			tempDir = fmt.Sprintf("%s/", tempDir)
 
 				// Execute a command with -C flag
-				_, err = executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", tempDir)
+				_, err := executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", tempDir)
 				assert.NoError(err)
 
 				// Verify the CommandRunner received the correct working directory
@@ -702,14 +711,11 @@ var _ = Describe("JPD Commands", func() {
 				assert.Equal(tempDir, mockRunner.WorkingDir)
 			})
 
-			It("should run a command in the specified directory using --cwd", func() {
-				tempDir, err := os.MkdirTemp("", "jpd-cwd-test-2-*")
-				assert.NoError(err)
-				tempDir = fmt.Sprintf("%s/", tempDir)
+		It("should run a command in the specified directory using --cwd", func() {
+			tempDir := GinkgoT().TempDir()
+			tempDir = fmt.Sprintf("%s/", tempDir)
 
-				defer os.RemoveAll(tempDir) // Clean up temp directory
-
-				_, err = executeCmd(currentRootCmd, "run", "dev", "--agent", "yarn", "--cwd", tempDir)
+				_, err := executeCmd(currentRootCmd, "run", "dev", "--agent", "yarn", "--cwd", tempDir)
 				assert.NoError(err)
 
 				assert.Equal("yarn", mockRunner.CommandCall.Name)
@@ -1569,29 +1575,39 @@ var _ = Describe("JPD Commands", func() {
 				}
 
 				var (
-					cwd     string
+					testDir string
 					rootCmd *cobra.Command
+					originalCwd string
 				)
 				BeforeEach(func() {
-					cwd, _ = os.Getwd()
+					var err error
+					originalCwd, err = os.Getwd()
+					assert.NoError(err)
 					rootCmd = createRootCommandWithTaskSelectorUI(mockRunner, "npm")
 
-					// Create jpd-test directory
-					err := os.MkdirAll("jpd-test", 0755)
+					// Use GinkgoT().TempDir() for automatic cleanup
+					testDir = GinkgoT().TempDir()
+					err = os.Chdir(testDir)
 					assert.NoError(err)
-					os.Chdir("jpd-test")
 				})
 
 				AfterEach(func() {
-					os.Chdir(cwd)
-					os.RemoveAll("jpd-test")
+					// Always restore original working directory
+					if originalCwd != "" {
+						err := os.Chdir(originalCwd)
+						// Log error but don't fail test if we can't restore
+						if err != nil {
+							GinkgoWriter.Printf("Warning: Failed to restore original working directory: %v\n", err)
+						}
+					}
+					// TempDir is automatically cleaned up by Ginkgo
 				})
 
 				It("Should output an indicator saying there are no tasks in deno for deno.json", func() {
 
 					rootCmdWithDenoAsDefault := createRootCommandWithTaskSelectorUI(mockRunner, "deno")
 
-					err := os.WriteFile("deno.json", []byte(
+					err := os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(
 						`{
 							"tasks": {
 
@@ -1628,7 +1644,7 @@ var _ = Describe("JPD Commands", func() {
 						)
 
 						err := os.WriteFile(
-							"deno.json",
+							filepath.Join(testDir, "deno.json"),
 							[]byte(formattedString),
 							os.ModePerm,
 						)
@@ -1657,7 +1673,7 @@ var _ = Describe("JPD Commands", func() {
 					"returns an error If there is no tasks avaliable",
 					func() {
 
-						err := os.WriteFile("package.json", []byte(
+						err := os.WriteFile(filepath.Join(testDir, "package.json"), []byte(
 							`{
 								"scripts": {
 
@@ -1695,7 +1711,7 @@ var _ = Describe("JPD Commands", func() {
 						)
 
 						err := os.WriteFile(
-							"package.json",
+							filepath.Join(testDir, "package.json"),
 							[]byte(formattedString),
 							os.ModePerm,
 						)
@@ -1723,21 +1739,23 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("npm", func() {
 
-			It("should run npm run with script name", func() {
-				originalDir, _ := os.Getwd()
-
-				// Create jpd-test directory
-				err := os.MkdirAll("jpd-test", 0755)
-				assert.NoError(err)
-				os.Chdir("jpd-test")
-				defer func() {
+		It("should run npm run with script name", func() {
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
 					os.Chdir(originalDir)
-					os.RemoveAll("jpd-test")
-				}()
+				}
+			})
 
-				content := `{ "scripts": { "test": "echo 'test'" } }`
-				os.WriteFile("package.json", []byte(content), 0644)
-				os.WriteFile(".env", []byte("GO_ENV=development"), 0644)
+			content := `{ "scripts": { "test": "echo 'test'" } }`
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_ENV=development"), 0644)
+			assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "test")
 				assert.NoError(err)
@@ -1750,21 +1768,23 @@ var _ = Describe("JPD Commands", func() {
 				assert.True(mockRunner.HasCommand("npm", "run", "test", "--", "--watch"))
 			})
 
-			It("should run npm run with if-present flag", func() {
-				originalDir, _ := os.Getwd()
-
-				// Create jpd-test directory
-				err := os.MkdirAll("jpd-test", 0755)
-				assert.NoError(err)
-				os.Chdir("jpd-test")
-				defer func() {
+		It("should run npm run with if-present flag", func() {
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
 					os.Chdir(originalDir)
-					os.RemoveAll("jpd-test")
-				}()
+				}
+			})
 
-				content := `{ "scripts": { "test": "echo 'test'" } }`
-				os.WriteFile("package.json", []byte(content), 0644)
-				os.WriteFile(".env", []byte("GO_MODE=development"), 0644)
+			content := `{ "scripts": { "test": "echo 'test'" } }`
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_MODE=development"), 0644)
+			assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
 				assert.NoError(err)
@@ -1772,25 +1792,46 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should handle if-present flag with non-existent script", func() {
-				err := os.WriteFile("package.json", []byte(`{"name": "test", "scripts": {}}`), 0644)
+				testDir := GinkgoT().TempDir()
+				originalDir, _ := os.Getwd()
+				err := os.Chdir(testDir)
 				assert.NoError(err)
-				defer os.Remove("package.json")
+				GinkgoT().Cleanup(func() {
+					os.Chdir(originalDir)
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {}}`), 0644)
+				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "nonexistent")
 				assert.NoError(err) // Should not error with --if-present
 			})
 
 			It("should handle missing package.json with if-present", func() {
-				os.Remove("package.json") // Ensure no package.json exists
+				testDir := GinkgoT().TempDir()
+				originalDir, _ := os.Getwd()
+				err := os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					os.Chdir(originalDir)
+				})
+				// Ensure no package.json exists in temp dir
 
-				_, err := executeCmd(rootCmd, "run", "--if-present", "test")
+				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
 				assert.Error(err) // Should error with --if-present when no package.json
 			})
 
 			It("should handle script not found without if-present", func() {
-				err := os.WriteFile("package.json", []byte(`{"name": "test", "scripts": {"build": "echo building"}}`), 0644)
+				testDir := GinkgoT().TempDir()
+				originalDir, _ := os.Getwd()
+				err := os.Chdir(testDir)
 				assert.NoError(err)
-				defer os.Remove("package.json")
+				GinkgoT().Cleanup(func() {
+					os.Chdir(originalDir)
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {"build": "echo building"}}`), 0644)
+				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "nonexistent")
 				assert.NoError(err) // This behavior might be unexpected but matches original code.
@@ -1819,18 +1860,19 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should run pnpm script using the if-present flag", func() {
-				cwd, _ := os.Getwd()
-
-				// Create jpd-test directory
-				err := os.MkdirAll("jpd-test", 0755)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
 				assert.NoError(err)
-				os.Chdir("jpd-test")
-				defer func() {
-					os.Chdir(cwd)
-					os.RemoveAll("jpd-test")
-				}()
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						os.Chdir(originalDir)
+					}
+				})
 
-				os.WriteFile("package.json", []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
+				assert.NoError(err)
 
 				_, err = executeCmd(pnpmRootCmd, "run", "--if-present", "test")
 				assert.NoError(err)
@@ -1866,18 +1908,19 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return an error if deno is the package manager and the eval flag is passed", func() {
-				cwd, _ := os.Getwd()
-
-				// Create jpd-test directory
-				err := os.MkdirAll("jpd-test", 0755)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
 				assert.NoError(err)
-				os.Chdir("jpd-test")
-				defer func() {
-					os.Chdir(cwd)
-					os.RemoveAll("jpd-test")
-				}()
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						os.Chdir(originalDir)
+					}
+				})
 
-				os.WriteFile("deno.json", []byte(`{"tasks": {"test": "vitest"}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(`{"tasks": {"test": "vitest"}}`), 0644)
+				assert.NoError(err)
 
 				_, err = executeCmd(denoRootCmd, "run", "--", "test", "--eval")
 				assert.Error(err)
@@ -1901,9 +1944,16 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should handle package.json reading error", func() {
-				err := os.WriteFile("package.json", []byte("invalid json"), 0644)
+				testDir := GinkgoT().TempDir()
+				originalDir, _ := os.Getwd()
+				err := os.Chdir(testDir)
 				assert.NoError(err)
-				defer os.Remove("package.json")
+				GinkgoT().Cleanup(func() {
+					os.Chdir(originalDir)
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte("invalid json"), 0644)
+				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
 				assert.Error(err)
@@ -2362,21 +2412,29 @@ var _ = Describe("JPD Commands", func() {
 			func() {
 
 				var (
-					cwd string
+					testDir string
+					originalCwd string
 				)
 
 				BeforeEach(func() {
-					cwd, _ = os.Getwd()
-
-					// Create jpd-test directory
-					err := os.MkdirAll("jpd-test", 0755)
+					var err error
+					originalCwd, err = os.Getwd()
 					assert.NoError(err)
-					os.Chdir("jpd-test")
+					testDir = GinkgoT().TempDir()
+					err = os.Chdir(testDir)
+					assert.NoError(err)
 				})
 
 				AfterEach(func() {
-					os.Chdir(cwd)
-					os.RemoveAll("jpd-test")
+					// Always restore original working directory
+					if originalCwd != "" {
+						err := os.Chdir(originalCwd)
+						// Log error but don't fail test if we can't restore
+						if err != nil {
+							GinkgoWriter.Printf("Warning: Failed to restore original working directory: %v\n", err)
+						}
+					}
+					// TempDir is automatically cleaned up by Ginkgo
 				})
 
 				It("should return an error if no packages are found for interactive uninstall", func() {
@@ -2991,7 +3049,7 @@ var _ = Describe("JPD Commands", func() {
 						// But pnpm is available in PATH
 						return "pnpm", nil
 					},
-					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI: newMockCommandTextUI,
 					DetectVolta: func() bool { return false },
 				})
@@ -3033,7 +3091,7 @@ var _ = Describe("JPD Commands", func() {
 					NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
 						return commandTextUI
 					},
-					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"),
 					DetectVolta: func() bool { return false },
 				})
 
@@ -3067,7 +3125,7 @@ var _ = Describe("JPD Commands", func() {
 						// npm is available as fallback
 						return "npm", nil
 					},
-					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI: newMockCommandTextUI,
 					DetectVolta: func() bool { return false },
 				})
@@ -3119,7 +3177,7 @@ var _ = Describe("JPD Commands", func() {
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						return "npm", nil
 					},
-					YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
+					YarnCommandVersionOutputter: NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI: newMockCommandTextUI,
 					DetectVolta: func() bool { return false },
 				})

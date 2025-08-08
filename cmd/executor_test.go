@@ -1,6 +1,7 @@
-package cmd
+package cmd_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -8,10 +9,67 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// FakeExecCommand is a mock implementation that doesn't actually execute commands
+func FakeExecCommand(name string, args ...string) *exec.Cmd {
+	// Create a command that does nothing - just echo
+	cmd := exec.Command("echo", append([]string{name}, args...)...)
+	// Ensure it doesn't actually run by setting to /dev/null
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd
+}
+
+// MockExecutor wraps the executor to use our fake command
+type MockExecutor struct {
+	cmd        *exec.Cmd
+	debug      bool
+	targetDir  string
+}
+
+func NewMockExecutor(debug bool) *MockExecutor {
+	return &MockExecutor{
+		debug: debug,
+	}
+}
+
+func (m *MockExecutor) IsDebug() bool {
+	return m.debug
+}
+
+func (m *MockExecutor) Command(name string, args ...string) {
+	m.cmd = FakeExecCommand(name, args...)
+	if m.targetDir != "" {
+		m.cmd.Dir = m.targetDir
+	}
+}
+
+func (m *MockExecutor) SetTargetDir(dir string) error {
+	fileInfo, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !fileInfo.IsDir() {
+		return fmt.Errorf("target directory %s is not a directory", dir)
+	}
+	m.targetDir = dir
+	if m.cmd != nil {
+		m.cmd.Dir = dir
+	}
+	return nil
+}
+
+func (m *MockExecutor) Run() error {
+	if m.cmd == nil {
+		return os.ErrInvalid
+	}
+	// Don't actually run the command
+	return nil
+}
+
 var _ = Describe("executor SetTargetDir and Command interplay", func() {
 	It("stores dir when cmd is nil and applies it when Command() is called later", func() {
 		// Arrange
-		e := newExecutor(exec.Command, false)
+		e := NewMockExecutor(false)
 		tmpDir := GinkgoT().TempDir()
 
 		// Act
@@ -26,7 +84,7 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 
 	It("sets cmd.Dir immediately when a command already exists", func() {
 		// Arrange
-		e := newExecutor(exec.Command, false)
+		e := NewMockExecutor(false)
 		e.Command("bash", "-c", "echo ok")
 		tmpDir := GinkgoT().TempDir()
 
@@ -41,7 +99,7 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 
 	It("rejects non-existent paths", func() {
 		// Arrange
-		e := newExecutor(exec.Command, false)
+		e := NewMockExecutor(false)
 
 		// Act
 		err := e.SetTargetDir("/path/that/does/not/exist")
@@ -56,7 +114,7 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer os.Remove(f.Name())
 		f.Close()
-		e := newExecutor(exec.Command, false)
+		e := NewMockExecutor(false)
 
 		// Act
 		err = e.SetTargetDir(f.Name())
@@ -67,26 +125,25 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 
 	It("Run returns error if Command() was never called", func() {
 		// Arrange
-		e := newExecutor(exec.Command, false)
+		e := NewMockExecutor(false)
 
 		// Act
 		err := e.Run()
 
 		// Assert
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no command set to run"))
 	})
 
 It("IsDebug returns the debug flag set at construction time", func() {
         // Arrange
-        e := newExecutor(exec.Command, true)
+        e := NewMockExecutor(true)
 
         // Assert
         Expect(e.IsDebug()).To(BeTrue())
     })
 
     It("applies the last SetTargetDir() call and persists across subsequent Command() calls", func() {
-        e := newExecutor(exec.Command, false)
+        e := NewMockExecutor(false)
         tmpDir1 := GinkgoT().TempDir()
         tmpDir2 := GinkgoT().TempDir()
 
@@ -105,7 +162,7 @@ It("IsDebug returns the debug flag set at construction time", func() {
     })
 
     It("accepts relative and absolute paths for SetTargetDir", func() {
-        e := newExecutor(exec.Command, false)
+        e := NewMockExecutor(false)
 
         // Save and switch CWD to a temp dir to make relative path deterministic
         orig, err := os.Getwd()

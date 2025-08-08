@@ -10,12 +10,8 @@ import (
 )
 
 func TestCompletionCommand_OutputFlag(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	originalHome := os.Getenv("HOME")
@@ -33,7 +29,7 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -97,12 +93,8 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 }
 
 func TestCompletionCommand_MultipleShells(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-multi-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	t.Setenv("HOME", tempDir)
@@ -112,7 +104,7 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -182,12 +174,8 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 }
 
 func TestCompletionCommand_DefaultFilenames(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-default-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	t.Setenv("HOME", tempDir)
@@ -197,7 +185,7 @@ func TestCompletionCommand_DefaultFilenames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {
