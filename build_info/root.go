@@ -23,7 +23,7 @@ func (value BuildInfo) String() string {
 // They must be of type string and package-level.
 // Initialize with default/placeholder values that indicate they weren't set.
 var (
-	rawCLI_VERSION = "dev"         // Default for local development
+	rawCLI_VERSION = "v1.0.2"      // Patch release - test fix, no functional changes
 	rawGO_MODE     = "development" // Default for local development
 	rawBUILD_DATE  = "unknown"     // Default, will be overwritten by ldflags for releases
 )
