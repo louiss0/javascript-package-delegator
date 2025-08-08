@@ -3,6 +3,39 @@
 == Bugs
 
 [CAUTION]
+.StrayPackageJSON
+====
+
+File: cmd_test.go
+Test: "should handle if-present flag with non-existent script"
+Description:
+• ~~Tests were creating package.json files directly in current directory~~ FIXED: Using GinkgoT().TempDir()
+• ~~No cleanup of test artifacts leading to repository pollution~~ FIXED: Automatic cleanup
+• ~~Fixed by using GinkgoT().TempDir() for isolated test environments~~ RESOLVED
+
+File: cmd_test.go  
+Test: "should handle missing package.json with if-present"
+Description:
+• ~~Test was not using temporary directory for file operations~~ FIXED: Using temp directory
+• ~~Could leak package.json into project repository~~ FIXED: Proper isolation
+• ~~Fixed with proper temp directory and chdir restoration~~ RESOLVED
+
+File: cmd_test.go
+Test: "should handle script not found without if-present"
+Description:
+• ~~Creating test files without proper isolation~~ FIXED: Isolated temp directories
+• ~~Missing cleanup causing stray package.json files~~ FIXED: GinkgoT().Cleanup()
+• ~~Resolved using GinkgoT().Cleanup() for automatic cleanup~~ RESOLVED
+
+File: cmd_test.go
+Test: Multiple npm/pnpm/deno run tests
+Description:
+• ~~Tests writing directly to current directory instead of temp paths~~ FIXED: filepath.Join usage
+• ~~Fixed using filepath.Join(testDir, filename) for all file writes~~ RESOLVED
+• ~~Added CI safeguard via .gitignore to prevent accidental commits~~ IMPLEMENTED
+====
+
+[CAUTION]
 .CompletionSilence
 ====
 
