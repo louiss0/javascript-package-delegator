@@ -56,6 +56,211 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
+// RootCommandFactory is a helper struct for creating cobra.Command instances
+// with various mocked dependencies for testing purposes.
+type RootCommandFactory struct {
+	MockRunner *mock.MockCommandRunner
+}
+
+// NewRootCommandFactory creates a new RootCommandFactory with the given mock runner.
+func NewRootCommandFactory(mockRunner *mock.MockCommandRunner) *RootCommandFactory {
+	return &RootCommandFactory{
+		MockRunner: mockRunner,
+	}
+}
+
+// GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
+// and can simulate an error during detection.
+func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager string, err error) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return detect.PACKAGE_LOCK_JSON, nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return packageManager, err
+			},
+			DetectVolta: func() bool {
+				return false
+			},
+		})
+}
+
+// GenerateWithPackageManagerDetectedAndVolta creates a root command where Volta is also detected.
+func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageManager string) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return detect.PACKAGE_LOCK_JSON, nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return packageManager, nil
+			},
+			DetectVolta: func() bool {
+				return true
+			},
+		})
+}
+
+// CreateBunAsDefault creates a root command with "bun" as the default detected package manager.
+func (f *RootCommandFactory) CreateBunAsDefault(err error) *cobra.Command {
+	return f.GenerateWithPackageManagerDetector("bun", err)
+}
+
+// CreateDenoAsDefault creates a root command with "deno" as the default detected package manager.
+func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
+	return f.GenerateWithPackageManagerDetector("deno", err)
+}
+
+// CreateYarnTwoAsDefault creates a root command with "yarn" (version 2+) as the default detected package manager.
+func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return "yarn", err
+			},
+			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("2.0.0"),
+			DetectVolta: func() bool {
+				return false
+			},
+		})
+}
+
+// CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager.
+func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return "yarn", err
+			},
+			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+			DetectVolta: func() bool {
+				return false
+			},
+		})
+}
+
+// CreateNoYarnVersion creates a root command simulating no yarn version detection.
+func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return "yarn", err
+			},
+			DetectVolta: func() bool {
+				return false
+			},
+			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+		})
+}
+
+// CreatePnpmAsDefault creates a root command with "pnpm" as the default detected package manager.
+func (f *RootCommandFactory) CreatePnpmAsDefault(err error) *cobra.Command {
+	return f.GenerateWithPackageManagerDetector("pnpm", err)
+}
+
+// CreateNpmAsDefault creates a root command with "npm" as the default detected package manager.
+func (f *RootCommandFactory) CreateNpmAsDefault(err error) *cobra.Command {
+	return f.GenerateWithPackageManagerDetector("npm", err)
+}
+
+// GenerateNoDetectionAtAll creates a root command simulating no lockfile or global PM detection,
+// forcing a prompt for an install command.
+func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", os.ErrNotExist
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return "", nil
+			},
+			DetectJSPacakgeManager: func() (string, error) {
+				return "", detect.ErrNoPackageManager
+			},
+			NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
+				mockUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
+				mockUI.SetValue(commandTextUIValue)
+				return mockUI
+			},
+			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+			DetectVolta:                 func() bool { return false },
+			NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+			NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+			NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+		},
+	)
+}
+
+// CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager and multi-select UI.
+func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return "npm", nil
+			},
+			NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter {
+				return mock.NewMockPackageMultiSelectUI(pi)
+			},
+			DetectVolta: func() bool {
+				return false
+			},
+		})
+}
+
+// CreateWithTaskSelectorUI creates a root command configured for task selection UI based on the package manager.
+func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *cobra.Command {
+	return cmd.NewRootCmd(
+		cmd.Dependencies{
+			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+				return f.MockRunner
+			},
+			DetectLockfile: func() (lockfile string, error error) {
+				return "", nil
+			},
+			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+				return packageManager, nil
+			},
+			NewTaskSelectorUI: mock.NewMockTaskSelectUI,
+			DetectVolta: func() bool {
+				return false
+			},
+		})
+}
+
 // It ensures that each command has access to the package manager name and CommandRunner
 
 var _ = Describe("JPD Commands", func() {
@@ -64,6 +269,7 @@ var _ = Describe("JPD Commands", func() {
 
 	var rootCmd *cobra.Command
 	mockRunner := mock.NewMockCommandRunner(false)
+	factory := NewRootCommandFactory(mockRunner) // Initialize the factory
 
 	getSubCommandWithName := func(cmd *cobra.Command, name string) (*cobra.Command, bool) {
 
@@ -74,135 +280,8 @@ var _ = Describe("JPD Commands", func() {
 			})
 	}
 
-	generateRootCommandWithPackageManagerDetector := func(mockRunner *mock.MockCommandRunner, packageManager string, err error) *cobra.Command {
-		return cmd.NewRootCmd(
-			cmd.Dependencies{
-				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-					return mockRunner
-				},
-				DetectLockfile: func() (lockfile string, error error) {
-
-					return detect.PACKAGE_LOCK_JSON, nil
-				},
-				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
-					return packageManager, err
-				},
-				DetectVolta: func() bool {
-
-					return false
-				},
-			})
-	}
-
-	generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected := func(mockRunner *mock.MockCommandRunner, packageManager string) *cobra.Command {
-		return cmd.NewRootCmd(
-			cmd.Dependencies{
-				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-					return mockRunner
-				},
-				DetectLockfile: func() (lockfile string, error error) {
-
-					return detect.PACKAGE_LOCK_JSON, nil
-				},
-				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
-					return packageManager, nil
-				},
-				DetectVolta: func() bool {
-
-					return true
-				},
-			})
-	}
-
-	createRootCommandWithBunAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return generateRootCommandWithPackageManagerDetector(mockRunner, "bun", err)
-	}
-
-	createRootCommandWithDenoAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return generateRootCommandWithPackageManagerDetector(mockRunner, "deno", err)
-	}
-
-	createRootCommandWithYarnTwoAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-
-		return cmd.NewRootCmd(
-			cmd.Dependencies{
-				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-					return mockRunner
-				},
-				DetectLockfile: func() (lockfile string, error error) {
-
-					return "", nil
-				},
-				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
-					return "yarn", err
-				},
-				YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("2.0.0"),
-
-				DetectVolta: func() bool {
-
-					return false
-				},
-			})
-	}
-
-	createRootCommandWithYarnOneAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return cmd.NewRootCmd(
-			cmd.Dependencies{
-				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-					return mockRunner
-				},
-				DetectLockfile: func() (lockfile string, error error) {
-
-					return "", nil
-				},
-				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
-					return "yarn", err
-				},
-				YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-
-				DetectVolta: func() bool {
-
-					return false
-				},
-			})
-	}
-
-	createRootCommandWithNoYarnVersion := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return cmd.NewRootCmd(
-			cmd.Dependencies{
-				CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-					return mockRunner
-				},
-				DetectLockfile: func() (lockfile string, error error) {
-
-					return "", nil
-				},
-				DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
-					return "yarn", err
-				},
-
-				DetectVolta: func() bool {
-
-					return false
-				},
-				YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-			})
-	}
-
-	createRootCommandWithPnpmAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return generateRootCommandWithPackageManagerDetector(mockRunner, "pnpm", err)
-	}
-	createRootCommandWithNpmAsDefault := func(mockRunner *mock.MockCommandRunner, err error) *cobra.Command {
-		return generateRootCommandWithPackageManagerDetector(mockRunner, "npm", err)
-	}
-
 	JustBeforeEach(func() {
-		rootCmd = createRootCommandWithNpmAsDefault(mockRunner, nil)
+		rootCmd = factory.CreateNpmAsDefault(nil)
 		// This needs to be set because Ginkgo will pass a --test.timeout flag to the root command
 		// The test.timeout flag will get in the way
 		// If the args are empty before they are set by executeCommand the right args can be passed
@@ -238,45 +317,10 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("How it responds when no lockfile or global PM is detected", func() {
 
-			//Helper function to create a root command where both DetectLockfile and DetectJSPackageManager fail,
-			// forcing the flow to prompt the user for an install command.
-			generateRootCommandWithNoDetectionAtAll := func(mockRunner *mock.MockCommandRunner, commandTextUIValue string) *cobra.Command {
-				return cmd.NewRootCmd(
-					cmd.Dependencies{
-						CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-							return mockRunner
-						},
-						DetectLockfile: func() (lockfile string, error error) {
-							// Simulate no lock file found
-							return "", os.ErrNotExist
-						},
-						DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-							// This path should not be reached if DetectLockfile errors
-							return "", nil
-						},
-						DetectJSPacakgeManager: func() (string, error) {
-							// Simulate no globally installed package manager found
-							return "", detect.ErrNoPackageManager
-						},
-						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
-							mockUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
-							// Set the value that the MockCommandTextUI will "return" when Run() is called
-							mockUI.SetValue(commandTextUIValue)
-							return mockUI
-						},
-						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"), // Required, even if not used in this flow
-						DetectVolta:                 func() bool { return false },                    // Required
-						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,                // Required
-						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,                        // Required
-						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,                  // Required
-					},
-				)
-			}
-
 			It("should prompt user for install command and return error if input is invalid", func() {
 				// Simulate no lockfile and no globally detected PM, leading to a prompt for an install command.
 				// An empty string for commandTextUIValue will cause MockCommandTextUI.Run() to fail its validation.
-				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, "")
+				currentRootCmd := factory.GenerateNoDetectionAtAll("")
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
 				currentRootCmd.ParseFlags([]string{})
@@ -289,7 +333,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should prompt user for install command and execute it if input is valid", func() {
 				const validInstallCommand = "npm install -g npm"
-				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, validInstallCommand)
+				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
 				currentRootCmd.ParseFlags([]string{})
@@ -305,7 +349,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should return an error if the user-provided install command fails to execute", func() {
 				const validInstallCommand = "npm install -g npm"
-				currentRootCmd := generateRootCommandWithNoDetectionAtAll(mockRunner, validInstallCommand)
+				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				mockRunner.InvalidCommands = []string{"npm"} // Configure the mock runner to make "npm" command fail
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
@@ -319,7 +363,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("CWD Flag (-C)", func() {
 			var currentRootCmd *cobra.Command
-			var mockRunner *mock.MockCommandRunner
+			var mockRunner *mock.MockCommandRunner // This shadows the global mockRunner for this specific context
 
 			var originalCwd string
 
@@ -329,10 +373,12 @@ var _ = Describe("JPD Commands", func() {
 				originalCwd, err = os.Getwd()
 				assert.NoError(err)
 
+				// This section uses a direct cmd.NewRootCmd because it explicitly
+				// re-assigns the local 'mockRunner' variable within the CommandRunnerGetter,
+				// which is a specific testing pattern for this context.
 				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
 					CommandRunnerGetter: func(isDebug bool) cmd.CommandRunner {
 						mockRunner = mock.NewMockCommandRunner(isDebug) // MockCommandRunner initialized with the target CWD
-
 						return mockRunner
 					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -347,13 +393,6 @@ var _ = Describe("JPD Commands", func() {
 					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
 					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 				})
-
-				// Make sure mocks are properly set for the command
-				// Since we're using a custom CommandRunnerGetter, we need to extract the mockRunner from it
-				// and ensure it's the one we expect.
-				// This is a bit of a workaround for the mock being internal to the getter func.
-				// A better pattern might be to pass the mockRunner directly, or have a way to retrieve it.
-				// For now, we assume the getter always returns our mockRunner and can set the internal one.
 			})
 
 			AfterEach(func() {
@@ -420,10 +459,6 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				// Verify the CommandRunner received the correct working directory
-				// We need to retrieve the actual mockRunner instance used by the command.
-				// This requires a slight adjustment to how we get the mockRunner,
-				// or make it globally accessible in the test suite for simplicity, but that's less ideal.
-				// For now, we assume the CommandRunnerGetter passes our mock.
 				assert.Equal("npm", mockRunner.CommandCall.Name)
 				assert.Contains(mockRunner.CommandCall.Args, "install")
 				assert.Equal(tempDir, mockRunner.WorkingDir)
@@ -663,21 +698,21 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("yarn", func() {
 			It("should execute yarn with package name for yarn v1", func() {
-				yarnRootCmd := createRootCommandWithYarnOneAsDefault(mockRunner, nil)
+				yarnRootCmd := factory.CreateYarnOneAsDefault(nil)
 				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("yarn", "create-react-app"))
 			})
 
 			It("should execute yarn dlx with package name for yarn v2+", func() {
-				yarnRootCmd := createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd := factory.CreateYarnTwoAsDefault(nil)
 				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("yarn", "dlx", "create-react-app"))
 			})
 
 			It("should handle yarn version detection error (fallback to v1)", func() {
-				yarnRootCmd := createRootCommandWithNoYarnVersion(mockRunner, nil)
+				yarnRootCmd := factory.CreateNoYarnVersion(nil)
 				_, err := executeCmd(yarnRootCmd, "dlx", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("yarn", "create-react-app"))
@@ -686,14 +721,14 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("pnpm", func() {
 			It("should execute pnpm dlx with package name", func() {
-				pnpmRootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd := factory.CreatePnpmAsDefault(nil)
 				_, err := executeCmd(pnpmRootCmd, "dlx", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("pnpm", "dlx", "create-react-app"))
 			})
 
 			It("should execute pnpm dlx with package name and args", func() {
-				pnpmRootCmd := createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd := factory.CreatePnpmAsDefault(nil)
 				_, err := executeCmd(pnpmRootCmd, "dlx", "create-react-app", "--", "my-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
@@ -702,14 +737,14 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("bun", func() {
 			It("should execute bunx with package name", func() {
-				bunRootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd := factory.CreateBunAsDefault(nil)
 				_, err := executeCmd(bunRootCmd, "dlx", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("bunx", "create-react-app"))
 			})
 
 			It("should execute bunx with package name and args", func() {
-				bunRootCmd := createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd := factory.CreateBunAsDefault(nil)
 				_, err := executeCmd(bunRootCmd, "dlx", "create-react-app", "--", "my-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("bunx", "create-react-app", "my-app"))
@@ -718,7 +753,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npx"}
 				_, err := executeCmd(rootCmd, "dlx", "test-command")
 				assert.Error(err)
@@ -726,7 +761,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "dlx", "some-package")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
@@ -736,36 +771,12 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Install Command", func() {
 
-		createRootCommandWithPackageManagerAndMultiSelectUI := func(mockRunner *mock.MockCommandRunner) *cobra.Command {
-
-			return cmd.NewRootCmd(
-				cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-						return mockRunner
-					},
-					DetectLockfile: func() (lockfile string, error error) {
-						return "", nil
-					},
-					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-						return "npm", nil
-					},
-					NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter {
-
-						return mock.NewMockPackageMultiSelectUI(pi)
-
-					},
-					DetectVolta: func() bool {
-						return false
-					},
-				})
-		}
-
 		Context("Works with the search flag", func() {
 
 			var rootCmd *cobra.Command
 
 			BeforeEach(func() {
-				rootCmd = createRootCommandWithPackageManagerAndMultiSelectUI(mockRunner)
+				rootCmd = factory.CreateWithPackageManagerAndMultiSelectUI()
 			})
 
 			It("returns err when value isn't passed to the flag ", func() {
@@ -863,7 +874,7 @@ var _ = Describe("JPD Commands", func() {
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
+					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					output, error := executeCmd(rootCommmand, "install")
 
@@ -885,7 +896,7 @@ var _ = Describe("JPD Commands", func() {
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
+					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					var (
 						output string
@@ -923,7 +934,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("rejects volta usage if the --no-volta flag is passed", func() {
 
-				rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, "npm")
+				rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
 
 				output, error := executeCmd(rootCommmand, "install", "--no-volta")
 
@@ -994,7 +1005,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 
 			})
 
@@ -1055,7 +1066,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should run pnpm add with dev flag", func() {
@@ -1106,7 +1117,7 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should handle bun dev flag", func() {
@@ -1148,7 +1159,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should return an error if no packages are provided for a non-global install", func() {
@@ -1203,14 +1214,14 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "install", "lodash")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
 			})
 
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "install")
 				assert.Error(err)
@@ -1273,25 +1284,6 @@ var _ = Describe("JPD Commands", func() {
 			"How it responds if there are no arguments",
 			func() {
 
-				createRootCommandWithTaskSelectorUI := func(mockRunner *mock.MockCommandRunner, packageManager string) *cobra.Command {
-					return cmd.NewRootCmd(
-						cmd.Dependencies{
-							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
-								return mockRunner
-							},
-							DetectLockfile: func() (lockfile string, error error) {
-								return "", nil
-							},
-							DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-								return packageManager, nil // Or "deno" depending on the test context
-							},
-							NewTaskSelectorUI: mock.NewMockTaskSelectUI,
-							DetectVolta: func() bool {
-								return false
-							},
-						})
-				}
-
 				var (
 					testDir     string
 					rootCmd     *cobra.Command
@@ -1301,8 +1293,7 @@ var _ = Describe("JPD Commands", func() {
 					var err error
 					originalCwd, err = os.Getwd()
 					assert.NoError(err)
-					rootCmd = createRootCommandWithTaskSelectorUI(mockRunner, "npm")
-
+					rootCmd = factory.CreateWithTaskSelectorUI("npm") // Use factory
 					// Use GinkgoT().TempDir() for automatic cleanup
 					testDir = GinkgoT().TempDir()
 					err = os.Chdir(testDir)
@@ -1323,7 +1314,7 @@ var _ = Describe("JPD Commands", func() {
 
 				It("Should output an indicator saying there are no tasks in deno for deno.json", func() {
 
-					rootCmdWithDenoAsDefault := createRootCommandWithTaskSelectorUI(mockRunner, "deno")
+					rootCmdWithDenoAsDefault := factory.CreateWithTaskSelectorUI("deno")
 
 					err := os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(
 						`{
@@ -1369,7 +1360,7 @@ var _ = Describe("JPD Commands", func() {
 
 						assert.NoError(err)
 
-						rootCmdWithDenoAsDefault := createRootCommandWithTaskSelectorUI(mockRunner, "deno")
+						rootCmdWithDenoAsDefault := factory.CreateWithTaskSelectorUI("deno")
 
 						_, err = executeCmd(rootCmdWithDenoAsDefault, "run")
 
@@ -1560,7 +1551,7 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should run yarn run with script name", func() {
@@ -1574,7 +1565,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should run pnpm script using the if-present flag", func() {
@@ -1608,7 +1599,7 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should handle bun run command", func() {
@@ -1622,7 +1613,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should return an error if deno is the package manager and the eval flag is passed", func() {
@@ -1654,7 +1645,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "run", "test")
 				assert.Error(err)
@@ -1678,7 +1669,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "run", "test")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
@@ -1733,7 +1724,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should execute yarn with package name (v2+)", func() {
@@ -1743,14 +1734,14 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should handle yarn version detection error (fallback to v1)", func() {
-				rootYarnCommandWhereVersionRunnerErrors := createRootCommandWithNoYarnVersion(mockRunner, nil)
+				rootYarnCommandWhereVersionRunnerErrors := factory.CreateNoYarnVersion(nil)
 				_, err := executeCmd(rootYarnCommandWhereVersionRunnerErrors, "exec", "create-react-app")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("yarn", "create-react-app"))
 			})
 
 			It("should handle yarn version one", func() {
-				rootYarnCommandWhereVersionRunnerErrors := createRootCommandWithYarnOneAsDefault(mockRunner, nil)
+				rootYarnCommandWhereVersionRunnerErrors := factory.CreateYarnOneAsDefault(nil)
 				_, err := executeCmd(rootYarnCommandWhereVersionRunnerErrors, "exec", "fooo")
 				assert.NoError(err)
 				assert.True(mockRunner.HasCommand("yarn", "fooo"))
@@ -1761,7 +1752,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should execute pnpm dlx with package name", func() {
@@ -1775,7 +1766,7 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should execute bunx with package name", func() {
@@ -1789,7 +1780,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should handle deno exec error", func() {
@@ -1801,7 +1792,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should handle help flag correctly (no command executed)", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				rootCmd.SetArgs([]string{})
 				_, err := executeCmd(rootCmd, "exec", "--help")
 				assert.NoError(err)
@@ -1809,7 +1800,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npx"}
 				_, err := executeCmd(rootCmd, "exec", "test-command")
 				assert.Error(err)
@@ -1817,7 +1808,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "exec", "lodash")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
@@ -1905,7 +1896,7 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should handle pnpm update with interactive flag", func() {
@@ -1950,7 +1941,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should handle yarn with specific packages", func() {
@@ -1996,7 +1987,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should handle deno update --interactive", func() {
@@ -2041,7 +2032,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should give an error update with interactive flag", func() {
@@ -2077,7 +2068,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "update")
 				assert.Error(err)
@@ -2085,7 +2076,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "update")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
@@ -2340,7 +2331,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should execute deno remove with package name", func() {
@@ -2405,7 +2396,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should handle yarn uninstall", func() {
@@ -2432,7 +2423,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should run pnpm remove with global flag", func() {
@@ -2447,7 +2438,7 @@ var _ = Describe("JPD Commands", func() {
 
 			BeforeEach(func() {
 
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should run bun remove with multiple packages", func() {
@@ -2465,7 +2456,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "uninstall", "lodash")
 				assert.Error(err)
@@ -2473,7 +2464,7 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "unknown", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
 				_, err := executeCmd(rootCmd, "uninstall", "lodash")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: unknown")
@@ -2494,7 +2485,7 @@ var _ = Describe("JPD Commands", func() {
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
+					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					output, error := executeCmd(rootCommmand, "install")
 
@@ -2516,7 +2507,7 @@ var _ = Describe("JPD Commands", func() {
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
 
-					rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, packageManager)
+					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					var (
 						output string
@@ -2554,7 +2545,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("rejects volta usage if the --no-volta flag is passed", func() {
 
-				rootCommmand := generateRootCommandWithPackageManagerDetectedAndVoltaIsDetected(mockRunner, "npm")
+				rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
 
 				output, error := executeCmd(rootCommmand, "install", "--no-volta")
 
@@ -2583,7 +2574,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should run npm ci", func() {
 				_, err := executeCmd(rootCmd, "ci")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("npm", "ci"))
+				assert.True(factory.MockRunner.HasCommand("npm", "ci"))
 			})
 		})
 
@@ -2591,21 +2582,20 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should run yarn install with frozen lockfile (v1)", func() {
-				yarnRootCmd = createRootCommandWithYarnOneAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnOneAsDefault(nil)
 				_, err := executeCmd(yarnRootCmd, "clean-install")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("yarn", "install", "--frozen-lockfile"))
+				assert.True(factory.MockRunner.HasCommand("yarn", "install", "--frozen-lockfile"))
 			})
 
 			It("should handle yarn v2+ with immutable flag", func() {
 				_, err := executeCmd(yarnRootCmd, "clean-install")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("yarn", "install", "--immutable"))
+				assert.True(factory.MockRunner.HasCommand("yarn", "install", "--immutable"))
 			})
 		})
 
@@ -2613,14 +2603,13 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
 			It("should run pnpm install with frozen lockfile", func() {
 				_, err := executeCmd(pnpmRootCmd, "clean-install")
 				assert.NoError(err)
-				assert.Equal([]string{"install", "--frozen-lockfile"}, mockRunner.CommandCall.Args)
+				assert.Equal([]string{"install", "--frozen-lockfile"}, factory.MockRunner.CommandCall.Args)
 			})
 		})
 
@@ -2628,14 +2617,13 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				bunRootCmd = createRootCommandWithBunAsDefault(mockRunner, nil)
+				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
 			It("should run bun install with frozen lockfile", func() {
 				_, err := executeCmd(bunRootCmd, "clean-install")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("bun", "install", "--frozen-lockfile"))
+				assert.True(factory.MockRunner.HasCommand("bun", "install", "--frozen-lockfile"))
 			})
 		})
 
@@ -2643,8 +2631,7 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				denoRootCmd = createRootCommandWithDenoAsDefault(mockRunner, nil)
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
 
 			It("should return error for deno", func() {
@@ -2656,14 +2643,14 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error for unsupported package manager", func() {
-				rootCmd := generateRootCommandWithPackageManagerDetector(mockRunner, "foo", nil)
+				rootCmd := factory.GenerateWithPackageManagerDetector("foo", nil)
 				_, err := executeCmd(rootCmd, "ci", "lodash")
 				assert.Error(err)
 				assert.Contains(err.Error(), "unsupported package manager: foo")
 			})
 
 			It("should return error when command runner fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "clean-install")
 				assert.Error(err)
@@ -2694,14 +2681,14 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute detected package manager", func() {
 				_, err := executeCmd(rootCmd, "agent")
 				assert.NoError(err)
-				assert.Contains(mockRunner.CommandCall.Name, "npm")
-				assert.Equal([]string{}, mockRunner.CommandCall.Args)
+				assert.Contains(factory.MockRunner.CommandCall.Name, "npm")
+				assert.Equal([]string{}, factory.MockRunner.CommandCall.Args)
 			})
 
 			It("should pass arguments to package manager", func() {
 				_, err := executeCmd(rootCmd, "agent", "--", "--version")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("npm", "--version"))
+				assert.True(factory.MockRunner.HasCommand("npm", "--version"))
 			})
 		})
 
@@ -2709,14 +2696,13 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				yarnRootCmd = createRootCommandWithYarnTwoAsDefault(mockRunner, nil)
+				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
 			It("should execute yarn with arguments", func() {
 				_, err := executeCmd(yarnRootCmd, "agent", "--", "--version")
 				assert.NoError(err)
-				assert.True(mockRunner.HasCommand("yarn", "--version"))
+				assert.True(factory.MockRunner.HasCommand("yarn", "--version"))
 			})
 		})
 
@@ -2724,8 +2710,8 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-				mockRunner = mock.NewMockCommandRunner(false)
-				pnpmRootCmd = createRootCommandWithPnpmAsDefault(mockRunner, nil)
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
+				mockRunner = factory.MockRunner
 			})
 
 			It("should execute pnpm with arguments", func() {
@@ -2737,7 +2723,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should fail when command execution fails", func() {
-				rootCmd := createRootCommandWithNpmAsDefault(mockRunner, nil)
+				rootCmd := factory.CreateNpmAsDefault(nil)
 				mockRunner.InvalidCommands = []string{"npm"}
 				_, err := executeCmd(rootCmd, "agent")
 				assert.Error(err)
