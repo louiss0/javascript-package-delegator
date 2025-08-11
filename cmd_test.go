@@ -174,7 +174,7 @@ func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 			DetectVolta: func() bool {
 				return false
 			},
-			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer(""),
 		})
 }
 
