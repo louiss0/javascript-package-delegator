@@ -31,7 +31,10 @@ Examples:
   jpd agent -a yarn # Explicitly show yarn's agent info (e.g., its version or help)
 `,
 		Aliases: []string{"a"},
-
+		// Allow passing through unknown flags (e.g., flags intended for the underlying package manager)
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Retrieve the detected package manager name from the command's flags.
 			// This flag is populated by the root command's PersistentPreRunE logic.
@@ -74,8 +77,6 @@ Examples:
 
 	// Define a local --version flag so "jpd agent --version" is accepted
 	cmd.Flags().Bool("version", false, "Show underlying package manager version")
-	// Allow passing through unknown flags (e.g., flags intended for the underlying package manager)
-	cmd.FParseErrWhitelist.UnknownFlags = true
 
 	return cmd
 }
