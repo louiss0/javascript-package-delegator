@@ -229,33 +229,6 @@ func (ui *CommandTextUI) Run() error {
 
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
-	// Provide safe defaults for any missing dependencies to prevent panics in tests
-	if deps.CommandRunnerGetter == nil {
-		deps.CommandRunnerGetter = func(b bool) CommandRunner { return newExecutor(exec.Command, b) }
-	}
-	if deps.DetectJSPacakgeManagerBasedOnLockFile == nil {
-		deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
-			return detect.DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
-		}
-	}
-	if deps.YarnCommandVersionOutputter == nil {
-		deps.YarnCommandVersionOutputter = detect.NewRealYarnCommandVersionRunner()
-	}
-	if deps.NewCommandTextUI == nil {
-		deps.NewCommandTextUI = newCommandTextUI
-	}
-	if deps.DetectLockfile == nil {
-		deps.DetectLockfile = func() (string, error) { return detect.DetectLockfile(detect.RealFileSystem{}) }
-	}
-	if deps.DetectJSPacakgeManager == nil {
-		deps.DetectJSPacakgeManager = func() (string, error) { return "", detect.ErrNoPackageManager }
-	}
-	if deps.DetectVolta == nil {
-		deps.DetectVolta = func() bool { return detect.DetectVolta(detect.RealPathLookup{}) }
-	}
-	if deps.NewPackageMultiSelectUI == nil {
-		deps.NewPackageMultiSelectUI = newPackageMultiSelectUI
-	}
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -278,6 +251,7 @@ Available commands:
   uninstall  - Uninstall packages (equivalent to 'nun')
   clean-install - Clean install with frozen lockfile (equivalent to 'nci')
   agent      - Show detected package manager (equivalent to 'na')`,
+		SilenceUsage: true,
 
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Load .env file
