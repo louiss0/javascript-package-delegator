@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
+	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
@@ -59,7 +60,8 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 // RootCommandFactory is a helper struct for creating cobra.Command instances
 // with various mocked dependencies for testing purposes.
 type RootCommandFactory struct {
-	MockRunner *mock.MockCommandRunner
+	MockRunner    *mock.MockCommandRunner
+	debugExecutor mock.MockDebugExecutor
 }
 
 // NewRootCommandFactory creates a new RootCommandFactory with the given mock runner.
@@ -69,6 +71,11 @@ func NewRootCommandFactory(mockRunner *mock.MockCommandRunner) *RootCommandFacto
 	}
 }
 
+func (f *RootCommandFactory) DebugExecutor() *mock.MockDebugExecutor {
+
+	return &f.debugExecutor
+}
+
 // GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
 // and can simulate an error during detection.
 func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager string, err error) *cobra.Command {
@@ -76,6 +83,12 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager s
 		cmd.Dependencies{
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
+			},
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return detect.PACKAGE_LOCK_JSON, nil
@@ -95,6 +108,13 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageM
 		cmd.Dependencies{
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
+			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return detect.PACKAGE_LOCK_JSON, nil
@@ -128,6 +148,13 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
 			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
+			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return "yarn", err
 			},
@@ -145,11 +172,21 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
+			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
 			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return "yarn", err
+			},
+			DetectJSPacakgeManager: func() (string, error) {
+				return "", nil
 			},
 			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 			DetectVolta: func() bool {
@@ -164,6 +201,13 @@ func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 		cmd.Dependencies{
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
+			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
@@ -195,6 +239,13 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 		cmd.Dependencies{
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
+			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", os.ErrNotExist
@@ -229,6 +280,13 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
 			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
+			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return "npm", nil
 			},
@@ -250,6 +308,13 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
+			},
+
+			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+				f.debugExecutor = mock.MockDebugExecutor{}
+
+				return &f.debugExecutor
 			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return packageManager, nil
@@ -292,9 +357,20 @@ var _ = Describe("JPD Commands", func() {
 	AfterEach(func() {
 
 		mockRunner.Reset()
+
+		factory.DebugExecutor().AssertExpectations(GinkgoT())
 	})
 
 	Describe("Root Command", func() {
+
+		Context("When Debug flag is set", func() {
+
+			It("should be able to run", func() {
+				_, err := executeCmd(rootCmd, "")
+				assert.NoError(err)
+			})
+
+		})
 
 		It("should be able to run", func() {
 			_, err := executeCmd(rootCmd, "")
@@ -376,23 +452,8 @@ var _ = Describe("JPD Commands", func() {
 				// This section uses a direct cmd.NewRootCmd because it explicitly
 				// re-assigns the local 'mockRunner' variable within the CommandRunnerGetter,
 				// which is a specific testing pattern for this context.
-				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func() cmd.CommandRunner {
-						mockRunner = mock.NewMockCommandRunner() // MockCommandRunner initialized with the target CWD
-						return mockRunner
-					},
-					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-						return "npm", nil
-					},
-					DetectLockfile: func() (lockfile string, error error) {
-						return "", nil
-					},
-					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewCommandTextUI:            mock.NewMockCommandTextUI,
-					DetectVolta:                 func() bool { return false },
-					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
-				})
+				currentRootCmd = factory.CreateYarnOneAsDefault(err)
+				mockRunner = factory.MockRunner
 			})
 
 			AfterEach(func() {
@@ -510,9 +571,16 @@ var _ = Describe("JPD Commands", func() {
 						DetectLockfile: func() (lockfile string, error error) {
 							return "", nil
 						},
+						NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+
+							return &mock.MockDebugExecutor{}
+						},
 						DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 
 							return "", detect.ErrNoPackageManager
+						},
+						DetectJSPacakgeManager: func() (string, error) {
+							return "", fmt.Errorf("format string")
 						},
 						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
 
@@ -616,6 +684,9 @@ var _ = Describe("JPD Commands", func() {
 					},
 					DetectLockfile: func() (lockfile string, error error) {
 						return "", nil
+					},
+					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+						return &mock.MockDebugExecutor{}
 					},
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
@@ -1230,29 +1301,14 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
-			var mockCmdRunner *mock.MockCommandRunner // Renamed to avoid shadowing
-			deps := cmd.Dependencies{
-				CommandRunnerGetter: func() cmd.CommandRunner {
-					mockCmdRunner = mock.NewMockCommandRunner()
-					return mockCmdRunner
-				},
-				DetectLockfile:                        func() (string, error) { return "", fmt.Errorf("no lockfile") },
-				DetectJSPacakgeManager:                func() (string, error) { return detect.NPM, nil },
-				DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return detect.NPM, nil },
-				YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-				DetectVolta:                           func() bool { return false },
-				NewPackageMultiSelectUI:               func(pi []services.PackageInfo) cmd.MultiUISelecter { return mock.NewMockPackageMultiSelectUI(pi) },
-				NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-				NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-			}
 
-			root := cmd.NewRootCmd(deps)
+			root := factory.CreateNpmAsDefault(nil)
 			tmpDir := fmt.Sprintf("%s/", GinkgoT().TempDir())
 
 			_, err := executeCmd(root, "install", "-D", "tsup", "-C", tmpDir)
 			assert.NoError(err)
-			assert.True(mockCmdRunner.HasCommand("npm", "install", "tsup", "--save-dev"))
-			assert.Equal(tmpDir, mockCmdRunner.WorkingDir)
+			assert.True(factory.MockRunner.HasCommand("npm", "install", "tsup", "--save-dev"))
+			assert.Equal(tmpDir, factory.MockRunner.WorkingDir)
 		})
 	})
 
@@ -2161,18 +2217,7 @@ var _ = Describe("JPD Commands", func() {
 
 					// Override the root command to ensure the MultiSelectUI is mocked properly
 					// for the interactive uninstall where no packages will be returned by the detector.
-					rootCmdForNoPackages := cmd.NewRootCmd(
-						cmd.Dependencies{
-							CommandRunnerGetter: func() cmd.CommandRunner {
-								return mockRunner
-							},
-							DetectLockfile: func() (lockfile string, error error) {
-								return "", nil
-							},
-							DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-								return "npm", nil // Assume npm for the test
-							},
-						})
+					rootCmdForNoPackages := factory.CreateNpmAsDefault(nil)
 
 					_, cmdErr := executeCmd(rootCmdForNoPackages, "uninstall", "--interactive")
 
@@ -2226,6 +2271,9 @@ var _ = Describe("JPD Commands", func() {
 							cmd.Dependencies{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockRunner
+								},
+								NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+									return &mock.MockDebugExecutor{}
 								},
 								DetectLockfile: func() (lockfile string, error error) {
 									return "", nil
@@ -2297,6 +2345,10 @@ var _ = Describe("JPD Commands", func() {
 								},
 								DetectLockfile: func() (lockfile string, error error) {
 									return "", nil
+								},
+
+								NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+									return &mock.MockDebugExecutor{}
 								},
 								DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 									return "deno", nil // Assume npm for the test
@@ -2745,6 +2797,10 @@ var _ = Describe("JPD Commands", func() {
 						// Found package-lock.json
 						return detect.PACKAGE_LOCK_JSON, nil
 					},
+
+					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+						return &mock.MockDebugExecutor{}
+					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						// npm is not installed
 						return "", detect.ErrNoPackageManager
@@ -2784,6 +2840,10 @@ var _ = Describe("JPD Commands", func() {
 					DetectLockfile: func() (lockfile string, error error) {
 						return detect.YARN_LOCK, nil
 					},
+
+					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+						return &mock.MockDebugExecutor{}
+					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						// yarn is not installed
 						return "", detect.ErrNoPackageManager
@@ -2821,10 +2881,15 @@ var _ = Describe("JPD Commands", func() {
 					DetectLockfile: func() (lockfile string, error error) {
 						return detect.DENO_JSON, nil
 					},
+
+					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+						return &mock.MockDebugExecutor{}
+					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 						// deno is not installed
 						return "", detect.ErrNoPackageManager
 					},
+
 					DetectJSPacakgeManager: func() (string, error) {
 						// npm is available as fallback
 						return "npm", nil
@@ -2871,21 +2936,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should execute the detected package manager", func() {
 				// Create a root command with npm detected
-				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func() cmd.CommandRunner {
-						return mockRunner
-					},
-					DetectLockfile: func() (lockfile string, error error) {
-						return detect.PACKAGE_LOCK_JSON, nil
-					},
-					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-						return "npm", nil
-					},
-					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewCommandTextUI:            mock.NewMockCommandTextUI,
-					DetectVolta:                 func() bool { return false },
-				})
-
+				currentRootCmd := factory.CreateNpmAsDefault(nil)
 				// Execute the full command to set up the agent
 				output, err := executeCmd(currentRootCmd, "agent", "--version")
 
