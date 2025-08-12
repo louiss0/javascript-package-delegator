@@ -46,10 +46,10 @@ import (
 const PACKAGE_NAME = "package-name"                      // Used for storing detected package name in context
 const _GO_ENV = "go_env"                                 // Used for storing GoEnv in context
 const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
+const _DEBUG_EXECUTOR = "debug_executor"
 
 const COMMAND_RUNNER_KEY = "command_runner"
 const JPD_AGENT_ENV_VAR = "JPD_AGENT"
-const DEBUG_FLAG = "debug"
 const AGENT_FLAG = "agent"
 const _CWD_FLAG = "cwd"
 
@@ -59,7 +59,6 @@ const _CWD_FLAG = "cwd"
 type CommandRunner interface {
 	// A method that is used to determine whether run should be in debug mode or not
 	// Use a boolean state in struct that implements this inter face and return that
-	IsDebug() bool
 	// This method uses `exec.Cmd` struct to execute commands behind the scenes
 	// Make this method useful by creating a field that will hold `exec.Command`.
 	// Then make a second field that will hold the
@@ -71,26 +70,19 @@ type CommandRunner interface {
 
 type _ExecCommandFunc func(string, ...string) *exec.Cmd
 
-type executor struct {
+type commandRunner struct {
 	execCommandFunc _ExecCommandFunc
 	cmd             *exec.Cmd
-	debug           bool
 	targetDir       string
 }
 
-func newExecutor(execCommandFunc _ExecCommandFunc, debug bool) *executor {
-	return &executor{
+func newCommandRunner(execCommandFunc _ExecCommandFunc) *commandRunner {
+	return &commandRunner{
 		execCommandFunc: execCommandFunc,
-		debug:           debug,
 	}
 }
 
-func (e executor) IsDebug() bool {
-
-	return e.debug
-}
-
-func (e *executor) Command(name string, args ...string) {
+func (e *commandRunner) Command(name string, args ...string) {
 	e.cmd = e.execCommandFunc(name, args...)
 	e.cmd.Stdin = os.Stdin   // Ensure stdin is connected for interactive commands
 	e.cmd.Stdout = os.Stdout // Ensure output goes to stdout
@@ -102,7 +94,7 @@ func (e *executor) Command(name string, args ...string) {
 	}
 }
 
-func (e *executor) SetTargetDir(dir string) error {
+func (e *commandRunner) SetTargetDir(dir string) error {
 	fileInfo, err := os.Stat(dir) // Get file information
 	if err != nil {
 		return err
@@ -123,16 +115,9 @@ func (e *executor) SetTargetDir(dir string) error {
 	return nil
 }
 
-func (e executor) Run() error {
+func (e commandRunner) Run() error {
 	if e.cmd == nil {
 		return fmt.Errorf("no command set to run")
-	}
-
-	if e.debug {
-		log.Debug("Using this command: %s \n", strings.Join(e.cmd.Args, " "))
-		if e.cmd.Dir != "" {
-			log.Debug("Target directory: %s", e.cmd.Dir)
-		}
 	}
 
 	return e.cmd.Run()
@@ -141,7 +126,7 @@ func (e executor) Run() error {
 // Dependencies holds the external dependencies for testing and real execution
 
 type Dependencies struct {
-	CommandRunnerGetter                   func(bool) CommandRunner
+	CommandRunnerGetter                   func() CommandRunner
 	DetectJSPacakgeManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
@@ -227,9 +212,41 @@ func (ui *CommandTextUI) Run() error {
 
 }
 
+type DebugExecutor interface {
+	ExcuteIfDebugIsTrue(cb func())
+	LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{})
+}
+
+type debugExecutor struct {
+	debugFlag custom_flags.DebugFlag
+}
+
+func newDebugExecutor(debugFlag custom_flags.DebugFlag) debugExecutor {
+	return debugExecutor{debugFlag}
+}
+
+func (d debugExecutor) ExcuteIfDebugIsTrue(cb func()) {
+
+	if d.debugFlag.Value() {
+
+		cb()
+	}
+
+}
+
+func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {
+
+	if d.debugFlag.Value() {
+
+		log.Debug(msg, keyvals...)
+	}
+
+}
+
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
+	debugFlag := custom_flags.NewDebugFlag()
 	cmd := &cobra.Command{
 		Use:     "jpd",
 		Version: build_info.CLI_VERSION.String(), // Default version or set via build process
@@ -266,13 +283,7 @@ Available commands:
 			// Store dependencies and other derived values in the command context
 			c_ctx := c.Context() // Capture the current context to pass into lo.ForEach
 
-			isDebug, err := c.Flags().GetBool(DEBUG_FLAG)
-
-			if err != nil {
-				return err
-			}
-
-			commandRunner := deps.CommandRunnerGetter(isDebug)
+			commandRunner := deps.CommandRunnerGetter()
 
 			if cwd := cwdFlag.String(); cwd != "" {
 
@@ -288,6 +299,7 @@ Available commands:
 				{_GO_ENV, goEnv},
 				{COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
+				{_DEBUG_EXECUTOR, newDebugExecutor(debugFlag)},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
 					c_ctx,
@@ -453,7 +465,7 @@ Available commands:
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewCompletionCmd())
 
-	cmd.PersistentFlags().BoolP(DEBUG_FLAG, "d", false, "Make commands run in debug mode")
+	cmd.PersistentFlags().VarP(debugFlag, "debug", "d", "Make commands run in debug mode")
 
 	cmd.PersistentFlags().StringP(AGENT_FLAG, "a", "", "Select the JS package manager you want to use")
 
@@ -474,8 +486,8 @@ func init() {
 	// Initialize the global rootCmd with real implementations of its dependencies
 	rootCmd = NewRootCmd(
 		Dependencies{
-			CommandRunnerGetter: func(b bool) CommandRunner {
-				return newExecutor(exec.Command, b)
+			CommandRunnerGetter: func() CommandRunner {
+				return newCommandRunner(exec.Command)
 			}, // Use the newExecutor constructor
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, error error) {
 
@@ -511,6 +523,11 @@ func Execute() {
 
 // Helper functions to retrieve dependencies and other values from the command context.
 // These functions are used by subcommands to get their required dependencies.
+
+func getDebugExecutorFromCommandContext(cmd *cobra.Command) debugExecutor {
+
+	return cmd.Context().Value(_DEBUG_EXECUTOR).(debugExecutor)
+}
 
 func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
 

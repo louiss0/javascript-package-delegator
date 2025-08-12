@@ -23,7 +23,6 @@ type MockCommandRunner struct {
 	InvalidCommands []string
 	// HasBeenCalled indicates if a command has been set for this run
 	HasBeenCalled bool
-	isDebug       bool
 	WorkingDir    string
 }
 
@@ -34,12 +33,11 @@ type CommandCall struct {
 }
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner
-func NewMockCommandRunner(isDebug bool) *MockCommandRunner {
+func NewMockCommandRunner() *MockCommandRunner {
 	return &MockCommandRunner{
 		CommandCall:     CommandCall{},
 		InvalidCommands: []string{},
 		HasBeenCalled:   false,
-		isDebug:         isDebug,
 	}
 }
 
@@ -50,10 +48,6 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 		Args: args,
 	}
 	m.HasBeenCalled = true
-}
-
-func (m MockCommandRunner) IsDebug() bool {
-	return m.isDebug
 }
 
 func (m *MockCommandRunner) SetTargetDir(dir string) error {

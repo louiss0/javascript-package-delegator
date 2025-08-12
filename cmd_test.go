@@ -74,7 +74,7 @@ func NewRootCommandFactory(mockRunner *mock.MockCommandRunner) *RootCommandFacto
 func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager string, err error) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -93,7 +93,7 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager s
 func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageManager string) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -122,7 +122,7 @@ func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -142,7 +142,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -162,7 +162,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -193,7 +193,7 @@ func (f *RootCommandFactory) CreateNpmAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -223,7 +223,7 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -245,7 +245,7 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *cobra.Command {
 	return cmd.NewRootCmd(
 		cmd.Dependencies{
-			CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
 			DetectLockfile: func() (lockfile string, error error) {
@@ -268,7 +268,7 @@ var _ = Describe("JPD Commands", func() {
 	assert := assert.New(GinkgoT())
 
 	var rootCmd *cobra.Command
-	mockRunner := mock.NewMockCommandRunner(false)
+	mockRunner := mock.NewMockCommandRunner()
 	factory := NewRootCommandFactory(mockRunner) // Initialize the factory
 
 	getSubCommandWithName := func(cmd *cobra.Command, name string) (*cobra.Command, bool) {
@@ -377,8 +377,8 @@ var _ = Describe("JPD Commands", func() {
 				// re-assigns the local 'mockRunner' variable within the CommandRunnerGetter,
 				// which is a specific testing pattern for this context.
 				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(isDebug bool) cmd.CommandRunner {
-						mockRunner = mock.NewMockCommandRunner(isDebug) // MockCommandRunner initialized with the target CWD
+					CommandRunnerGetter: func() cmd.CommandRunner {
+						mockRunner = mock.NewMockCommandRunner() // MockCommandRunner initialized with the target CWD
 						return mockRunner
 					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -504,7 +504,7 @@ var _ = Describe("JPD Commands", func() {
 
 				return cmd.NewRootCmd(
 					cmd.Dependencies{
-						CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+						CommandRunnerGetter: func() cmd.CommandRunner {
 							return mockRunner
 						},
 						DetectLockfile: func() (lockfile string, error error) {
@@ -611,7 +611,7 @@ var _ = Describe("JPD Commands", func() {
 
 				// Create the root command with *all* necessary dependencies
 				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockRunner
 					},
 					DetectLockfile: func() (lockfile string, error error) {
@@ -1232,8 +1232,8 @@ var _ = Describe("JPD Commands", func() {
 		It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
 			var mockCmdRunner *mock.MockCommandRunner // Renamed to avoid shadowing
 			deps := cmd.Dependencies{
-				CommandRunnerGetter: func(debug bool) cmd.CommandRunner {
-					mockCmdRunner = mock.NewMockCommandRunner(debug)
+				CommandRunnerGetter: func() cmd.CommandRunner {
+					mockCmdRunner = mock.NewMockCommandRunner()
 					return mockCmdRunner
 				},
 				DetectLockfile:                        func() (string, error) { return "", fmt.Errorf("no lockfile") },
@@ -2163,7 +2163,7 @@ var _ = Describe("JPD Commands", func() {
 					// for the interactive uninstall where no packages will be returned by the detector.
 					rootCmdForNoPackages := cmd.NewRootCmd(
 						cmd.Dependencies{
-							CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+							CommandRunnerGetter: func() cmd.CommandRunner {
 								return mockRunner
 							},
 							DetectLockfile: func() (lockfile string, error error) {
@@ -2224,7 +2224,7 @@ var _ = Describe("JPD Commands", func() {
 						// Override the root command to inject our custom mock UI
 						rootCmdForSelection := cmd.NewRootCmd(
 							cmd.Dependencies{
-								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockRunner
 								},
 								DetectLockfile: func() (lockfile string, error error) {
@@ -2292,7 +2292,7 @@ var _ = Describe("JPD Commands", func() {
 						// Override the root command to inject our custom mock UI
 						rootCmdForSelection := cmd.NewRootCmd(
 							cmd.Dependencies{
-								CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockRunner
 								},
 								DetectLockfile: func() (lockfile string, error error) {
@@ -2738,7 +2738,7 @@ var _ = Describe("JPD Commands", func() {
 				// Setup: package-lock.json exists (indicates npm) but npm is not installed
 				// However, pnpm is available in PATH
 				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockRunner
 					},
 					DetectLockfile: func() (lockfile string, error error) {
@@ -2778,7 +2778,7 @@ var _ = Describe("JPD Commands", func() {
 				commandTextUI.SetValue("npm install -g yarn")
 
 				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockRunner
 					},
 					DetectLockfile: func() (lockfile string, error error) {
@@ -2815,7 +2815,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should use different package manager when deno.json exists but deno is not installed", func() {
 				// Setup: deno.json exists but deno is not installed, npm is available
 				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockRunner
 					},
 					DetectLockfile: func() (lockfile string, error error) {
@@ -2872,7 +2872,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute the detected package manager", func() {
 				// Create a root command with npm detected
 				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
-					CommandRunnerGetter: func(b bool) cmd.CommandRunner {
+					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockRunner
 					},
 					DetectLockfile: func() (lockfile string, error error) {
@@ -2930,7 +2930,7 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("MockCommandRunner Interface (Single Command Expected)", func() {
 		It("should properly record a single command", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 			testRunner.Command("npm", "install", "lodash")
 			err := testRunner.Run()
 			assert.NoError(err)
@@ -2939,14 +2939,14 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should return error if no command is set before run", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 			err := testRunner.Run()
 			assert.Error(err)
 			assert.Contains(err.Error(), "no command set to run")
 		})
 
 		It("should return errors for invalid commands", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 			testRunner.InvalidCommands = []string{"npm"}
 			testRunner.Command("npm", "install")
 			err := testRunner.Run()
@@ -2955,7 +2955,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should correctly check for command execution", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 			testRunner.Command("npm", "install", "lodash")
 			testRunner.Run()
 
@@ -2964,7 +2964,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should properly reset all state", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 			testRunner.Command("npm", "install", "lodash")
 			testRunner.Run()
 			testRunner.InvalidCommands = []string{"yarn"}
@@ -2977,7 +2977,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should return the last executed command", func() {
-			testRunner := mock.NewMockCommandRunner(false)
+			testRunner := mock.NewMockCommandRunner()
 
 			cmdCall, exists := testRunner.LastCommand()
 			assert.False(exists)

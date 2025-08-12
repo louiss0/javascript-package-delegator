@@ -7,22 +7,17 @@ import (
 
 	"github.com/louiss0/javascript-package-delegator/services"
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert" // Import testify/assert
 )
 
 // FakeCommandRunner is a test double that doesn't execute real commands
 type FakeCommandRunner struct {
-	debug      bool
 	targetDir  string
 	commandSet bool
 }
 
-func NewFakeCommandRunner(debug bool) CommandRunner {
-	return &FakeCommandRunner{debug: debug}
-}
-
-func (f *FakeCommandRunner) IsDebug() bool {
-	return f.debug
+func NewFakeCommandRunner() CommandRunner {
+	return &FakeCommandRunner{}
 }
 
 func (f *FakeCommandRunner) Command(name string, args ...string) {
@@ -71,18 +66,20 @@ func (n noopTaskSelector) Run() error    { return nil }
 
 var _ = Describe("root -C flag regression", func() {
 	It("does not panic when executing root with only the -C flag before any Command() call", func() {
+		a := assert.New(GinkgoT()) // Create assert instance
+
 		// Build a NewRootCmd with stubbed dependencies per spec
 		root := NewRootCmd(Dependencies{
-			CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
-			DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
-			DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
+			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
+			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
+			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
 			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
-			YarnCommandVersionOutputter:          dummyYarnVersionRunner{},
-			NewCommandTextUI: func(string) CommandUITexter { return noopCommandTextUI{} },
-			DetectVolta: func() bool { return false },
-			NewPackageMultiSelectUI: func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
-			NewTaskSelectorUI:       func(_ []string) TaskUISelector { return noopTaskSelector{} },
-			NewDependencyMultiSelectUI: func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
+			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
+			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
+			DetectVolta:                           func() bool { return false },
+			NewPackageMultiSelectUI:               func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
+			NewTaskSelectorUI:                     func(_ []string) TaskUISelector { return noopTaskSelector{} },
+			NewDependencyMultiSelectUI:            func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
 		})
 
 		// Prepare tmp dir
@@ -92,71 +89,73 @@ var _ = Describe("root -C flag regression", func() {
 
 		root.SetArgs([]string{"-C", cwdValue})
 
-Expect(func() { _ = root.Execute() }).NotTo(Panic())
+		a.NotPanics(func() { _ = root.Execute() }) // Use assert.NotPanics
 	})
 
 	It("rejects absolute path without trailing slash for -C", func() {
-        root := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
-            DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
-            DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
-            DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
-            YarnCommandVersionOutputter:          dummyYarnVersionRunner{},
-            NewCommandTextUI: func(string) CommandUITexter { return noopCommandTextUI{} },
-            DetectVolta: func() bool { return false },
-            NewPackageMultiSelectUI: func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
-            NewTaskSelectorUI:       func(_ []string) TaskUISelector { return noopTaskSelector{} },
-            NewDependencyMultiSelectUI: func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
-        })
+		a := assert.New(GinkgoT()) // Create assert instance
 
-        tmpDir := GinkgoT().TempDir()
-        // no trailing slash
-        root.SetArgs([]string{"-C", tmpDir})
-        err := root.Execute()
-        Expect(err).To(HaveOccurred())
-    })
+		root := NewRootCmd(Dependencies{
+			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
+			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
+			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
+			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
+			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
+			DetectVolta:                           func() bool { return false },
+			NewPackageMultiSelectUI:               func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
+			NewTaskSelectorUI:                     func(_ []string) TaskUISelector { return noopTaskSelector{} },
+			NewDependencyMultiSelectUI:            func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
+		})
 
+		tmpDir := GinkgoT().TempDir()
+		// no trailing slash
+		root.SetArgs([]string{"-C", tmpDir})
+		err := root.Execute()
+		a.Error(err) // Use assert.Error
+	})
 
 	It("accepts relative path with trailing slash and rejects without it", func() {
-        rootValid := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
-            DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
-            DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
-            DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
-            YarnCommandVersionOutputter:          dummyYarnVersionRunner{},
-            NewCommandTextUI: func(string) CommandUITexter { return noopCommandTextUI{} },
-            DetectVolta: func() bool { return false },
-            NewPackageMultiSelectUI: func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
-            NewTaskSelectorUI:       func(_ []string) TaskUISelector { return noopTaskSelector{} },
-            NewDependencyMultiSelectUI: func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
-        })
+		a := assert.New(GinkgoT()) // Create assert instance
 
-        // Create a relative folder in a temp CWD
-        orig, _ := os.Getwd()
-        defer func() { _ = os.Chdir(orig) }()
-        base := GinkgoT().TempDir()
-        _ = os.Chdir(base)
-        _ = os.Mkdir("rel", 0o755)
+		rootValid := NewRootCmd(Dependencies{
+			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
+			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
+			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
+			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
+			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
+			DetectVolta:                           func() bool { return false },
+			NewPackageMultiSelectUI:               func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
+			NewTaskSelectorUI:                     func(_ []string) TaskUISelector { return noopTaskSelector{} },
+			NewDependencyMultiSelectUI:            func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
+		})
 
-        // Valid with trailing slash
-        rootValid.SetArgs([]string{"-C", "rel" + string(os.PathSeparator)})
-        Expect(rootValid.Execute()).To(Succeed())
+		// Create a relative folder in a temp CWD
+		orig, _ := os.Getwd()
+		defer func() { _ = os.Chdir(orig) }()
+		base := GinkgoT().TempDir()
+		_ = os.Chdir(base)
+		_ = os.Mkdir("rel", 0o755)
 
-        // Invalid without trailing slash
-        rootInvalid := NewRootCmd(Dependencies{
-            CommandRunnerGetter: func(debug bool) CommandRunner { return NewFakeCommandRunner(debug) },
-            DetectLockfile: func() (string, error) { return "", errors.New("no lockfile") },
-            DetectJSPacakgeManager: func() (string, error) { return "npm", nil },
-            DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
-            YarnCommandVersionOutputter:          dummyYarnVersionRunner{},
-            NewCommandTextUI: func(string) CommandUITexter { return noopCommandTextUI{} },
-            DetectVolta: func() bool { return false },
-            NewPackageMultiSelectUI: func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
-            NewTaskSelectorUI:       func(_ []string) TaskUISelector { return noopTaskSelector{} },
-            NewDependencyMultiSelectUI: func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
-        })
-        rootInvalid.SetArgs([]string{"-C", "rel"})
-        Expect(rootInvalid.Execute()).NotTo(Succeed())
-    })
+		// Valid with trailing slash
+		rootValid.SetArgs([]string{"-C", "rel" + string(os.PathSeparator)})
+		a.NoError(rootValid.Execute()) // Use assert.NoError
+
+		// Invalid without trailing slash
+		rootInvalid := NewRootCmd(Dependencies{
+			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
+			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
+			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
+			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
+			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
+			DetectVolta:                           func() bool { return false },
+			NewPackageMultiSelectUI:               func(_ []services.PackageInfo) MultiUISelecter { return noopMultiSelect{} },
+			NewTaskSelectorUI:                     func(_ []string) TaskUISelector { return noopTaskSelector{} },
+			NewDependencyMultiSelectUI:            func(_ []string) DependencyUIMultiSelector { return noopMultiSelect{} },
+		})
+		rootInvalid.SetArgs([]string{"-C", "rel"})
+		a.Error(rootInvalid.Execute()) // Use assert.Error
+	})
 })
-
