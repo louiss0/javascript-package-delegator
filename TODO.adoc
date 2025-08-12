@@ -2,117 +2,19 @@
 
 == Bugs
 
-[CAUTION]
-.StrayPackageJSON
-====
-
-File: cmd_test.go
-Test: "should handle if-present flag with non-existent script"
-Description:
-• ~~Tests were creating package.json files directly in current directory~~ FIXED: Using GinkgoT().TempDir()
-• ~~No cleanup of test artifacts leading to repository pollution~~ FIXED: Automatic cleanup
-• ~~Fixed by using GinkgoT().TempDir() for isolated test environments~~ RESOLVED
-
-File: cmd_test.go  
-Test: "should handle missing package.json with if-present"
-Description:
-• ~~Test was not using temporary directory for file operations~~ FIXED: Using temp directory
-• ~~Could leak package.json into project repository~~ FIXED: Proper isolation
-• ~~Fixed with proper temp directory and chdir restoration~~ RESOLVED
-
-File: cmd_test.go
-Test: "should handle script not found without if-present"
-Description:
-• ~~Creating test files without proper isolation~~ FIXED: Isolated temp directories
-• ~~Missing cleanup causing stray package.json files~~ FIXED: GinkgoT().Cleanup()
-• ~~Resolved using GinkgoT().Cleanup() for automatic cleanup~~ RESOLVED
-
-File: cmd_test.go
-Test: Multiple npm/pnpm/deno run tests
-Description:
-• ~~Tests writing directly to current directory instead of temp paths~~ FIXED: filepath.Join usage
-• ~~Fixed using filepath.Join(testDir, filename) for all file writes~~ RESOLVED
-• ~~Added CI safeguard via .gitignore to prevent accidental commits~~ IMPLEMENTED
-====
-
-[CAUTION]
-.CompletionSilence
-====
-
-File: cmd/completion.go
-Function: RunE in NewCompletionCmd()
-Description:
-• Missing output after completion file creation
-• No success message showing file path
-• Users don't know where completion files were created
-====
-
-[CAUTION]
-.EmptyAgent
-====
-
-File: cmd/root.go
-Function: PersistentPreRunE - Line 290-302
-Description:
-• Agent flag might be retrieved as empty string without proper error handling
-• No validation that agent was successfully set before returning
-• Early return when agent is set might bypass required initialization
-
-File: cmd/root.go  
-Function: PersistentPreRunE - Line 330-367
-Description:
-• When DetectLockfile fails, DetectJSPackageManager might return empty string
-• No validation that pm variable contains a valid package manager before setting AGENT_FLAG
-• Missing error handling for edge cases where both detection methods fail
-
-File: cmd/root.go
-Function: PersistentPreRunE - Line 369-412  
-Description:
-• ~~When DetectJSPackageManagerBasedOnLockFile fails, agent might not be set~~ FIXED: Now falls back to PATH detection
-• Interactive command UI flow doesn't set the agent flag after installation
-• No verification that pm variable is non-empty before setting AGENT_FLAG
-
-File: cmd/agent.go
-Function: RunE - Line 36
-Description:
-• ~~No error handling when GetString returns empty string~~ FIXED: Added error handling
-• ~~Should validate that pm is not empty before attempting to execute command~~ FIXED: Added validation
-• ~~Missing user-friendly error message when agent is empty~~ FIXED: Added helpful error message
-====
-
-[CAUTION]
-.NilTargetDir
-====
-
-File: cmd/root.go
-Function: executor.SetTargetDir
-Description:
-• Handle nil e.cmd when -C flag is used during PersistentPreRunE
-• Persist target directory and apply on Command()
-• Add tests for both pre/post Command() scenarios
-====
 
 == Refactors
 
 == Features
 
-[IMPORTANT]
-.CompletionVerbosity
-====
-
-File: cmd/completion.go
-Function: RunE in NewCompletionCmd()
-Description:
-• Add verbose flag for detailed completion installation process
-• Show more information about completion file installation
-====
 
 [IMPORTANT]
-.CwdConfidence
+.Debug Logging
 ====
 
-File: cmd/root.go
-Function: executor.Command
-Description:
-• Apply stored target directory automatically when creating a command
+Folder: cmd/
+Functions: RunE:
+Description: Add various logs to many places in the codebase.
+These logs are meant to be triggered when the --debug flag is set.
+The point of these logs is to show the process of each command that is being executed.
 ====
