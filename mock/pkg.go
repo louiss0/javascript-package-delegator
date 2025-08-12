@@ -11,8 +11,31 @@ import (
 	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/exp/rand"
 )
+
+// MockDebugExecutor implements the cmd.DebugExecutor interface for testing purposes
+type MockDebugExecutor struct {
+	mock.Mock
+}
+
+// ExcuteIfDebugIsTrue records the call to this method.
+// In tests, you can set expectations using `On("ExcuteIfDebugIsTrue")`.
+// If the `cb` itself needs to be verified or controlled, the test can pass a mockable function.
+func (m *MockDebugExecutor) ExecuteIfDebugIsTrue(cb func()) {
+	m.Called()
+}
+
+// LogDebugMessageIfDebugIsTrue records the call to this method along with its arguments.
+// In tests, you can set expectations and verify arguments using `On("LogDebugMessageIfDebugIsTrue", ...)`
+// and `AssertCalled(...)`.
+func (m *MockDebugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {
+	// Append all arguments (msg and keyvals) into a single slice for m.Called()
+	args := []interface{}{msg}
+	args = append(args, keyvals...)
+	m.Called(args...)
+}
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes
 // This ensures no real commands are executed during tests - it only records what would be run
@@ -88,6 +111,7 @@ func (m *MockCommandRunner) Run() error {
 func (m *MockCommandRunner) Reset() {
 	m.CommandCall = CommandCall{}
 	m.InvalidCommands = []string{}
+	m.WorkingDir = ""
 	m.HasBeenCalled = false
 }
 
