@@ -136,6 +136,7 @@ type Dependencies struct {
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
 	NewDependencyMultiSelectUI            func(options []string) DependencyUIMultiSelector
+	NewDebugExecutor                      func(custom_flags.DebugFlag) DebugExecutor
 }
 
 type CommandUITexter interface {
@@ -213,7 +214,7 @@ func (ui *CommandTextUI) Run() error {
 }
 
 type DebugExecutor interface {
-	ExcuteIfDebugIsTrue(cb func())
+	ExecuteIfDebugIsTrue(cb func())
 	LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{})
 }
 
@@ -221,11 +222,11 @@ type debugExecutor struct {
 	debugFlag custom_flags.DebugFlag
 }
 
-func newDebugExecutor(debugFlag custom_flags.DebugFlag) debugExecutor {
+func newDebugExecutor(debugFlag custom_flags.DebugFlag) DebugExecutor {
 	return debugExecutor{debugFlag}
 }
 
-func (d debugExecutor) ExcuteIfDebugIsTrue(cb func()) {
+func (d debugExecutor) ExecuteIfDebugIsTrue(cb func()) {
 
 	if d.debugFlag.Value() {
 
@@ -245,8 +246,11 @@ func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...inter
 
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
+
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
+
 	debugFlag := custom_flags.NewDebugFlag()
+
 	cmd := &cobra.Command{
 		Use:     "jpd",
 		Version: build_info.CLI_VERSION.String(), // Default version or set via build process
@@ -299,7 +303,7 @@ Available commands:
 				{_GO_ENV, goEnv},
 				{COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
-				{_DEBUG_EXECUTOR, newDebugExecutor(debugFlag)},
+				{_DEBUG_EXECUTOR, deps.NewDebugExecutor(debugFlag)},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
 					c_ctx,
@@ -507,6 +511,7 @@ func init() {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
 			},
 			NewPackageMultiSelectUI: newPackageMultiSelectUI,
+			NewDebugExecutor:        newDebugExecutor,
 		},
 	)
 
@@ -524,9 +529,9 @@ func Execute() {
 // Helper functions to retrieve dependencies and other values from the command context.
 // These functions are used by subcommands to get their required dependencies.
 
-func getDebugExecutorFromCommandContext(cmd *cobra.Command) debugExecutor {
+func getDebugExecutorFromCommandContext(cmd *cobra.Command) DebugExecutor {
 
-	return cmd.Context().Value(_DEBUG_EXECUTOR).(debugExecutor)
+	return cmd.Context().Value(_DEBUG_EXECUTOR).(DebugExecutor)
 }
 
 func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
