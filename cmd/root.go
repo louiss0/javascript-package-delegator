@@ -225,10 +225,6 @@ type debugExecutor struct {
 
 func newDebugExecutor(debugFlag bool) DebugExecutor {
 
-	if debugFlag {
-		log.SetLevel(log.DebugLevel)
-	}
-
 	return debugExecutor{debugFlag}
 }
 
@@ -307,6 +303,10 @@ Available commands:
 
 			if err != nil {
 				return err
+			}
+
+			if debug {
+				log.SetLevel(log.DebugLevel)
 			}
 
 			lo.ForEach([][2]any{
