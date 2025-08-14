@@ -309,11 +309,13 @@ Available commands:
 				log.SetLevel(log.DebugLevel)
 			}
 
+			debugExecutor := deps.NewDebugExecutor(debug)
+
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
 				{COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
-				{_DEBUG_EXECUTOR, deps.NewDebugExecutor(debug)},
+				{_DEBUG_EXECUTOR, debugExecutor},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
 					c_ctx,
@@ -332,6 +334,7 @@ Available commands:
 
 			if agent != "" {
 
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Agent flag is set", "agent", agent)
 				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
