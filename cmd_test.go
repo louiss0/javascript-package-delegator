@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
-	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
@@ -84,7 +83,7 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager s
 			CommandRunnerGetter: func() cmd.CommandRunner {
 				return f.MockRunner
 			},
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -110,7 +109,7 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageM
 				return f.MockRunner
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -149,7 +148,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 				return "", nil
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -173,7 +172,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 				return f.MockRunner
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -203,7 +202,7 @@ func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 				return f.MockRunner
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -241,7 +240,7 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 				return f.MockRunner
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -281,7 +280,7 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 				return "", nil
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -310,7 +309,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 				return "", nil
 			},
 
-			NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
 				f.debugExecutor = mock.MockDebugExecutor{}
 
@@ -366,7 +365,7 @@ var _ = Describe("JPD Commands", func() {
 		Context("When Debug flag is set", func() {
 
 			It("should be able to run", func() {
-				_, err := executeCmd(rootCmd, "")
+				_, err := executeCmd(rootCmd, "--debug")
 				assert.NoError(err)
 			})
 
@@ -571,8 +570,7 @@ var _ = Describe("JPD Commands", func() {
 						DetectLockfile: func() (lockfile string, error error) {
 							return "", nil
 						},
-						NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
-
+						NewDebugExecutor: func(bool) cmd.DebugExecutor {
 							return &mock.MockDebugExecutor{}
 						},
 						DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -685,7 +683,7 @@ var _ = Describe("JPD Commands", func() {
 					DetectLockfile: func() (lockfile string, error error) {
 						return "", nil
 					},
-					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return &mock.MockDebugExecutor{}
 					},
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
@@ -2272,7 +2270,7 @@ var _ = Describe("JPD Commands", func() {
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockRunner
 								},
-								NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+								NewDebugExecutor: func(bool) cmd.DebugExecutor {
 									return &mock.MockDebugExecutor{}
 								},
 								DetectLockfile: func() (lockfile string, error error) {
@@ -2347,7 +2345,7 @@ var _ = Describe("JPD Commands", func() {
 									return "", nil
 								},
 
-								NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+								NewDebugExecutor: func(bool) cmd.DebugExecutor {
 									return &mock.MockDebugExecutor{}
 								},
 								DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -2798,7 +2796,7 @@ var _ = Describe("JPD Commands", func() {
 						return detect.PACKAGE_LOCK_JSON, nil
 					},
 
-					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return &mock.MockDebugExecutor{}
 					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -2841,7 +2839,7 @@ var _ = Describe("JPD Commands", func() {
 						return detect.YARN_LOCK, nil
 					},
 
-					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return &mock.MockDebugExecutor{}
 					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
@@ -2882,7 +2880,7 @@ var _ = Describe("JPD Commands", func() {
 						return detect.DENO_JSON, nil
 					},
 
-					NewDebugExecutor: func(custom_flags.DebugFlag) cmd.DebugExecutor {
+					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return &mock.MockDebugExecutor{}
 					},
 					DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
