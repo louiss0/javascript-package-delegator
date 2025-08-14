@@ -224,6 +224,11 @@ type debugExecutor struct {
 }
 
 func newDebugExecutor(debugFlag bool) DebugExecutor {
+
+	if debugFlag {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	return debugExecutor{debugFlag}
 }
 
