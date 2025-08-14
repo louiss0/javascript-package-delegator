@@ -469,7 +469,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should reject a --cwd flag value that does not end with '/'", func() {
 				invalidPath := "/tmp/my-project" // Missing trailing slash
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
+				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
 				assert.Error(err)
 				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
 				assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
@@ -478,7 +478,7 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should reject a --cwd flag value that is a filename", func() {
 				invalidPath := "my-file.txt" // A file-like path
-				_, err := executeCmd(currentRootCmd, "--agent", "npm", "-C", invalidPath)
+				_, err := executeCmd(currentRootCmd, "-C", invalidPath)
 				assert.Error(err)
 				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
 				assert.Contains(err.Error(), "cwd")
@@ -488,7 +488,7 @@ var _ = Describe("JPD Commands", func() {
 			DescribeTable(
 				"should reject invalid --cwd flag values",
 				func(invalidPath string, expectedErrors ...string) {
-					_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", invalidPath)
+					_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
 					assert.Error(err)
 					for _, expectedErr := range expectedErrors {
 						assert.Contains(err.Error(), expectedErr)
@@ -502,7 +502,7 @@ var _ = Describe("JPD Commands", func() {
 			DescribeTable(
 				"should accept valid folder paths for --cwd",
 				func(validPath string) {
-					_, err := executeCmd(currentRootCmd, "--agent", "npm", "--cwd", validPath)
+					_, err := executeCmd(currentRootCmd, "--cwd", validPath)
 					assert.NoError(err)
 				},
 				Entry("a valid root path '/'", "/"),
@@ -515,11 +515,11 @@ var _ = Describe("JPD Commands", func() {
 				tempDir = fmt.Sprintf("%s/", tempDir)
 
 				// Execute a command with -C flag
-				_, err := executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", tempDir)
+				_, err := executeCmd(currentRootCmd, "install", "-C", tempDir)
 				assert.NoError(err)
 
 				// Verify the CommandRunner received the correct working directory
-				assert.Equal("npm", mockRunner.CommandCall.Name)
+				assert.Equal("yarn", mockRunner.CommandCall.Name)
 				assert.Contains(mockRunner.CommandCall.Args, "install")
 				assert.Equal(tempDir, mockRunner.WorkingDir)
 			})
@@ -528,7 +528,7 @@ var _ = Describe("JPD Commands", func() {
 				tempDir := GinkgoT().TempDir()
 				tempDir = fmt.Sprintf("%s/", tempDir)
 
-				_, err := executeCmd(currentRootCmd, "run", "dev", "--agent", "yarn", "--cwd", tempDir)
+				_, err := executeCmd(currentRootCmd, "run", "dev", "--cwd", tempDir)
 				assert.NoError(err)
 
 				assert.Equal("yarn", mockRunner.CommandCall.Name)
@@ -538,10 +538,10 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should not set a working directory if -C is not provided", func() {
-				_, err := executeCmd(currentRootCmd, "agent", "--agent", "pnpm")
+				_, err := executeCmd(currentRootCmd, "agent")
 				assert.NoError(err)
 
-				assert.Equal("pnpm", mockRunner.CommandCall.Name)
+				assert.Equal("yarn", mockRunner.CommandCall.Name)
 				// When Dir is not explicitly set, it defaults to the current working directory of the process.
 				// An empty string for WorkingDir in our mock implies it wasn't explicitly overridden by -C.
 				// We should verify that `e.cmd.Dir` remains unset (empty string) in the mock,
@@ -595,8 +595,8 @@ var _ = Describe("JPD Commands", func() {
 
 			It(
 				`propmts the user for which command they would like to use to install package manager
-					If the user refuses an error is produced.
-				`,
+								If the user refuses an error is produced.
+							`,
 				func() {
 
 					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue("")
