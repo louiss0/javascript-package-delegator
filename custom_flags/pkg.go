@@ -7,58 +7,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/charmbracelet/log"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/samber/lo"
-	"github.com/spf13/pflag"
 )
-
-type debugFlag struct {
-	value    bool
-	flagName string
-}
-
-type DebugFlag interface {
-	pflag.Value
-	Value() bool
-}
-
-func NewDebugFlag() DebugFlag {
-	return &debugFlag{
-		flagName: "debug",
-	}
-}
-
-func (d debugFlag) Value() bool {
-	return d.value
-}
-
-func (d debugFlag) String() string {
-	return fmt.Sprintf("%t", d.value)
-}
-
-func (d *debugFlag) Set(value string) error {
-
-	if value == "" {
-		return fmt.Errorf("The %s flag cannot be empty", d.flagName)
-	}
-
-	var err error
-
-	d.value, err = strconv.ParseBool(value)
-
-	if err != nil {
-		return fmt.Errorf("Invalid value for %s flag: %w", d.flagName, err)
-	}
-
-	log.SetLevel(log.DebugLevel)
-
-	return nil
-}
-
-func (d debugFlag) Type() string {
-	return "bool"
-}
 
 // filePathFlag represents a flag that must contain a valid POSIX/UNIX file path
 type filePathFlag struct {

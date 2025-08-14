@@ -52,6 +52,7 @@ const COMMAND_RUNNER_KEY = "command_runner"
 const JPD_AGENT_ENV_VAR = "JPD_AGENT"
 const AGENT_FLAG = "agent"
 const _CWD_FLAG = "cwd"
+const _DEBUG_FLAG = "debug"
 
 // CommandRunner Interface and its implementation
 // This interface allows for mocking command execution in tests.
@@ -136,7 +137,7 @@ type Dependencies struct {
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
 	NewDependencyMultiSelectUI            func(options []string) DependencyUIMultiSelector
-	NewDebugExecutor                      func(custom_flags.DebugFlag) DebugExecutor
+	NewDebugExecutor                      func(bool) DebugExecutor
 }
 
 type CommandUITexter interface {
@@ -219,16 +220,16 @@ type DebugExecutor interface {
 }
 
 type debugExecutor struct {
-	debugFlag custom_flags.DebugFlag
+	debugFlag bool
 }
 
-func newDebugExecutor(debugFlag custom_flags.DebugFlag) DebugExecutor {
+func newDebugExecutor(debugFlag bool) DebugExecutor {
 	return debugExecutor{debugFlag}
 }
 
 func (d debugExecutor) ExecuteIfDebugIsTrue(cb func()) {
 
-	if d.debugFlag.Value() {
+	if d.debugFlag {
 
 		cb()
 	}
@@ -237,7 +238,7 @@ func (d debugExecutor) ExecuteIfDebugIsTrue(cb func()) {
 
 func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {
 
-	if d.debugFlag.Value() {
+	if d.debugFlag {
 
 		log.Debug(msg, keyvals...)
 	}
@@ -248,8 +249,6 @@ func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...inter
 func NewRootCmd(deps Dependencies) *cobra.Command {
 
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
-
-	debugFlag := custom_flags.NewDebugFlag()
 
 	cmd := &cobra.Command{
 		Use:     "jpd",
@@ -264,14 +263,14 @@ JavaScript runtimes and package managers, making it easy to work in teams with d
 preferences or switch between Node.js and Deno projects.
 
 Available commands:
-  install    - Install packages (equivalent to 'ni')
-  run        - Run package.json scripts (equivalent to 'nr')
-  exec       - Execute packages (equivalent to 'nlx')
-  dlx        - Execute packages with package runner (dedicated package-runner command)
-  update     - Update packages (equivalent to 'nup')
-  uninstall  - Uninstall packages (equivalent to 'nun')
-  clean-install - Clean install with frozen lockfile (equivalent to 'nci')
-  agent      - Show detected package manager (equivalent to 'na')`,
+		install    - Install packages (equivalent to 'ni')
+		run        - Run package.json scripts (equivalent to 'nr')
+		exec       - Execute packages (equivalent to 'nlx')
+		dlx        - Execute packages with package runner (dedicated package-runner command)
+		update     - Update packages (equivalent to 'nup')
+		uninstall  - Uninstall packages (equivalent to 'nun')
+		clean-install - Clean install with frozen lockfile (equivalent to 'nci')
+		agent      - Show detected package manager (equivalent to 'na')`,
 		SilenceUsage: true,
 
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
@@ -299,11 +298,17 @@ Available commands:
 
 			}
 
+			debug, err := c.Flags().GetBool(_DEBUG_FLAG)
+
+			if err != nil {
+				return err
+			}
+
 			lo.ForEach([][2]any{
 				{_GO_ENV, goEnv},
 				{COMMAND_RUNNER_KEY, commandRunner},
 				{_YARN_VERSION_OUTPUTTER, deps.YarnCommandVersionOutputter},
-				{_DEBUG_EXECUTOR, deps.NewDebugExecutor(debugFlag)},
+				{_DEBUG_EXECUTOR, deps.NewDebugExecutor(debug)},
 			}, func(item [2]any, index int) {
 				c_ctx = context.WithValue(
 					c_ctx,
@@ -469,7 +474,7 @@ Available commands:
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewCompletionCmd())
 
-	cmd.PersistentFlags().VarP(debugFlag, "debug", "d", "Make commands run in debug mode")
+	cmd.PersistentFlags().BoolP(_DEBUG_FLAG, "d", false, "Make commands run in debug mode")
 
 	cmd.PersistentFlags().StringP(AGENT_FLAG, "a", "", "Select the JS package manager you want to use")
 
