@@ -24,7 +24,7 @@ type MockDebugExecutor struct {
 // In tests, you can set expectations using `On("ExcuteIfDebugIsTrue")`.
 // If the `cb` itself needs to be verified or controlled, the test can pass a mockable function.
 func (m *MockDebugExecutor) ExecuteIfDebugIsTrue(cb func()) {
-	m.Called()
+	m.Called(cb)
 }
 
 // LogDebugMessageIfDebugIsTrue records the call to this method along with its arguments.
