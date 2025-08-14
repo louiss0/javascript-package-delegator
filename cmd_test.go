@@ -60,19 +60,20 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 // with various mocked dependencies for testing purposes.
 type RootCommandFactory struct {
 	MockRunner    *mock.MockCommandRunner
-	debugExecutor mock.MockDebugExecutor
+	debugExecutor *mock.MockDebugExecutor
 }
 
 // NewRootCommandFactory creates a new RootCommandFactory with the given mock runner.
 func NewRootCommandFactory(mockRunner *mock.MockCommandRunner) *RootCommandFactory {
 	return &RootCommandFactory{
-		MockRunner: mockRunner,
+		MockRunner:    mockRunner,
+		debugExecutor: &mock.MockDebugExecutor{},
 	}
 }
 
 func (f *RootCommandFactory) DebugExecutor() *mock.MockDebugExecutor {
 
-	return &f.debugExecutor
+	return f.debugExecutor
 }
 
 // GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
@@ -85,9 +86,7 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager s
 			},
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return detect.PACKAGE_LOCK_JSON, nil
@@ -111,9 +110,7 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageM
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return detect.PACKAGE_LOCK_JSON, nil
@@ -150,9 +147,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return "yarn", err
@@ -174,9 +169,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
@@ -204,9 +197,7 @@ func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", nil
@@ -242,9 +233,7 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectLockfile: func() (lockfile string, error error) {
 				return "", os.ErrNotExist
@@ -282,9 +271,7 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return "npm", nil
@@ -311,9 +298,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 
 			NewDebugExecutor: func(bool) cmd.DebugExecutor {
 
-				f.debugExecutor = mock.MockDebugExecutor{}
-
-				return &f.debugExecutor
+				return f.debugExecutor
 			},
 			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 				return packageManager, nil
@@ -360,16 +345,32 @@ var _ = Describe("JPD Commands", func() {
 		factory.DebugExecutor().AssertExpectations(GinkgoT())
 	})
 
-	Describe("Root Command", func() {
+	Describe("Debug flag on sub commands", func() {
 
-		Context("When Debug flag is set", func() {
-
-			It("should be able to run", func() {
-				_, err := executeCmd(rootCmd, "--debug")
-				assert.NoError(err)
-			})
-
+		It("should be able to run", func() {
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
 		})
+
+		It("logs a debug message about the agent flag being set", func() {
+
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Agent flag is set",
+				"agent",
+				"pnpm",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug", "--agent", "pnpm")
+			assert.NoError(err)
+
+			// debugExecutor.AssertExpectations(GinkgoT())
+		})
+	})
+
+	Describe("Root Command", func() {
 
 		It("should be able to run", func() {
 			_, err := executeCmd(rootCmd, "")
