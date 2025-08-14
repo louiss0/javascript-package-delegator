@@ -341,12 +341,13 @@ var _ = Describe("JPD Commands", func() {
 	AfterEach(func() {
 
 		mockRunner.Reset()
-
 		factory.DebugExecutor().AssertExpectations(GinkgoT())
 	})
 
 	Describe("Debug flag on sub commands", func() {
 
+		//! A subcommand must be used for all these tests or they will fail
+		// I picked agent because it's the best one!
 		It("should be able to run", func() {
 			_, err := executeCmd(rootCmd, "agent", "--debug")
 			assert.NoError(err)
@@ -366,8 +367,103 @@ var _ = Describe("JPD Commands", func() {
 			_, err := executeCmd(rootCmd, "agent", "--debug", "--agent", "pnpm")
 			assert.NoError(err)
 
-			// debugExecutor.AssertExpectations(GinkgoT())
 		})
+
+		It("logs a message about the agent flag being set when the JPD variable is set", func() {
+
+			os.Setenv("JPD_AGENT", "pnpm")
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Agent flag is set",
+				"agent",
+				"pnpm",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
+		It("logs a message about the lock file being detected", func() {
+
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Lock file is detected",
+				detect.PACKAGE_LOCK_JSON,
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
+		It("logs a message about a lock file not being detected when there's an error", func() {
+
+			rootCmd := factory.GenerateNoDetectionAtAll("")
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Lock file is not detected",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
+		It("logs a message about the package manager being undetected when it can't be found based on path", func() {
+
+			rootCmd := factory.GenerateNoDetectionAtAll("")
+
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Package manager is not detected",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
+		It("logs a message about the package manager being detected based on path", func() {
+
+			rootCmd := factory.GenerateNoDetectionAtAll("")
+
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Package manager is detected based on path",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
+		It("logs a message about the package manager being detected based on lockfile", func() {
+
+			rootCmd := factory.GenerateNoDetectionAtAll("")
+
+			debugExecutor := factory.DebugExecutor()
+
+			debugExecutor.On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Package manager is detected based on lockfile",
+			).Return()
+
+			_, err := executeCmd(rootCmd, "agent", "--debug")
+			assert.NoError(err)
+
+		})
+
 	})
 
 	Describe("Root Command", func() {
