@@ -72,242 +72,225 @@ func NewRootCommandFactory(mockRunner *mock.MockCommandRunner) *RootCommandFacto
 }
 
 func (f *RootCommandFactory) DebugExecutor() *mock.MockDebugExecutor {
-
 	return f.debugExecutor
 }
 
+// baseDependencies returns a set of common mocked dependencies that can be overridden.
+func (f *RootCommandFactory) baseDependencies() cmd.Dependencies {
+	return cmd.Dependencies{
+		CommandRunnerGetter: func() cmd.CommandRunner {
+			return f.MockRunner
+		},
+		NewDebugExecutor: func(bool) cmd.DebugExecutor {
+			return f.debugExecutor
+		},
+		DetectVolta:                 func() bool { return false },               // Default to no Volta detected
+		YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer(""), // Default to no specific yarn version
+		NewCommandTextUI:            mock.NewMockCommandTextUI,
+		NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+		NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+		NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+	}
+}
+
+// createRootCmdWithLockfileDetected creates a root command simulating package manager
+// detection based on a specific lockfile being found.
+//
+// `pm` is the package manager expected to be detected from the lockfile.
+// `lockfile` specifies the detected lockfile string (e.g., detect.PACKAGE_LOCK_JSON).
+// `pmDetectionErr` is an optional error for the PM detection *based on the lockfile*.
+// `volta` specifies if Volta should be detected.
+func (f *RootCommandFactory) createRootCmdWithLockfileDetected(pm string, lockfile string, pmDetectionErr error, volta bool) *cobra.Command {
+	deps := f.baseDependencies()
+	// As per the prompt, if a package manager is detected based on a lock file,
+	// the lock file should be returned by the detector.
+	// `DetectLockfile` is the primary detector for the lockfile itself.
+	deps.DetectLockfile = func() (string, error) {
+		return lockfile, nil // Lockfile successfully detected and returned
+	}
+	deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+		// This mock takes the detected lockfile string as input and returns the package manager.
+		// The `lockfile` argument passed to this factory method is what `DetectLockfile` will return.
+		return pm, pmDetectionErr // PM detected based on the lockfile string
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		// This function should not be called if lockfile detection succeeded
+		return "", fmt.Errorf("DetectJSPacakgeManager should not be called in lockfile detection scenario")
+	}
+	deps.DetectVolta = func() bool {
+		return volta
+	}
+	return cmd.NewRootCmd(deps)
+}
+
+// createRootCmdWithPathDetected creates a root command simulating package manager
+// detection by checking the global PATH (no lockfile found).
+//
+// `pm` is the package manager expected to be detected globally.
+// `pmDetectionErr` is an optional error for the global PM detection.
+// `volta` specifies if Volta should be detected.
+func (f *RootCommandFactory) createRootCmdWithPathDetected(pm string, pmDetectionErr error, volta bool) *cobra.Command {
+	deps := f.baseDependencies()
+	deps.DetectLockfile = func() (string, error) {
+		return "", os.ErrNotExist // No lockfile found, forcing path detection
+	}
+	deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+		// This function should not be called if lockfile detection failed
+		return "", fmt.Errorf("DetectJSPacakgeManagerBasedOnLockFile should not be called when lockfile detection fails")
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return pm, pmDetectionErr // PM detected globally via PATH
+	}
+	deps.DetectVolta = func() bool {
+		return volta
+	}
+	return cmd.NewRootCmd(deps)
+}
+
 // GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
-// and can simulate an error during detection.
+// and can simulate an error during detection. This simulates lockfile-based detection.
 func (f *RootCommandFactory) GenerateWithPackageManagerDetector(packageManager string, err error) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return detect.PACKAGE_LOCK_JSON, nil
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return packageManager, err
-			},
-			DetectVolta: func() bool {
-				return false
-			},
-		})
+	return f.createRootCmdWithLockfileDetected(packageManager, detect.PACKAGE_LOCK_JSON, err, false)
 }
 
-// GenerateWithPackageManagerDetectedAndVolta creates a root command where Volta is also detected.
+// GenerateWithPackageManagerDetectedAndVolta creates a root command where Volta is also detected,
+// and package manager detection is lockfile-based.
 func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageManager string) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return detect.PACKAGE_LOCK_JSON, nil
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return packageManager, nil
-			},
-			DetectVolta: func() bool {
-				return true
-			},
-		})
+	return f.createRootCmdWithLockfileDetected(packageManager, detect.PACKAGE_LOCK_JSON, nil, true)
 }
 
-// CreateBunAsDefault creates a root command with "bun" as the default detected package manager.
+// CreateBunAsDefault creates a root command with "bun" as the default detected package manager,
+// simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateBunAsDefault(err error) *cobra.Command {
 	return f.GenerateWithPackageManagerDetector("bun", err)
 }
 
-// CreateDenoAsDefault creates a root command with "deno" as the default detected package manager.
+// CreateDenoAsDefault creates a root command with "deno" as the default detected package manager,
+// simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
 	return f.GenerateWithPackageManagerDetector("deno", err)
 }
 
-// CreateYarnTwoAsDefault creates a root command with "yarn" (version 2+) as the default detected package manager.
+// CreateYarnTwoAsDefault creates a root command with "yarn" (version 2+) as the default detected package manager,
+// simulating detection via PATH and specific yarn version output.
 func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", nil
-			},
-
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return "yarn", err
-			},
-			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("2.0.0"),
-			DetectVolta: func() bool {
-				return false
-			},
-		})
+	deps := f.baseDependencies()
+	deps.DetectLockfile = func() (string, error) {
+		return "", os.ErrNotExist // No lockfile found, forcing path detection
+	}
+	deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+		// This function should not be called if lockfile detection failed
+		return "", fmt.Errorf("DetectJSPacakgeManagerBasedOnLockFile should not be called when lockfile detection fails")
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return "yarn", err // PM detected globally via PATH, for yarn
+	}
+	deps.DetectVolta = func() bool {
+		return false // Default to no Volta detected
+	}
+	// Override specific dependency for Yarn version output, as it's part of how yarn is "path-detected"
+	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("2.0.0")
+	return cmd.NewRootCmd(deps)
 }
 
-// CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager.
+// CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager,
+// simulating detection via PATH and specific yarn version output.
 func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
+	deps := f.baseDependencies()
 
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", nil
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return "yarn", err
-			},
-			DetectJSPacakgeManager: func() (string, error) {
-				return "", nil
-			},
-			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-			DetectVolta: func() bool {
-				return false
-			},
-		})
+	deps.DetectLockfile = func() (string, error) {
+		return "", os.ErrNotExist // No lockfile found, forcing path detection
+	}
+	deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+		// This function should not be called if lockfile detection failed
+		return "", fmt.Errorf("DetectJSPacakgeManagerBasedOnLockFile should not be called when lockfile detection fails")
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return "yarn", err // PM detected globally via PATH, for yarn
+	}
+	deps.DetectVolta = func() bool {
+		return false // Default to no Volta detected
+	}
+	// Override specific dependency for Yarn version output
+	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("1.0.0")
+	return cmd.NewRootCmd(deps)
 }
 
-// CreateNoYarnVersion creates a root command simulating no yarn version detection.
+// CreateNoYarnVersion creates a root command simulating no yarn version detection,
+// implying a path-based detection (or lack thereof for yarn version).
 func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", nil
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return "yarn", err
-			},
-			DetectVolta: func() bool {
-				return false
-			},
-			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer(""),
-		})
+	rootCmd := f.createRootCmdWithPathDetected("yarn", err, false)
+	// YarnCommandVersionOutputter is default empty in baseDependencies, no need to set again
+	return rootCmd
 }
 
-// CreatePnpmAsDefault creates a root command with "pnpm" as the default detected package manager.
+// CreatePnpmAsDefault creates a root command with "pnpm" as the default detected package manager,
+// simulating lockfile-based detection.
 func (f *RootCommandFactory) CreatePnpmAsDefault(err error) *cobra.Command {
 	return f.GenerateWithPackageManagerDetector("pnpm", err)
 }
 
-// CreateNpmAsDefault creates a root command with "npm" as the default detected package manager.
+// CreateNpmAsDefault creates a root command with "npm" as the default detected package manager,
+// simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateNpmAsDefault(err error) *cobra.Command {
 	return f.GenerateWithPackageManagerDetector("npm", err)
 }
 
 // GenerateNoDetectionAtAll creates a root command simulating no lockfile or global PM detection,
-// forcing a prompt for an install command.
+// forcing a prompt for an install command. This is a specific "no detection" scenario.
 func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
+	deps := f.baseDependencies()
 
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", os.ErrNotExist
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return "", nil
-			},
-			DetectJSPacakgeManager: func() (string, error) {
-				return "", detect.ErrNoPackageManager
-			},
-			NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
-				mockUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
-				mockUI.SetValue(commandTextUIValue)
-				return mockUI
-			},
-			YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-			DetectVolta:                 func() bool { return false },
-			NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
-			NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-			NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
-		},
-	)
+	deps.DetectLockfile = func() (lockfile string, error error) {
+		return "", os.ErrNotExist // No lockfile detected
+	}
+	deps.DetectJSPacakgeManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
+		// Should not be called as DetectLockfile returned an error
+		return "", nil
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return "", detect.ErrNoPackageManager // No PM found on PATH
+	}
+	deps.NewCommandTextUI = func(lockfile string) cmd.CommandUITexter {
+		mockUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
+		mockUI.SetValue(commandTextUIValue)
+		return mockUI
+	}
+	return cmd.NewRootCmd(deps)
 }
 
-// CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager and multi-select UI.
+// CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager
+// detection via PATH and multi-select UI.
 func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", nil
-			},
-
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return "npm", nil
-			},
-			NewPackageMultiSelectUI: func(pi []services.PackageInfo) cmd.MultiUISelecter {
-				return mock.NewMockPackageMultiSelectUI(pi)
-			},
-			DetectVolta: func() bool {
-				return false
-			},
-		})
+	// Original used DetectLockfile: "", nil and DetectJSPacakgeManagerBasedOnLockFile: "npm", nil.
+	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
+	deps := f.baseDependencies()
+	deps.DetectLockfile = func() (lockfile string, error error) {
+		return "", os.ErrNotExist
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return "npm", nil
+	}
+	deps.NewPackageMultiSelectUI = func(pi []services.PackageInfo) cmd.MultiUISelecter {
+		return mock.NewMockPackageMultiSelectUI(pi)
+	}
+	return cmd.NewRootCmd(deps)
 }
 
-// CreateWithTaskSelectorUI creates a root command configured for task selection UI based on the package manager.
+// CreateWithTaskSelectorUI creates a root command configured for task selection UI based on a
+// package manager detected via PATH.
 func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *cobra.Command {
-	return cmd.NewRootCmd(
-		cmd.Dependencies{
-			CommandRunnerGetter: func() cmd.CommandRunner {
-				return f.MockRunner
-			},
-			DetectLockfile: func() (lockfile string, error error) {
-				return "", nil
-			},
-
-			NewDebugExecutor: func(bool) cmd.DebugExecutor {
-
-				return f.debugExecutor
-			},
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-				return packageManager, nil
-			},
-			NewTaskSelectorUI: mock.NewMockTaskSelectUI,
-			DetectVolta: func() bool {
-				return false
-			},
-		})
+	// Original used DetectLockfile: "", nil and DetectJSPacakgeManagerBasedOnLockFile.
+	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
+	deps := f.baseDependencies()
+	deps.DetectLockfile = func() (lockfile string, error error) {
+		return "", os.ErrNotExist
+	}
+	deps.DetectJSPacakgeManager = func() (string, error) {
+		return packageManager, nil
+	}
+	deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
+	return cmd.NewRootCmd(deps)
 }
 
 // It ensures that each command has access to the package manager name and CommandRunner
@@ -329,12 +312,13 @@ var _ = Describe("JPD Commands", func() {
 			})
 	}
 
-	JustBeforeEach(func() {
+	BeforeEach(func() {
 		rootCmd = factory.CreateNpmAsDefault(nil)
 		// This needs to be set because Ginkgo will pass a --test.timeout flag to the root command
 		// The test.timeout flag will get in the way
 		// If the args are empty before they are set by executeCommand the right args can be passed
 		rootCmd.SetArgs([]string{})
+		factory.debugExecutor = &mock.MockDebugExecutor{}
 
 	})
 
@@ -346,9 +330,20 @@ var _ = Describe("JPD Commands", func() {
 
 	Describe("Debug flag on sub commands", func() {
 
-		//! A subcommand must be used for all these tests or they will fail
-		// I picked agent because it's the best one!
 		It("should be able to run", func() {
+
+			factory.DebugExecutor().On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Lock file is detected",
+				"lockfile", detect.PACKAGE_LOCK_JSON,
+			)
+
+			factory.DebugExecutor().On(
+				"LogDebugMessageIfDebugIsTrue",
+				"Package manager is detected based on lock file",
+				"pm", detect.NPM,
+			).Return()
+
 			_, err := executeCmd(rootCmd, "agent", "--debug")
 			assert.NoError(err)
 		})
@@ -372,11 +367,12 @@ var _ = Describe("JPD Commands", func() {
 		It("logs a message about the agent flag being set when the JPD variable is set", func() {
 
 			os.Setenv("JPD_AGENT", "pnpm")
+			defer os.Unsetenv("JPD_AGENT")
 			debugExecutor := factory.DebugExecutor()
 
 			debugExecutor.On(
 				"LogDebugMessageIfDebugIsTrue",
-				"Agent flag is set",
+				"JPD_AGENT environment variable detected setting agent",
 				"agent",
 				"pnpm",
 			).Return()
@@ -386,81 +382,78 @@ var _ = Describe("JPD Commands", func() {
 
 		})
 
-		It("logs a message about the lock file being detected", func() {
+		Context("lock file not detected", func() {
 
-			debugExecutor := factory.DebugExecutor()
+			var debugExecutor *mock.MockDebugExecutor
 
-			debugExecutor.On(
-				"LogDebugMessageIfDebugIsTrue",
-				"Lock file is detected",
-				detect.PACKAGE_LOCK_JSON,
-			).Return()
+			BeforeEach(func() {
+				debugExecutor = factory.DebugExecutor()
+				debugExecutor.On(
+					"LogDebugMessageIfDebugIsTrue",
+					"Lock file is not detected",
+				).Return()
 
-			_, err := executeCmd(rootCmd, "agent", "--debug")
-			assert.NoError(err)
+			})
 
-		})
+			It("logs a message about the package manager not being detected based on path", func() {
 
-		It("logs a message about a lock file not being detected when there's an error", func() {
+				rootCmd := factory.GenerateNoDetectionAtAll("")
 
-			rootCmd := factory.GenerateNoDetectionAtAll("")
-			debugExecutor := factory.DebugExecutor()
+				debugExecutor.On(
+					"LogDebugMessageIfDebugIsTrue",
+					"Package manager is not detected from path",
+				)
 
-			debugExecutor.On(
-				"LogDebugMessageIfDebugIsTrue",
-				"Lock file is not detected",
-			).Return()
+				_, err := executeCmd(rootCmd, "agent", "--debug")
+				assert.Error(err)
 
-			_, err := executeCmd(rootCmd, "agent", "--debug")
-			assert.NoError(err)
+			})
 
-		})
+			It("logs a message about the package manager being detected based on path", func() {
 
-		It("logs a message about the package manager being undetected when it can't be found based on path", func() {
+				rootCmd := factory.createRootCmdWithPathDetected(detect.PNPM, nil, false)
 
-			rootCmd := factory.GenerateNoDetectionAtAll("")
+				debugExecutor.On(
+					"LogDebugMessageIfDebugIsTrue",
+					"Package manager detected from path",
+					"pm",
+					detect.PNPM,
+				)
 
-			debugExecutor := factory.DebugExecutor()
-
-			debugExecutor.On(
-				"LogDebugMessageIfDebugIsTrue",
-				"Package manager is not detected",
-			).Return()
-
-			_, err := executeCmd(rootCmd, "agent", "--debug")
-			assert.NoError(err)
+				_, err := executeCmd(rootCmd, "agent", "--debug")
+				assert.NoError(err)
+			})
 
 		})
 
-		It("logs a message about the package manager being detected based on path", func() {
+		Context("lock file detected", func() {
 
-			rootCmd := factory.GenerateNoDetectionAtAll("")
+			var debugExecutor *mock.MockDebugExecutor
 
-			debugExecutor := factory.DebugExecutor()
+			BeforeEach(func() {
 
-			debugExecutor.On(
-				"LogDebugMessageIfDebugIsTrue",
-				"Package manager is detected based on path",
-			).Return()
+				debugExecutor = factory.DebugExecutor()
 
-			_, err := executeCmd(rootCmd, "agent", "--debug")
-			assert.NoError(err)
+				debugExecutor.On(
+					"LogDebugMessageIfDebugIsTrue",
+					"Lock file is detected",
+					"lockfile", detect.YARN_LOCK,
+				).Return()
 
-		})
+			})
 
-		It("logs a message about the package manager being detected based on lockfile", func() {
+			It("logs a message about the package manager being detected based on lockfile", func() {
 
-			rootCmd := factory.GenerateNoDetectionAtAll("")
+				debugExecutor.On(
+					"LogDebugMessageIfDebugIsTrue",
+					"Package manager is detected based on lock file",
+					"pm", detect.YARN,
+				).Return()
 
-			debugExecutor := factory.DebugExecutor()
+				_, err := executeCmd(factory.createRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false), "agent", "--debug")
+				assert.NoError(err)
 
-			debugExecutor.On(
-				"LogDebugMessageIfDebugIsTrue",
-				"Package manager is detected based on lockfile",
-			).Return()
-
-			_, err := executeCmd(rootCmd, "agent", "--debug")
-			assert.NoError(err)
+			})
 
 		})
 
