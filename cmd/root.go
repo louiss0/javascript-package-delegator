@@ -334,7 +334,10 @@ Available commands:
 
 			if agent != "" {
 
-				debugExecutor.LogDebugMessageIfDebugIsTrue("Agent flag is set", "agent", agent)
+				debugExecutor.LogDebugMessageIfDebugIsTrue(
+					"Agent flag is set",
+					"agent", agent,
+				)
 				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
@@ -359,6 +362,10 @@ Available commands:
 
 				})
 
+				debugExecutor.LogDebugMessageIfDebugIsTrue(
+					"JPD_AGENT environment variable detected setting agent",
+					"agent", agent,
+				)
 				persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
@@ -369,9 +376,13 @@ Available commands:
 
 			if err != nil {
 
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
+
 				pm, err := deps.DetectJSPacakgeManager()
 
 				if err != nil {
+
+					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")
 
 					commandTextUI := deps.NewCommandTextUI("")
 
@@ -385,7 +396,6 @@ Available commands:
 						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
 
 					})
-
 					re := regexp.MustCompile(`\s+`)
 					splitCommandString := re.Split(commandTextUI.Value(), -1)
 
@@ -395,14 +405,15 @@ Available commands:
 
 						return err
 					}
-
 					return nil
 				}
-
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager detected from path", "pm", pm)
 				persistentFlags.Set(AGENT_FLAG, pm)
 				c.SetContext(c_ctx)
 				return nil
 			}
+
+			debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is detected", "lockfile", lockFile)
 
 			// Package manager detection and potential installation logic
 			pm, err := deps.DetectJSPacakgeManagerBasedOnLockFile(lockFile) // Use injected detector
@@ -464,6 +475,8 @@ Available commands:
 				// Return any other errors as-is
 				return err
 			}
+
+			debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is detected based on lock file", "pm", pm)
 
 			persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
