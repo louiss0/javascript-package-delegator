@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	// standard library
 	"context"
 	"errors"
 	"fmt"
@@ -30,16 +31,19 @@ import (
 	"regexp"
 	"strings"
 
+	// external
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
+
+	// internal
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/services"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 )
 
 // Constants for context keys and configuration
@@ -77,7 +81,7 @@ type commandRunner struct {
 	targetDir       string
 }
 
-func newCommandRunner(execCommandFunc _ExecCommandFunc) *commandRunner {
+func newCommandRunner(execCommandFunc _ExecCommandFunc) CommandRunner {
 	return &commandRunner{
 		execCommandFunc: execCommandFunc,
 	}
@@ -116,11 +120,10 @@ func (e *commandRunner) SetTargetDir(dir string) error {
 	return nil
 }
 
-func (e commandRunner) Run() error {
+func (e *commandRunner) Run() error {
 	if e.cmd == nil {
 		return fmt.Errorf("no command set to run")
 	}
-
 	return e.cmd.Run()
 }
 
@@ -128,11 +131,11 @@ func (e commandRunner) Run() error {
 
 type Dependencies struct {
 	CommandRunnerGetter                   func() CommandRunner
-	DetectJSPacakgeManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
+	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
 	DetectLockfile                        func() (lockfile string, error error)
-	DetectJSPacakgeManager                func() (string, error)
+	DetectJSPackageManager                func() (string, error)
 	DetectVolta                           func() bool
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
@@ -325,11 +328,10 @@ Available commands:
 			})
 
 			persistentFlags := c.Flags()
-			agent, error := persistentFlags.GetString(AGENT_FLAG)
+			agent, err := persistentFlags.GetString(AGENT_FLAG)
 
-			if error != nil {
-
-				return error
+			if err != nil {
+				return err
 			}
 
 			if agent != "" {
@@ -376,9 +378,7 @@ Available commands:
 
 			if err != nil {
 
-				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
-
-				pm, err := deps.DetectJSPacakgeManager()
+				pm, err := deps.DetectJSPackageManager()
 
 				if err != nil {
 
@@ -416,7 +416,7 @@ Available commands:
 			debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is detected", "lockfile", lockFile)
 
 			// Package manager detection and potential installation logic
-			pm, err := deps.DetectJSPacakgeManagerBasedOnLockFile(lockFile) // Use injected detector
+			pm, err := deps.DetectJSPackageManagerBasedOnLockFile(lockFile) // Use injected detector
 
 			if err != nil {
 
@@ -429,7 +429,7 @@ Available commands:
 					})
 
 					// Try to detect any available package manager from PATH
-					pm, err := deps.DetectJSPacakgeManager()
+					pm, err := deps.DetectJSPackageManager()
 					if err == nil {
 						// Found an alternative package manager!
 						goEnv.ExecuteIfModeIsProduction(func() {
@@ -519,21 +519,18 @@ func init() {
 			CommandRunnerGetter: func() CommandRunner {
 				return newCommandRunner(exec.Command)
 			}, // Use the newExecutor constructor
-			DetectJSPacakgeManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, error error) {
-
-				return detect.DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
+			DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, error error) {
+				return detect.DetectJSPackageManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
 			},
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
 			NewCommandTextUI:            newCommandTextUI,
 			DetectVolta: func() bool {
-
 				return detect.DetectVolta(detect.RealPathLookup{})
 			},
 			DetectLockfile: func() (lockfile string, error error) {
-
 				return detect.DetectLockfile(detect.RealFileSystem{})
 			},
-			DetectJSPacakgeManager: func() (string, error) {
+			DetectJSPackageManager: func() (string, error) {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
 			},
 			NewPackageMultiSelectUI: newPackageMultiSelectUI,
