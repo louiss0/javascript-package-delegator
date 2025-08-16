@@ -499,7 +499,7 @@ Available commands:
 
 	cmd.PersistentFlags().StringP(AGENT_FLAG, "a", "", "Select the JS package manager you want to use")
 
-	cmd.PersistentFlags().VarP(&cwdFlag, _CWD_FLAG, "C", "Set the working directory for commands")
+	cmd.PersistentFlags().VarP(&cwdFlag, _CWD_FLAG, "C", "Set the working directory for commands (must end with '/' unless it's just '/')")
 
 	cmd.RegisterFlagCompletionFunc(
 		AGENT_FLAG,
