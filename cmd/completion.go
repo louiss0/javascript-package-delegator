@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	// standard library
 	_ "embed" // Required for the embed directive
 	"fmt"
 	"os"
@@ -8,9 +9,12 @@ import (
 	"sort"
 	"strings"
 
+	// external
+	"github.com/spf13/cobra"
+
+	// internal
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags" // Import the custom_flags package
-	"github.com/spf13/cobra"
 )
 
 //go:embed assets/jpd-extern.nu

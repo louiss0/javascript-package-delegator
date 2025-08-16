@@ -9,16 +9,16 @@ type GoEnv struct {
 }
 
 func NewGoEnv() GoEnv {
-
 	return GoEnv{build_info.GO_MODE.String()}
 }
 
-func (e GoEnv) GetgoEnv() string {
+// Mode returns the current Go environment mode string (e.g., "production", "development").
+// Per naming rules, avoid a Get prefix for simple getters.
+func (e GoEnv) Mode() string {
 	return e.goEnv
 }
 
 func (e GoEnv) IsDebugMode() bool {
-
 	return e.goEnv == "debug"
 }
 
@@ -31,9 +31,7 @@ func (env GoEnv) IsProductionMode() bool {
 }
 
 func (env GoEnv) ExecuteIfModeIsProduction(cb func()) {
-
 	if env.IsProductionMode() {
 		cb()
-
 	}
 }

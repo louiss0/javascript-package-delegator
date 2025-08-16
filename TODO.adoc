@@ -6,15 +6,3 @@
 == Refactors
 
 == Features
-
-
-[IMPORTANT]
-.Debug Logging
-====
-
-Folder: cmd/
-Functions: RunE:
-Description: Add various logs to many places in the codebase.
-These logs are meant to be triggered when the --debug flag is set.
-The point of these logs is to show the process of each command that is being executed.
-====

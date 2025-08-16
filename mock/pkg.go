@@ -1,14 +1,18 @@
 package mock
 
 import (
+	// standard library
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	// internal
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/services"
+
+	// external
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 	"github.com/stretchr/testify/mock"
