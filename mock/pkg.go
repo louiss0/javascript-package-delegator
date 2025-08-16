@@ -20,7 +20,6 @@ type MockDebugExecutor struct {
 	mock.Mock
 }
 
-
 // AssertExpectations overrides the default to be lenient when no debug logs were produced.
 // Some tests (e.g., `--help`) don't run the root PersistentPreRunE and therefore
 // won't emit any debug logs. Those tests may still register expectations in a shared

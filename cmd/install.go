@@ -135,7 +135,6 @@ Examples:
 
 			if searchFlag.String() != "" {
 
-
 				npmRegistryService := services.NewNpmRegistryService()
 
 				packageInfo, error := npmRegistryService.SearchPackages(searchFlag.String())
