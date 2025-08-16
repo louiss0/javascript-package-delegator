@@ -72,8 +72,8 @@ var _ = Describe("root -C flag regression", func() {
 		root := NewRootCmd(Dependencies{
 			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
 			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
-			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
-			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			DetectJSPackageManager:                func() (string, error) { return "npm", nil },
+			DetectJSPackageManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
 			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
 			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
 			DetectVolta:                           func() bool { return false },
@@ -98,8 +98,8 @@ var _ = Describe("root -C flag regression", func() {
 		root := NewRootCmd(Dependencies{
 			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
 			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
-			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
-			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			DetectJSPackageManager:                func() (string, error) { return "npm", nil },
+			DetectJSPackageManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
 			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
 			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
 			DetectVolta:                           func() bool { return false },
@@ -121,8 +121,8 @@ var _ = Describe("root -C flag regression", func() {
 		rootValid := NewRootCmd(Dependencies{
 			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
 			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
-			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
-			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			DetectJSPackageManager:                func() (string, error) { return "npm", nil },
+			DetectJSPackageManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
 			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
 			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
 			DetectVolta:                           func() bool { return false },
@@ -146,8 +146,8 @@ var _ = Describe("root -C flag regression", func() {
 		rootInvalid := NewRootCmd(Dependencies{
 			CommandRunnerGetter:                   func() CommandRunner { return NewFakeCommandRunner() },
 			DetectLockfile:                        func() (string, error) { return "", errors.New("no lockfile") },
-			DetectJSPacakgeManager:                func() (string, error) { return "npm", nil },
-			DetectJSPacakgeManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
+			DetectJSPackageManager:                func() (string, error) { return "npm", nil },
+			DetectJSPackageManagerBasedOnLockFile: func(string) (string, error) { return "npm", nil },
 			YarnCommandVersionOutputter:           dummyYarnVersionRunner{},
 			NewCommandTextUI:                      func(string) CommandUITexter { return noopCommandTextUI{} },
 			DetectVolta:                           func() bool { return false },

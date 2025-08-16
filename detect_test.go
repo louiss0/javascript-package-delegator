@@ -336,7 +336,7 @@ var _ = Describe("Detect", func() {
 
 	})
 
-	Context("DetectJSPacakgeManagerBasedOnLockFile", func() {
+	Context("DetectJSPackageManagerBasedOnLockFile", func() {
 		var mockPath *MockPathLookup
 
 		BeforeEach(func() {
@@ -351,7 +351,7 @@ var _ = Describe("Detect", func() {
 		})
 
 		It("should return the correct package manager if found in PATH", func() {
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
+			pm, err := detect.DetectJSPackageManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
 			assert.NoError(err)
 			assert.Equal(detect.NPM, pm)
 		})
@@ -362,14 +362,14 @@ var _ = Describe("Detect", func() {
 				Error error
 			}{Path: "", Error: os.ErrNotExist} // Bun is NOT found
 
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.BUN_LOCKB, mockPath)
+			pm, err := detect.DetectJSPackageManagerBasedOnLockFile(detect.BUN_LOCKB, mockPath)
 			assert.Error(err)
 			assert.Equal(detect.ErrNoPackageManager, err)
 			assert.Equal("", pm)
 		})
 
 		It("should return an error for an unsupported lockfile", func() {
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile("unsupported.lock", mockPath)
+			pm, err := detect.DetectJSPackageManagerBasedOnLockFile("unsupported.lock", mockPath)
 			assert.Error(err)
 			assert.Equal("", pm)
 			assert.Contains(err.Error(), "unsupported lockfile")
@@ -381,7 +381,7 @@ var _ = Describe("Detect", func() {
 				Error error
 			}{Path: "", Error: fmt.Errorf("permission denied to access PATH")}
 
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.YARN_LOCK, mockPath)
+			pm, err := detect.DetectJSPackageManagerBasedOnLockFile(detect.YARN_LOCK, mockPath)
 			assert.Error(err)
 			assert.Contains(err.Error(), "permission denied")
 			assert.Equal("", pm)
@@ -394,7 +394,7 @@ var _ = Describe("Detect", func() {
 				Error error
 			}{Path: "", Error: fmt.Errorf("network error accessing NPM registry")}
 
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
+			pm, err := detect.DetectJSPackageManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
 			assert.Error(err)
 			assert.Contains(err.Error(), "network error")
 			assert.NotEqual(detect.ErrNoPackageManager, err) // Ensure it's not wrapped as ErrNoPackageManager
@@ -408,7 +408,7 @@ var _ = Describe("Detect", func() {
 
 		DescribeTable("maps every supported lockfile to its package manager when found in PATH",
 			func(tc LockfileMappingCase) {
-				pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
+				pm, err := detect.DetectJSPackageManagerBasedOnLockFile(tc.Lockfile, mockPath)
 				assert.NoError(err)
 				assert.Equal(tc.ExpectedPM, pm)
 			},
@@ -433,7 +433,7 @@ var _ = Describe("Detect", func() {
 					Error error
 				}{Path: "", Error: os.ErrNotExist}
 
-				pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
+				pm, err := detect.DetectJSPackageManagerBasedOnLockFile(tc.Lockfile, mockPath)
 				assert.Error(err)
 				assert.Equal(detect.ErrNoPackageManager, err)
 				assert.Equal("", pm)
