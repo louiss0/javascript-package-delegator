@@ -7,7 +7,7 @@
 :imagesdir: docs/images
 
 image:https://img.shields.io/badge/made%20with-Go-blue.svg[Go]
-image:https://img.shields.io/github/workflow/status/louiss0/javascript-package-delegator/Go[Build Status]
+image:https://img.shields.io/github/actions/workflow/status/louiss0/javascript-package-delegator/ci.yml?branch=main[CI]
 image:https://img.shields.io/github/license/louiss0/javascript-package-delegator[License]
 image:https://img.shields.io/github/v/release/louiss0/javascript-package-delegator[Latest Release]
 
@@ -286,6 +286,11 @@ To watch files for changes and re-run tests automatically:
 [source,sh]
 ----
 ginkgo watch
+----
+To validate behaviors related to `--cwd` path validation in CI mode, run tests with the CI build flag:
+[source,sh]
+----
+go test ./... -race -coverprofile=coverage.out -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"
 ----
 
 == Project Structure

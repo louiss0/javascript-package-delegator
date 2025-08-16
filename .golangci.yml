@@ -1,0 +1,41 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - gosimple
+    - typecheck
+    - revive
+    - unparam
+    - gofumpt
+    - gocritic
+    - prealloc
+    - misspell
+  disable:
+    - lll
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        arguments: ["disableStuttering", true]
+  govet:
+    enable:
+      - shadow
+  gofumpt:
+    extra-rules: true
+
+issues:
+  exclude-use-default: false
+  exclude-dirs:
+    - vendor
+    - .git
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
