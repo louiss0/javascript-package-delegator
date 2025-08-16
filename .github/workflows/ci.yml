@@ -49,7 +49,7 @@ jobs:
 
       - name: Build jpd (CI mode)
         run: |
-          go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd ./...
+          go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd ./
 
       - name: Validate -C behavior in CI (no trailing slash allowed)
         run: |
