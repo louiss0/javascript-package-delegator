@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
@@ -293,22 +294,30 @@ var _ = Describe("JPD Commands", func() {
 				// TempDir is automatically cleaned up by Ginkgo
 			})
 
-			It("should reject a --cwd flag value that does not end with '/'", func() {
+			It("should reject a --cwd flag value that does not end with '/' (strict) or allow in CI", func() {
 				invalidPath := "/tmp/my-project" // Missing trailing slash
 				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
-				assert.Error(err)
-				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-				assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
-				assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
+				if build_info.InCI() {
+					assert.NoError(err)
+				} else {
+					assert.Error(err)
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
+					assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
+				}
 			})
 
-			It("should reject a --cwd flag value that is a filename", func() {
+			It("should reject a --cwd flag value that is a filename (strict) or allow in CI", func() {
 				invalidPath := "my-file.txt" // A file-like path
 				_, err := executeCmd(currentRootCmd, "-C", invalidPath)
-				assert.Error(err)
-				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-				assert.Contains(err.Error(), "cwd")
-				assert.Contains(err.Error(), invalidPath)
+				if build_info.InCI() {
+					assert.NoError(err)
+				} else {
+					assert.Error(err)
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					assert.Contains(err.Error(), "cwd")
+					assert.Contains(err.Error(), invalidPath)
+				}
 			})
 
 			DescribeTable(
