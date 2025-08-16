@@ -47,6 +47,24 @@ jobs:
         run: |
           go test ./...
 
+      - name: Build jpd
+        run: |
+          go build -o jpd ./...
+
+      - name: Enforce -C trailing slash rule
+        run: |
+          set -e
+          dir="$(mktemp -d)"
+          # Expect failure without trailing slash
+          if ./jpd --cwd "$dir" agent 2>err.txt; then
+            echo "Expected failure without trailing slash for --cwd" >&2
+            cat err.txt >&2 || true
+            exit 1
+          fi
+          grep "must end with '/'" err.txt
+          # Expect success with trailing slash
+          ./jpd --cwd "$dir/" agent >/dev/null
+
       - name: Check for dirty repository
         run: |
           if [ -n "$(git status --porcelain)" ]; then
