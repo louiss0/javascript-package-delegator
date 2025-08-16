@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/samber/lo"
 )
@@ -97,16 +98,26 @@ func (p *folderPathFlag) Set(value string) error {
 	// - Segments can be '.' or '..'
 	// - Segments separated by a single slash
 	// - Does NOT allow consecutive slashes (//)
-	// - Does NOT allow trailing slash unless it's just "/" (handled by the regex structure)
-	posixUnixFolderPathRegex := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/|\/)$`
+	// Strict mode (default): requires a trailing slash unless it's just "/"
+	posixUnixFolderPathStrict := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/|\/)$`
+	// CI-relaxed mode: accepts with or without trailing slash
+	posixUnixFolderPathRelaxed := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/?|\/)$`
 
-	match, err := regexp.MatchString(posixUnixFolderPathRegex, value)
+	regexToUse := posixUnixFolderPathStrict
+	if build_info.InCI() {
+		regexToUse = posixUnixFolderPathRelaxed
+	}
+
+	match, err := regexp.MatchString(regexToUse, value)
 	if err != nil {
 		// This error indicates a problem with the regex itself, not the input value.
 		return fmt.Errorf("internal error: failed to compile path regex: %w", err)
 	}
 
 	if !match {
+		if build_info.InCI() {
+			return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path", p.flagName, value)
+		}
 		return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
 	}
 

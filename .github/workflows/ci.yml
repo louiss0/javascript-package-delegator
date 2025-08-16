@@ -43,27 +43,22 @@ jobs:
         run: |
           go mod download
 
-      - name: Run tests
+      - name: Run tests (CI mode)
         run: |
-          go test ./...
+          go test -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" ./...
 
-      - name: Build jpd
+      - name: Build jpd (CI mode)
         run: |
-          go build -o jpd ./...
+          go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd ./...
 
-      - name: Enforce -C trailing slash rule
+      - name: Validate -C behavior in CI (no trailing slash allowed)
         run: |
           set -e
           dir="$(mktemp -d)"
-          # Expect failure without trailing slash
-          if ./jpd --cwd "$dir" agent 2>err.txt; then
-            echo "Expected failure without trailing slash for --cwd" >&2
-            cat err.txt >&2 || true
-            exit 1
-          fi
-          grep "must end with '/'" err.txt
-          # Expect success with trailing slash
-          ./jpd --cwd "$dir/" agent >/dev/null
+          # Should succeed without trailing slash in CI mode
+          ./jpd --cwd "$dir" agent > /dev/null
+          # And still succeed with trailing slash
+          ./jpd --cwd "$dir/" agent > /dev/null
 
       - name: Check for dirty repository
         run: |

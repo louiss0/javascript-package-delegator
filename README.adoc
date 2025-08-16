@@ -35,7 +35,7 @@ This eliminates the need to remember different commands or continuously switch b
 *   **Interactive Uninstall:** Use `jpd uninstall` without arguments or with the `-i` flag to interactively select and remove dependencies from your project.
 *   **Automatic Package Manager Installation Prompt:** If `jpd` detects a lock file for a specific package manager (e.g., `yarn.lock`) but that package manager is not installed on your system, `jpd` will now interactively prompt you to provide a command to install it globally, ensuring you can quickly get started without manual setup.
 *   **Flexible Agent Selection:** Override automatic detection using the `--agent` (`-a`) flag or the `JPD_AGENT` environment variable to explicitly specify your preferred package manager for a command or session.
-*   **Change Directory Execution:** Use the `--cwd` (`-C`) flag to execute any `jpd` command within a specified directory without changing your current shell's working directory. This is particularly useful for running commands in sub-projects or remote locations without manually navigating. Note: paths provided to `--cwd` must end with a trailing `/` (e.g., `/path/to/project/`) unless the path is the root `/`.
+*   **Change Directory Execution:** Use the `--cwd` (`-C`) flag to execute any `jpd` command within a specified directory without changing your current shell's working directory. This is particularly useful for running commands in sub-projects or remote locations without manually navigating. Note: paths provided to `--cwd` must end with a trailing `/` (e.g., `/path/to/project/`) unless the path is the root `/`. In CI builds that set the CI build flag via `-ldflags`, the trailing slash requirement is relaxed and both `path` and `path/` are accepted.
 *   **Comprehensive Shell Completion:** `jpd` provides scripts to enable tab-completion for its commands and flags in popular shells, including Bash, Zsh, Fish, PowerShell, and Nushell.
 *   **Volta Integration:** Automatically uses Volta to run Node.js package manager commands if Volta is detected on your system, ensuring the correct Node.js version (as defined by Volta) is used.
 *   **Debugging Capabilities:** Enable a debug mode (`--debug` or `-d`) to view verbose logging, aiding in troubleshooting and understanding command execution.
@@ -67,6 +67,25 @@ choco install jpd
 ----
 
 == Usage
+
+=== CI build flag behavior
+
+In Continuous Integration (CI) builds, you can toggle a build-time flag to relax the `--cwd` folder path trailing-slash validation. By default (local builds), `--cwd` values must end with `/` (except the root `/`). In CI mode, both `path` and `path/` are accepted.
+
+How to build in CI mode (relaxed `--cwd`):
+
+[source,bash]
+----
+# Tests
+go test -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" ./...
+
+# Build
+go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd ./...
+----
+
+Notes:
+- CI mode is controlled only via `-ldflags` (no environment detection).
+- The relaxation applies only to the `--cwd` folder path flag; other validations are unchanged.
 
 Once installed, you can use `jpd` in place of your usual package manager commands.
 

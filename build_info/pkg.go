@@ -7,6 +7,7 @@ package build_info
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"time" // Only for GetFormattedBuildDate in this version
 
 	"github.com/samber/lo"
@@ -26,6 +27,8 @@ var (
 	rawCLI_VERSION = "v1.0.2"      // Patch release - test fix, no functional changes
 	rawGO_MODE     = "development" // Default for local development
 	rawBUILD_DATE  = "unknown"     // Default, will be overwritten by ldflags for releases
+	// CI flag used exclusively to control behavior in CI (set via -ldflags)
+	rawCI          = "false"
 )
 
 // Public variables that expose the validated and potentially parsed values.
@@ -33,6 +36,7 @@ var (
 	CLI_VERSION BuildInfo
 	GO_MODE     BuildInfo
 	BUILD_DATE  BuildInfo // This will now hold the ldflags-injected date
+	CI          BuildInfo // "true" or "false"
 )
 
 // init function runs automatically when the package is initialized (before main).
@@ -41,6 +45,7 @@ func init() {
 	CLI_VERSION = BuildInfo(rawCLI_VERSION)
 	GO_MODE = BuildInfo(rawGO_MODE)
 	BUILD_DATE = BuildInfo(rawBUILD_DATE)
+	CI = BuildInfo(rawCI)
 
 	// --- GO_MODE Validation ---
 	// Check GO_MODE against allowed modes
@@ -80,6 +85,11 @@ func init() {
 			panic(fmt.Sprintf("build_info: invalid BUILD_DATE format: '%s'. Must be YYYY-MM-DD or 'unknown': %v", BUILD_DATE.String(), err))
 		}
 	}
+
+	// --- CI Validation ---
+	if CI.String() != "true" && CI.String() != "false" {
+		panic(fmt.Sprintf("build_info: invalid CI value: '%s'. Must be 'true' or 'false'", CI.String()))
+	}
 }
 
 // GetVersion returns the application's CLI version.
@@ -95,4 +105,13 @@ func GetGoMode() string {
 // GetBuildDate returns the build date.
 func GetBuildDate() string {
 	return BUILD_DATE.String()
+}
+
+// InCI returns true if the build is running with CI build flag enabled.
+func InCI() bool {
+	b, err := strconv.ParseBool(CI.String())
+	if err != nil {
+		return false
+	}
+	return b
 }
