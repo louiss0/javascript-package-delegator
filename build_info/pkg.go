@@ -28,7 +28,7 @@ var (
 	rawGO_MODE     = "development" // Default for local development
 	rawBUILD_DATE  = "unknown"     // Default, will be overwritten by ldflags for releases
 	// CI flag used exclusively to control behavior in CI (set via -ldflags)
-	rawCI          = "false"
+	rawCI = "false"
 )
 
 // Public variables that expose the validated and potentially parsed values.
