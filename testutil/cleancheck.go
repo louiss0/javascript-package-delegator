@@ -29,15 +29,15 @@ func SnapshotWorkingTree() (*WorkingTreeSnapshot, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	var out bytes.Buffer
 	cmd.Stdout = &out
-	
+
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
-	
+
 	snapshot := &WorkingTreeSnapshot{
 		files: make(map[string]bool),
 	}
-	
+
 	// Parse git status output
 	// Format: XY filename
 	// Where X and Y are modification status codes
@@ -52,7 +52,7 @@ func SnapshotWorkingTree() (*WorkingTreeSnapshot, error) {
 			snapshot.files[filename] = true
 		}
 	}
-	
+
 	return snapshot, nil
 }
 
@@ -62,16 +62,16 @@ func SnapshotWorkingTree() (*WorkingTreeSnapshot, error) {
 // excluded from the check.
 func AssertWorkingTreeClean(t TestingT, snapshot *WorkingTreeSnapshot) {
 	t.Helper()
-	
+
 	if snapshot == nil {
 		t.Fatal("snapshot is nil")
 	}
-	
+
 	currentSnapshot, err := SnapshotWorkingTree()
 	if err != nil {
 		t.Fatalf("failed to get current working tree state: %v", err)
 	}
-	
+
 	// Check for new files that weren't in the original snapshot
 	var newFiles []string
 	for file := range currentSnapshot.files {
@@ -79,7 +79,7 @@ func AssertWorkingTreeClean(t TestingT, snapshot *WorkingTreeSnapshot) {
 			newFiles = append(newFiles, file)
 		}
 	}
-	
+
 	if len(newFiles) > 0 {
 		t.Errorf("test left artifacts in working tree:\n%s", strings.Join(newFiles, "\n"))
 	}
@@ -94,12 +94,12 @@ func AssertWorkingTreeClean(t TestingT, snapshot *WorkingTreeSnapshot) {
 //	}
 func CleanupWorkingTree(t *testing.T) {
 	t.Helper()
-	
+
 	snapshot, err := SnapshotWorkingTree()
 	if err != nil {
 		t.Fatalf("failed to snapshot working tree: %v", err)
 	}
-	
+
 	t.Cleanup(func() {
 		AssertWorkingTreeClean(t, snapshot)
 	})

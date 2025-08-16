@@ -50,6 +50,10 @@ Examples:
 
 			// Get the environment configuration to determine if logging should be verbose.
 			goEnv := getGoEnvFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
+			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
+				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "agent", "pm", pm)
+			}
 
 			// Log the detected package manager in production mode.
 			goEnv.ExecuteIfModeIsProduction(func() {

@@ -375,81 +375,81 @@ var _ = Describe("Detect", func() {
 			assert.Contains(err.Error(), "unsupported lockfile")
 		})
 
-	It("should return other LookPath errors directly", func() {
-		mockPath.ExpectedLookPathResults[detect.YARN] = struct {
-			Path  string
-			Error error
-		}{Path: "", Error: fmt.Errorf("permission denied to access PATH")}
-
-		pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.YARN_LOCK, mockPath)
-		assert.Error(err)
-		assert.Contains(err.Error(), "permission denied")
-		assert.Equal("", pm)
-	})
-
-	It("should propagate non-ErrNotExist errors for NPM as well", func() {
-		// Test with a different error type to ensure all managers handle errors consistently
-		mockPath.ExpectedLookPathResults[detect.NPM] = struct {
-			Path  string
-			Error error
-		}{Path: "", Error: fmt.Errorf("network error accessing NPM registry")}
-
-		pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
-		assert.Error(err)
-		assert.Contains(err.Error(), "network error")
-		assert.NotEqual(detect.ErrNoPackageManager, err) // Ensure it's not wrapped as ErrNoPackageManager
-		assert.Equal("", pm)
-	})
-
-	type LockfileMappingCase struct {
-		Lockfile   string
-		ExpectedPM string
-	}
-
-	DescribeTable("maps every supported lockfile to its package manager when found in PATH",
-		func(tc LockfileMappingCase) {
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
-			assert.NoError(err)
-			assert.Equal(tc.ExpectedPM, pm)
-		},
-		Entry("deno.lock -> deno", LockfileMappingCase{Lockfile: detect.DENO_LOCK, ExpectedPM: detect.DENO}),
-		Entry("deno.json -> deno", LockfileMappingCase{Lockfile: detect.DENO_JSON, ExpectedPM: detect.DENO}),
-		Entry("deno.jsonc -> deno", LockfileMappingCase{Lockfile: detect.DENO_JSONC, ExpectedPM: detect.DENO}),
-		Entry("package-lock.json -> npm", LockfileMappingCase{Lockfile: detect.PACKAGE_LOCK_JSON, ExpectedPM: detect.NPM}),
-		Entry("pnpm-lock.yaml -> pnpm", LockfileMappingCase{Lockfile: detect.PNPM_LOCK_YAML, ExpectedPM: detect.PNPM}),
-		Entry("bun.lockb -> bun", LockfileMappingCase{Lockfile: detect.BUN_LOCKB, ExpectedPM: detect.BUN}),
-		// The following two are recently added; current implementation validates against 'lockFiles' slice,
-		// so these may fail as 'unsupported lockfile' until validation is aligned.
-		Entry("bun.lock.json -> bun", LockfileMappingCase{Lockfile: detect.BUN_LOCK_JSON, ExpectedPM: detect.BUN}),
-		Entry("yarn.lock -> yarn", LockfileMappingCase{Lockfile: detect.YARN_LOCK, ExpectedPM: detect.YARN}),
-		Entry("yarn.lock.json -> yarn", LockfileMappingCase{Lockfile: detect.YARN_LOCK_JSON, ExpectedPM: detect.YARN}),
-	)
-
-	DescribeTable("returns ErrNoPackageManager when the mapped manager is not in PATH",
-		func(tc LockfileMappingCase) {
-			// Simulate the mapped package manager missing from PATH
-			mockPath.ExpectedLookPathResults[tc.ExpectedPM] = struct {
+		It("should return other LookPath errors directly", func() {
+			mockPath.ExpectedLookPathResults[detect.YARN] = struct {
 				Path  string
 				Error error
-			}{Path: "", Error: os.ErrNotExist}
+			}{Path: "", Error: fmt.Errorf("permission denied to access PATH")}
 
-			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
+			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.YARN_LOCK, mockPath)
 			assert.Error(err)
-			assert.Equal(detect.ErrNoPackageManager, err)
+			assert.Contains(err.Error(), "permission denied")
 			assert.Equal("", pm)
-		},
-		Entry("deno.lock -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_LOCK, ExpectedPM: detect.DENO}),
-		Entry("deno.json -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_JSON, ExpectedPM: detect.DENO}),
-		Entry("deno.jsonc -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_JSONC, ExpectedPM: detect.DENO}),
-		Entry("package-lock.json -> npm missing", LockfileMappingCase{Lockfile: detect.PACKAGE_LOCK_JSON, ExpectedPM: detect.NPM}),
-		Entry("pnpm-lock.yaml -> pnpm missing", LockfileMappingCase{Lockfile: detect.PNPM_LOCK_YAML, ExpectedPM: detect.PNPM}),
-		Entry("bun.lockb -> bun missing", LockfileMappingCase{Lockfile: detect.BUN_LOCKB, ExpectedPM: detect.BUN}),
-		// These two may currently return "unsupported lockfile" before consulting PATH and thus fail this expectation.
-		Entry("bun.lock.json -> bun missing", LockfileMappingCase{Lockfile: detect.BUN_LOCK_JSON, ExpectedPM: detect.BUN}),
-		Entry("yarn.lock -> yarn missing", LockfileMappingCase{Lockfile: detect.YARN_LOCK, ExpectedPM: detect.YARN}),
-		Entry("yarn.lock.json -> yarn missing", LockfileMappingCase{Lockfile: detect.YARN_LOCK_JSON, ExpectedPM: detect.YARN}),
-	)
-})
+		})
+
+		It("should propagate non-ErrNotExist errors for NPM as well", func() {
+			// Test with a different error type to ensure all managers handle errors consistently
+			mockPath.ExpectedLookPathResults[detect.NPM] = struct {
+				Path  string
+				Error error
+			}{Path: "", Error: fmt.Errorf("network error accessing NPM registry")}
+
+			pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(detect.PACKAGE_LOCK_JSON, mockPath)
+			assert.Error(err)
+			assert.Contains(err.Error(), "network error")
+			assert.NotEqual(detect.ErrNoPackageManager, err) // Ensure it's not wrapped as ErrNoPackageManager
+			assert.Equal("", pm)
+		})
+
+		type LockfileMappingCase struct {
+			Lockfile   string
+			ExpectedPM string
+		}
+
+		DescribeTable("maps every supported lockfile to its package manager when found in PATH",
+			func(tc LockfileMappingCase) {
+				pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
+				assert.NoError(err)
+				assert.Equal(tc.ExpectedPM, pm)
+			},
+			Entry("deno.lock -> deno", LockfileMappingCase{Lockfile: detect.DENO_LOCK, ExpectedPM: detect.DENO}),
+			Entry("deno.json -> deno", LockfileMappingCase{Lockfile: detect.DENO_JSON, ExpectedPM: detect.DENO}),
+			Entry("deno.jsonc -> deno", LockfileMappingCase{Lockfile: detect.DENO_JSONC, ExpectedPM: detect.DENO}),
+			Entry("package-lock.json -> npm", LockfileMappingCase{Lockfile: detect.PACKAGE_LOCK_JSON, ExpectedPM: detect.NPM}),
+			Entry("pnpm-lock.yaml -> pnpm", LockfileMappingCase{Lockfile: detect.PNPM_LOCK_YAML, ExpectedPM: detect.PNPM}),
+			Entry("bun.lockb -> bun", LockfileMappingCase{Lockfile: detect.BUN_LOCKB, ExpectedPM: detect.BUN}),
+			// The following two are recently added; current implementation validates against 'lockFiles' slice,
+			// so these may fail as 'unsupported lockfile' until validation is aligned.
+			Entry("bun.lock.json -> bun", LockfileMappingCase{Lockfile: detect.BUN_LOCK_JSON, ExpectedPM: detect.BUN}),
+			Entry("yarn.lock -> yarn", LockfileMappingCase{Lockfile: detect.YARN_LOCK, ExpectedPM: detect.YARN}),
+			Entry("yarn.lock.json -> yarn", LockfileMappingCase{Lockfile: detect.YARN_LOCK_JSON, ExpectedPM: detect.YARN}),
+		)
+
+		DescribeTable("returns ErrNoPackageManager when the mapped manager is not in PATH",
+			func(tc LockfileMappingCase) {
+				// Simulate the mapped package manager missing from PATH
+				mockPath.ExpectedLookPathResults[tc.ExpectedPM] = struct {
+					Path  string
+					Error error
+				}{Path: "", Error: os.ErrNotExist}
+
+				pm, err := detect.DetectJSPacakgeManagerBasedOnLockFile(tc.Lockfile, mockPath)
+				assert.Error(err)
+				assert.Equal(detect.ErrNoPackageManager, err)
+				assert.Equal("", pm)
+			},
+			Entry("deno.lock -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_LOCK, ExpectedPM: detect.DENO}),
+			Entry("deno.json -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_JSON, ExpectedPM: detect.DENO}),
+			Entry("deno.jsonc -> deno missing", LockfileMappingCase{Lockfile: detect.DENO_JSONC, ExpectedPM: detect.DENO}),
+			Entry("package-lock.json -> npm missing", LockfileMappingCase{Lockfile: detect.PACKAGE_LOCK_JSON, ExpectedPM: detect.NPM}),
+			Entry("pnpm-lock.yaml -> pnpm missing", LockfileMappingCase{Lockfile: detect.PNPM_LOCK_YAML, ExpectedPM: detect.PNPM}),
+			Entry("bun.lockb -> bun missing", LockfileMappingCase{Lockfile: detect.BUN_LOCKB, ExpectedPM: detect.BUN}),
+			// These two may currently return "unsupported lockfile" before consulting PATH and thus fail this expectation.
+			Entry("bun.lock.json -> bun missing", LockfileMappingCase{Lockfile: detect.BUN_LOCK_JSON, ExpectedPM: detect.BUN}),
+			Entry("yarn.lock -> yarn missing", LockfileMappingCase{Lockfile: detect.YARN_LOCK, ExpectedPM: detect.YARN}),
+			Entry("yarn.lock.json -> yarn missing", LockfileMappingCase{Lockfile: detect.YARN_LOCK_JSON, ExpectedPM: detect.YARN}),
+		)
+	})
 
 	Context("DetectVolta", func() {
 		var mockPath *MockPathLookup

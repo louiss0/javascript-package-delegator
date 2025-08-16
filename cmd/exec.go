@@ -48,6 +48,10 @@ Examples:
 
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
+			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
+				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "exec", "pm", pm)
+			}
 
 			packageName := args[0]
 			packageArgs := args[1:]

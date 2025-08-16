@@ -124,12 +124,17 @@ Examples:
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
+			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
+				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "install", "pm", pm)
+			}
 
 			// Build command based on package manager and flags
 			var cmdArgs []string
 			var selectedPackages []string
 
 			if searchFlag.String() != "" {
+
 
 				npmRegistryService := services.NewNpmRegistryService()
 

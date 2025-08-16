@@ -17,15 +17,15 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("failed to snapshot working tree: " + err.Error())
 	}
-	
+
 	// Run all tests
 	code := m.Run()
-	
+
 	// Check that no artifacts were left behind
 	// This will fail if any test left files in the working tree
 	t := &testing.T{}
 	testutil.AssertWorkingTreeClean(t, snapshot)
-	
+
 	os.Exit(code)
 }
 
@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 func TestExample_WithCleanupHelper(t *testing.T) {
 	// This automatically checks for artifacts when the test completes
 	testutil.CleanupWorkingTree(t)
-	
+
 	// Test code here...
 	// Any files created during the test that aren't cleaned up
 	// will cause the test to fail
@@ -46,12 +46,12 @@ func TestExample_ManualSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to snapshot working tree: %v", err)
 	}
-	
+
 	// Defer the cleanup check
 	defer func() {
 		testutil.AssertWorkingTreeClean(t, snapshot)
 	}()
-	
+
 	// Test code here...
 	// Any files created during the test that aren't cleaned up
 	// will cause the test to fail
@@ -64,33 +64,33 @@ func TestCleanCheck_DetectsArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	
+
 	// Change to parent directory (project root)
 	if err := os.Chdir(".."); err != nil {
 		t.Fatalf("failed to change directory: %v", err)
 	}
 	defer os.Chdir(origDir)
-	
+
 	// Take initial snapshot
 	snapshot, err := testutil.SnapshotWorkingTree()
 	if err != nil {
 		t.Fatalf("failed to snapshot working tree: %v", err)
 	}
-	
+
 	// Create a temporary test file (artifact) in the project root
 	// Using .artifact extension which is not in .gitignore
 	testFile := "test_artifact.artifact"
 	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	// Clean up the file after test
 	defer os.Remove(testFile)
-	
+
 	// Create a custom testing.T to capture the error without failing this test
 	mockT := &mockTestingT{}
 	testutil.AssertWorkingTreeClean(mockT, snapshot)
-	
+
 	// Verify that the check detected the artifact
 	if !mockT.errored {
 		t.Error("AssertWorkingTreeClean should have detected the test artifact")

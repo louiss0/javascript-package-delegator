@@ -21,9 +21,9 @@ func FakeExecCommand(name string, args ...string) *exec.Cmd {
 
 // MockExecutor wraps the executor to use our fake command
 type MockExecutor struct {
-	cmd        *exec.Cmd
-	debug      bool
-	targetDir  string
+	cmd       *exec.Cmd
+	debug     bool
+	targetDir string
 }
 
 func NewMockExecutor(debug bool) *MockExecutor {
@@ -134,57 +134,57 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-It("IsDebug returns the debug flag set at construction time", func() {
-        // Arrange
-        e := NewMockExecutor(true)
+	It("IsDebug returns the debug flag set at construction time", func() {
+		// Arrange
+		e := NewMockExecutor(true)
 
-        // Assert
-        Expect(e.IsDebug()).To(BeTrue())
-    })
+		// Assert
+		Expect(e.IsDebug()).To(BeTrue())
+	})
 
-    It("applies the last SetTargetDir() call and persists across subsequent Command() calls", func() {
-        e := NewMockExecutor(false)
-        tmpDir1 := GinkgoT().TempDir()
-        tmpDir2 := GinkgoT().TempDir()
+	It("applies the last SetTargetDir() call and persists across subsequent Command() calls", func() {
+		e := NewMockExecutor(false)
+		tmpDir1 := GinkgoT().TempDir()
+		tmpDir2 := GinkgoT().TempDir()
 
-        // First set and command
-        Expect(e.SetTargetDir(tmpDir1)).To(Succeed())
-        e.Command("bash", "-c", "echo ok")
-        Expect(e.cmd.Dir).To(Equal(tmpDir1))
+		// First set and command
+		Expect(e.SetTargetDir(tmpDir1)).To(Succeed())
+		e.Command("bash", "-c", "echo ok")
+		Expect(e.cmd.Dir).To(Equal(tmpDir1))
 
-        // Second set should override
-        Expect(e.SetTargetDir(tmpDir2)).To(Succeed())
-        Expect(e.cmd.Dir).To(Equal(tmpDir2))
+		// Second set should override
+		Expect(e.SetTargetDir(tmpDir2)).To(Succeed())
+		Expect(e.cmd.Dir).To(Equal(tmpDir2))
 
-        // New command should inherit the latest dir
-        e.Command("bash", "-c", "echo again")
-        Expect(e.cmd.Dir).To(Equal(tmpDir2))
-    })
+		// New command should inherit the latest dir
+		e.Command("bash", "-c", "echo again")
+		Expect(e.cmd.Dir).To(Equal(tmpDir2))
+	})
 
-    It("accepts relative and absolute paths for SetTargetDir", func() {
-        e := NewMockExecutor(false)
+	It("accepts relative and absolute paths for SetTargetDir", func() {
+		e := NewMockExecutor(false)
 
-        // Save and switch CWD to a temp dir to make relative path deterministic
-        orig, err := os.Getwd()
-        Expect(err).NotTo(HaveOccurred())
-        defer func() { _ = os.Chdir(orig) }()
+		// Save and switch CWD to a temp dir to make relative path deterministic
+		orig, err := os.Getwd()
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { _ = os.Chdir(orig) }()
 
-        base := GinkgoT().TempDir()
-        Expect(os.Chdir(base)).To(Succeed())
+		base := GinkgoT().TempDir()
+		Expect(os.Chdir(base)).To(Succeed())
 
-        // Create a relative subfolder
-        rel := "relwork"
-        Expect(os.Mkdir(rel, 0o755)).To(Succeed())
+		// Create a relative subfolder
+		rel := "relwork"
+		Expect(os.Mkdir(rel, 0o755)).To(Succeed())
 
-        // Relative
-        Expect(e.SetTargetDir(rel)).To(Succeed())
-        e.Command("bash", "-c", "echo ok")
-        Expect(e.cmd.Dir).To(Equal(rel))
+		// Relative
+		Expect(e.SetTargetDir(rel)).To(Succeed())
+		e.Command("bash", "-c", "echo ok")
+		Expect(e.cmd.Dir).To(Equal(rel))
 
-        // Absolute
-        abs := base
-        Expect(e.SetTargetDir(abs)).To(Succeed())
-        e.Command("bash", "-c", "echo ok")
-        Expect(e.cmd.Dir).To(Equal(abs))
-    })
+		// Absolute
+		abs := base
+		Expect(e.SetTargetDir(abs)).To(Succeed())
+		e.Command("bash", "-c", "echo ok")
+		Expect(e.cmd.Dir).To(Equal(abs))
+	})
 })
