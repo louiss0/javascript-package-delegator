@@ -22,13 +22,17 @@ THE SOFTWARE.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 	"strings"
 
+	// external
 	"github.com/charmbracelet/log"
-	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+
+	// internal
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 func NewCleanInstallCmd(detectVolta func() bool) *cobra.Command {
@@ -81,16 +85,16 @@ Examples:
 				cmdArgs = []string{"install", "--frozen-lockfile"}
 
 			case "deno":
-				return fmt.Errorf("%s doesn't support this command", "deno")
+				return fmt.Errorf("deno doesn't support this command")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
+			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
 
-			if error != nil {
-				return error
+			if err != nil {
+				return err
 			}
 
 			// shouldUseVoltaWithPackageManager is true if:
@@ -103,7 +107,7 @@ Examples:
 
 			if shouldUseVoltaWithPackageManager {
 				completeVoltaCommand := lo.Flatten([][]string{
-					detect.VOLTA_RUN_COMMNAD,
+					detect.VOLTA_RUN_COMMAND,
 					{pm},
 					cmdArgs,
 				})

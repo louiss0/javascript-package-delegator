@@ -22,16 +22,20 @@ THE SOFTWARE.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 
+	// external
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
+
+	// internal
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/services"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 )
 
 // Add flags
@@ -137,23 +141,20 @@ Examples:
 
 				npmRegistryService := services.NewNpmRegistryService()
 
-				packageInfo, error := npmRegistryService.SearchPackages(searchFlag.String())
+				packageInfo, err := npmRegistryService.SearchPackages(searchFlag.String())
 
-				if error != nil {
-
-					return error
+				if err != nil {
+					return err
 				}
 
 				if len(packageInfo) == 0 {
-
 					return fmt.Errorf("Your query has failed %s", searchFlag.String())
 				}
 
 				installMultiSelect := newPackageMultiSelectUI(packageInfo)
 
-				if error := installMultiSelect.Run(); error != nil {
-
-					return error
+				if err := installMultiSelect.Run(); err != nil {
+					return err
 				}
 
 				selectedPackages = installMultiSelect.Values()
@@ -257,10 +258,7 @@ Examples:
 				}
 
 				if production, _ := cmd.Flags().GetBool("production"); production {
-					return custom_errors.CreateInvalidFlagErrorWithMessage(
-						custom_errors.FlagName("production"),
-						"Deno doesn't support prod!",
-					)
+					return fmt.Errorf("Deno doesn't support prod!")
 				}
 
 				if global, _ := cmd.Flags().GetBool("global"); global {
@@ -279,11 +277,10 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
+			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
 
-			if error != nil {
-				return error
-
+			if err != nil {
+				return err
 			}
 
 			// shouldUseVoltaWithPackageManager is true if:
@@ -297,7 +294,7 @@ Examples:
 			if shouldUseVoltaWithPackageManager {
 
 				completeVoltaCommand := lo.Flatten([][]string{
-					detect.VOLTA_RUN_COMMNAD,
+					detect.VOLTA_RUN_COMMAND,
 					{pm},
 					cmdArgs,
 				})

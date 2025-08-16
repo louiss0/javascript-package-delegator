@@ -53,7 +53,7 @@ func (p *filePathFlag) Set(value string) error {
 	}
 
 	if !match {
-		return fmt.Errorf("The %s flag value '%s' is not a valid POSIX/UNIX file path", p.flagName, value)
+		return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX file path", p.flagName, value)
 	}
 
 	p.value = value
@@ -107,7 +107,7 @@ func (p *folderPathFlag) Set(value string) error {
 	}
 
 	if !match {
-		return fmt.Errorf("The %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
+		return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
 	}
 
 	p.value = value
@@ -139,20 +139,13 @@ func (t emptyStringFlag) String() string {
 
 // Set validates and sets the flag's value, checking for empty/whitespace
 func (t *emptyStringFlag) Set(value string) error {
-
-	match, error := regexp.MatchString(`^\s+$`, value)
-
-	if error != nil {
-		return error
+	match, err := regexp.MatchString(`^\s+$`, value)
+	if err != nil {
+		return err
 	}
-
 	if match {
-		return fmt.Errorf(
-			"The %s is empty",
-			t.flagName,
-		)
+		return fmt.Errorf("the %s flag is empty", t.flagName)
 	}
-
 	t.value = value
 	return nil
 }
@@ -182,19 +175,12 @@ func (c boolFlag) String() string {
 
 // Set validates and sets the flag's value, ensuring it's a valid boolean
 func (c *boolFlag) Set(value string) error {
-
-	match, error := regexp.MatchString(`^\S+$`, value)
-
-	if error != nil {
-		return error
+	match, err := regexp.MatchString(`^\S+$`, value)
+	if err != nil {
+		return err
 	}
-
 	if match && !lo.Contains([]string{"true", "false"}, value) {
-		return fmt.Errorf(
-			"%sflag must be one of: %v",
-			custom_errors.FlagName(c.flagName),
-			[]string{"true", "false"},
-		)
+		return fmt.Errorf("%s flag must be one of %v", custom_errors.FlagName(c.flagName), []string{"true", "false"})
 	}
 	c.value = value
 	return nil
@@ -227,33 +213,25 @@ func NewUnionFlag(allowedValues []string, flagName string) unionFlag {
 }
 
 // String returns the flag's value as a string
-func (self unionFlag) String() string {
-	return self.value
+func (u unionFlag) String() string {
+	return u.value
 }
 
 // Set validates and sets the flag's value, ensuring it's one of the allowed values
-func (self *unionFlag) Set(value string) error {
-
-	match, error := regexp.MatchString(`^\S+$`, value)
-
-	if error != nil {
-		return error
+func (u *unionFlag) Set(value string) error {
+	match, err := regexp.MatchString(`^\S+$`, value)
+	if err != nil {
+		return err
 	}
-
-	if match && !lo.Contains(self.allowedValues, value) {
-		return fmt.Errorf(
-			"%sflag must be one of: %v",
-			custom_errors.FlagName(self.flagName),
-			self.allowedValues,
-		)
-
+	if match && !lo.Contains(u.allowedValues, value) {
+		return fmt.Errorf("%s flag must be one of %v", custom_errors.FlagName(u.flagName), u.allowedValues)
 	}
-	self.value = value
+	u.value = value
 	return nil
 }
 
 // Type returns the flag type as a string
-func (self unionFlag) Type() string {
+func (u unionFlag) Type() string {
 	return "string"
 }
 
@@ -265,23 +243,12 @@ type RangeFlag struct {
 
 // NewRangeFlag creates a new RangeFlag with the given flag name and range bounds
 func NewRangeFlag(flagName string, min, max int) RangeFlag {
-
 	if min > max {
 		panic("min must be less than max")
 	}
-
 	if min < 0 || max < 0 {
 		panic("min and max must be non-negative")
 	}
-
-	if min > max {
-		panic("min must be less than max")
-	}
-
-	if min < 0 || max < 0 {
-		panic("min and max must be non-negative")
-	}
-
 	return RangeFlag{
 		min:      min,
 		max:      max,
@@ -290,47 +257,33 @@ func NewRangeFlag(flagName string, min, max int) RangeFlag {
 }
 
 // String returns the flag's value as a string
-func (self RangeFlag) String() string {
-	return fmt.Sprintf("%d", self.value)
+func (r RangeFlag) String() string {
+	return fmt.Sprintf("%d", r.value)
 }
 
 // Value returns the flag's value as an int
-func (self RangeFlag) Value() int {
-	return self.value
+func (r RangeFlag) Value() int {
+	return r.value
 }
 
 // Set validates and sets the flag's value, ensuring it's within the allowed range
-func (self *RangeFlag) Set(value string) error {
-
-	match, error := regexp.MatchString(`^\d+$`, value)
-
-	if error != nil {
-		return error
+func (r *RangeFlag) Set(value string) error {
+	match, err := regexp.MatchString(`^\d+$`, value)
+	if err != nil {
+		return err
 	}
-
 	if match {
 		num, _ := strconv.Atoi(value)
-		if num < self.min || num > self.max {
-			return fmt.Errorf(
-				"%sflag must be between %d and %d",
-				custom_errors.FlagName(self.flagName),
-				self.min,
-				self.max,
-			)
+		if num < r.min || num > r.max {
+			return fmt.Errorf("%s flag must be between %d and %d", custom_errors.FlagName(r.flagName), r.min, r.max)
 		}
-		self.value = num
+		r.value = num
 		return nil
 	}
-
-	return fmt.Errorf(
-		"%sflag must be an integer between %d and %d",
-		custom_errors.FlagName(self.flagName),
-		self.min,
-		self.max,
-	)
+	return fmt.Errorf("%s flag must be an integer between %d and %d", custom_errors.FlagName(r.flagName), r.min, r.max)
 }
 
 // Type returns the flag type as a string
-func (self RangeFlag) Type() string {
+func (r RangeFlag) Type() string {
 	return "string"
 }

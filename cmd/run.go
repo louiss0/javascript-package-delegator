@@ -131,7 +131,6 @@ Examples:
 					}
 
 					if len(pkg.Scripts) == 0 {
-
 						return fmt.Errorf("No scripts found in package.json")
 					}
 
@@ -227,9 +226,7 @@ Examples:
 				cmdArgs = []string{"task", scriptName}
 
 				if lo.Contains(scriptArgs, "--eval") {
-
-					return fmt.Errorf("Don't pass %s here use the exec command instead", "--eval")
-
+					return fmt.Errorf("Don't pass --eval here use the exec command instead")
 				}
 
 				cmdArgs = append(cmdArgs, scriptArgs...)

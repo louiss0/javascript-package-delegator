@@ -22,12 +22,16 @@ THE SOFTWARE.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 	"strings"
 
+	// external
 	"github.com/charmbracelet/log"
-	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
+
+	// internal
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 func NewExecCmd() *cobra.Command {

@@ -96,7 +96,7 @@ func DetectLockfile(fs FileSystem) (lockfile string, error error) {
 		// We need to check all lock files.
 	}
 
-	return "", fmt.Errorf("No lock file found") // Return our specific error if no lockfile is found after checking all
+	return "", fmt.Errorf("No lock file found") // Return a specific error if no lockfile is found after checking all
 }
 
 // This is a list of the JS package managers
@@ -126,7 +126,7 @@ var LockFileToPackageManagerMap = map[string]string{
 	YARN_LOCK_JSON:    YARN,
 }
 
-func DetectJSPacakgeManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
+func DetectJSPackageManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
 
 	if !lo.Contains(lockFiles[:], detectedLockFile) {
 
@@ -192,7 +192,7 @@ func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, e
 
 const VOLTA = "volta"
 
-var VOLTA_RUN_COMMNAD = []string{VOLTA, "run"}
+var VOLTA_RUN_COMMAND = []string{VOLTA, "run"}
 
 // DetectVolta now accepts a PathLookup interface to enable mocking.
 func DetectVolta(pathLookup PathLookup) bool {
