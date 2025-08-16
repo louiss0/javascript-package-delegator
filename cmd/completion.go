@@ -127,7 +127,7 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("failed to create output file '%s': %w", finalOutputFile, err)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 			outputWriter := file // All output will now go to this file
 
 			// Get the absolute path for the success message
@@ -161,7 +161,7 @@ Examples:
 			}
 
 			// Print success message with full path
-			fmt.Fprintf(cmd.OutOrStdout(), "Completion script created at: %s\n", absPath)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Completion script created at: %s\n", absPath)
 			return nil
 		},
 	}

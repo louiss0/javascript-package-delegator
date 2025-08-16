@@ -60,16 +60,14 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 // It ensures that each command has access to the package manager name and CommandRunner
 
 var _ = Describe("JPD Commands", func() {
-
 	assert := assert.New(GinkgoT())
 
 	var rootCmd *cobra.Command
 	mockCommandRunner := mock.NewMockCommandRunner()
 	factory := testutil.NewRootCommandFactory(mockCommandRunner) // Initialize the factory
-	var DebugExecutorExpectationManager = testutil.DebugExecutorExpectationManager
+	DebugExecutorExpectationManager := testutil.DebugExecutorExpectationManager
 
 	getSubCommandWithName := func(cmd *cobra.Command, name string) (*cobra.Command, bool) {
-
 		return lo.Find(
 			cmd.Commands(),
 			func(item *cobra.Command) bool {
@@ -85,18 +83,15 @@ var _ = Describe("JPD Commands", func() {
 		rootCmd.SetArgs([]string{})
 		factory.ResetDebugExecutor()
 		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
-
 	})
 
 	AfterEach(func() {
-
 		mockCommandRunner.Reset()
 		factory.DebugExecutor().
 			AssertExpectations(GinkgoT())
 	})
 
 	Describe("Debug flag on sub commands", func() {
-
 		It("should be able to run", func() {
 			// Default rootCmd uses lockfile-based npm detection
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
@@ -108,18 +103,15 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("logs a debug message about the agent flag being set", func() {
-
 			DebugExecutorExpectationManager.ExpectAgentFlagSet("pnpm")
 			// Subcommand should also log its start with the chosen agent
 			DebugExecutorExpectationManager.ExpectCommandStart("agent", detect.PNPM)
 
 			_, err := executeCmd(rootCmd, "agent", "--debug", "--agent", "pnpm")
 			assert.NoError(err)
-
 		})
 
 		It("logs a message about the agent flag being set when the JPD variable is set", func() {
-
 			os.Setenv("JPD_AGENT", "pnpm")
 			defer os.Unsetenv("JPD_AGENT")
 
@@ -129,24 +121,19 @@ var _ = Describe("JPD Commands", func() {
 
 			_, err := executeCmd(rootCmd, "agent", "--debug")
 			assert.NoError(err)
-
 		})
 
 		Context("lock file not detected", func() {
-
 			It("logs a message about the package manager not being detected based on path", func() {
-
 				rootCmd := factory.GenerateNoDetectionAtAll("")
 
 				DebugExecutorExpectationManager.ExpectNoPMFromPath()
 
 				_, err := executeCmd(rootCmd, "agent", "--debug")
 				assert.Error(err)
-
 			})
 
 			It("logs a message about the package manager being detected based on path", func() {
-
 				rootCmd := factory.CreateRootCmdWithPathDetected(detect.PNPM, nil, false)
 
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.PNPM)
@@ -156,34 +143,25 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(rootCmd, "agent", "--debug")
 				assert.NoError(err)
 			})
-
 		})
 
 		Context("lock file detected", func() {
-
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
-
 			})
 
 			It("logs a message about the package manager being detected based on lockfile", func() {
-
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
 				// Subcommand should also log its start with the detected PM
 				DebugExecutorExpectationManager.ExpectCommandStart("agent", detect.YARN)
 
 				_, err := executeCmd(factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false), "agent", "--debug")
 				assert.NoError(err)
-
 			})
-
 		})
-
 	})
 
 	Describe("Root Command", func() {
-
 		It("should be able to run", func() {
 			_, err := executeCmd(rootCmd, "")
 			assert.NoError(err)
@@ -204,15 +182,12 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("How it responds when no lockfile or global PM is detected", func() {
-
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectNoPMFromPath()
 			})
 
 			It("should prompt user for install command and return error if input is invalid", func() {
-
 				// Simulate no lockfile and no globally detected PM, leading to a prompt for an install command.
 				// An empty string for commandTextUIValue will cause MockCommandTextUI.Run() to fail its validation.
 				currentRootCmd := factory.GenerateNoDetectionAtAll("")
@@ -227,7 +202,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should prompt user for install command and execute it if input is valid", func() {
-
 				const validInstallCommand = "npm install -g npm"
 				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				// Set context and parse flags before calling PersistentPreRunE directly
@@ -244,7 +218,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return an error if the user-provided install command fails to execute", func() {
-
 				const validInstallCommand = "npm install -g npm"
 				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				mockCommandRunner.InvalidCommands = []string{"npm"} // Configure the mock runner to make "npm" command fail
@@ -394,9 +367,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("How it responds to Package Detection Failure", func() {
-
 			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
-
 				return cmd.NewRootCmd(
 					cmd.Dependencies{
 						CommandRunnerGetter: func() cmd.CommandRunner {
@@ -409,14 +380,12 @@ var _ = Describe("JPD Commands", func() {
 							return factory.DebugExecutor()
 						},
 						DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
-
 							return "", detect.ErrNoPackageManager
 						},
 						DetectJSPackageManager: func() (string, error) {
 							return "", fmt.Errorf("format string")
 						},
 						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
-
 							commandTextUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
 
 							commandTextUI.SetValue(value)
@@ -425,7 +394,6 @@ var _ = Describe("JPD Commands", func() {
 						},
 					},
 				)
-
 			}
 
 			BeforeEach(func() {
@@ -439,21 +407,18 @@ var _ = Describe("JPD Commands", func() {
 								If the user refuses an error is produced.
 							`,
 				func() {
-
 					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue("")
 					currentCommand.SetContext(context.Background())
 					currentCommand.ParseFlags([]string{})
 
 					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
 					assert.Error(err)
-
 				},
 			)
 
 			It(
 				"executes the command given when the user gives a correct command",
 				func() {
-
 					commandString := "winget install pnpm.pnpm"
 
 					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(commandString)
@@ -470,14 +435,12 @@ var _ = Describe("JPD Commands", func() {
 					assert.True(mockCommandRunner.HasBeenCalled)
 					assert.Equal(mockCommandRunner.CommandCall.Name, splitCommandString[0])
 					assert.Equal(mockCommandRunner.CommandCall.Args, splitCommandString[1:])
-
 				},
 			)
 
 			DescribeTable(
 				"executes the command based typical instaltion commands",
 				func(inputCommand string, expectedCommandName string, expectedCommandArgs []string) {
-
 					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(inputCommand)
 					currentCommand.SetContext(context.Background())
 					currentCommand.ParseFlags([]string{})
@@ -489,7 +452,6 @@ var _ = Describe("JPD Commands", func() {
 					assert.Equal(expectedCommandName, mockCommandRunner.CommandCall.Name)
 
 					assert.Equal(expectedCommandArgs, mockCommandRunner.CommandCall.Args)
-
 				},
 				Entry("Using npm to install npm globally", "npm install -g npm", "npm", []string{"install", "-g", "npm"}),
 				Entry("Using yarn to add yarn globally", "yarn global add yarn", "yarn", []string{"global", "add", "yarn"}),
@@ -511,7 +473,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("It processes the JPD_AGENT variable properly", func() {
-
 			var currentRootCmd *cobra.Command // Renamed to avoid shadowing and clarify intent
 
 			BeforeEach(func() { // Default mock for yarn version
@@ -538,7 +499,6 @@ var _ = Describe("JPD Commands", func() {
 
 				// This must be set so that the debug flag can be used!
 				currentRootCmd.ParseFlags([]string{})
-
 			})
 
 			AfterEach(func() {
@@ -575,11 +535,9 @@ var _ = Describe("JPD Commands", func() {
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 		})
-
 	})
 
 	Describe("DLX Command", func() {
-
 		BeforeEach(func() {
 			// Default rootCmd uses npm via lockfile
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
@@ -615,7 +573,6 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("yarn", func() {
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 			})
@@ -643,7 +600,6 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("pnpm", func() {
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 			})
@@ -664,7 +620,6 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("bun", func() {
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
 			})
@@ -685,7 +640,6 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 			})
@@ -715,7 +669,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Install Command", func() {
-
 		BeforeEach(func() {
 			// Default rootCmd in this describe often uses npm via lockfile
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
@@ -723,7 +676,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("Works with the search flag", func() {
-
 			var rootCmd *cobra.Command
 
 			BeforeEach(func() {
@@ -734,33 +686,26 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("returns err when value isn't passed to the flag ", func() {
-
 				_, err := executeCmd(rootCmd, "install", "--search")
 
 				assert.Error(err)
-
 			})
 
 			It("returns err when an argument is passed when the flag is passed", func() {
-
 				_, err := executeCmd(rootCmd, "install", "vue", "--search", "foo")
 
 				assert.Error(err)
 				assert.ErrorContains(err, "No arguments must be passed while the search flag is used")
-
 			})
 
 			It("Returns an error if no packages are found", func() {
-
 				_, err := executeCmd(rootCmd, "install", "--search", "89ispsnsnis")
 
 				assert.Error(err)
 				assert.ErrorContains(err, "Your query has failed 89ispsnsnis")
-
 			})
 
 			It("works", func() {
-
 				const expected = "angular"
 				_, err := executeCmd(rootCmd, "install", "--search", expected)
 
@@ -778,9 +723,7 @@ var _ = Describe("JPD Commands", func() {
 					"The args are supposed to contain a word that is a part of this word %s",
 					expected,
 				)
-
 			})
-
 		})
 
 		var installCmd *cobra.Command
@@ -827,7 +770,6 @@ var _ = Describe("JPD Commands", func() {
 			DescribeTable(
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
-
 					// Set expectations to match the dynamic packageManager
 					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(packageManager)
@@ -842,7 +784,6 @@ var _ = Describe("JPD Commands", func() {
 					assert.Equal("volta", mockCommandRunner.CommandCall.Name)
 
 					assert.Equal([]string{"run", packageManager, "install"}, mockCommandRunner.CommandCall.Args)
-
 				},
 				EntryDescription("Volta run was appended to %s"),
 				Entry(nil, detect.NPM),
@@ -853,7 +794,6 @@ var _ = Describe("JPD Commands", func() {
 			DescribeTable(
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
-
 					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					var (
@@ -899,7 +839,6 @@ var _ = Describe("JPD Commands", func() {
 						assert.Equal(mockCommandRunner.CommandCall.Args, []string{"install"})
 
 					}
-
 				},
 				EntryDescription("Volta run was't appended to %s"),
 				Entry(nil, detect.DENO),
@@ -907,7 +846,6 @@ var _ = Describe("JPD Commands", func() {
 			)
 
 			It("rejects volta usage if the --no-volta flag is passed", func() {
-
 				rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
 
 				output, error := executeCmd(rootCommmand, "install", "--no-volta")
@@ -919,7 +857,6 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Equal([]string{"install"}, mockCommandRunner.CommandCall.Args)
 			})
-
 		})
 
 		Context("npm", func() {
@@ -978,12 +915,10 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				// Path-based detection for yarn; reset debug executor and set expectations
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
-
 			})
 
 			It("should run yarn add with dev flag", func() {
@@ -1142,7 +1077,6 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
@@ -1220,7 +1154,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
-
 			root := factory.CreateNpmAsDefault(nil)
 			tmpDir := fmt.Sprintf("%s/", GinkgoT().TempDir())
 
@@ -1232,7 +1165,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Run Command", func() {
-
 		BeforeEach(func() {
 			// Default rootCmd under this Describe often uses npm via lockfile
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
@@ -1264,7 +1196,6 @@ var _ = Describe("JPD Commands", func() {
 		Context(
 			"How it responds if there are no arguments",
 			func() {
-
 				var (
 					testDir     string
 					rootCmd     *cobra.Command
@@ -1298,7 +1229,6 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				It("Should output an indicator saying there are no tasks in deno for deno.json", func() {
-
 					// Override expectations for deno path detection
 					DebugExecutorExpectationManager.ExpectNoLockfile()
 					// Allow either deno or npm path-detection logs for this test
@@ -1328,7 +1258,6 @@ var _ = Describe("JPD Commands", func() {
 				It(
 					"prompts the user to select a task from deno.json if pkg is deno",
 					func() {
-
 						tasks := map[string]string{
 							"dev":   "deno run -A --watch main.ts",
 							"build": "deno compile --output my_app main.ts",
@@ -1369,14 +1298,12 @@ var _ = Describe("JPD Commands", func() {
 							lo.Contains(taskNames, mockCommandRunner.CommandCall.Args[1]),
 							fmt.Sprintf("The task name isn't one of those tasks %v", taskNames),
 						)
-
 					},
 				)
 
 				It(
 					"returns an error If there is no tasks avaliable",
 					func() {
-
 						err := os.WriteFile(filepath.Join(testDir, "package.json"), []byte(
 							`{
 								"scripts": {
@@ -1399,7 +1326,6 @@ var _ = Describe("JPD Commands", func() {
 				It(
 					"prompts the user to select a task from package .json",
 					func() {
-
 						tasks := map[string]string{
 							"dev":   "vite",
 							"build": "vite build",
@@ -1434,15 +1360,12 @@ var _ = Describe("JPD Commands", func() {
 							lo.Contains(taskNames, mockCommandRunner.CommandCall.Args[1]),
 							fmt.Sprintf("The task name isn't one of those tasks %v", taskNames),
 						)
-
 					},
 				)
-
 			},
 		)
 
 		Context("npm", func() {
-
 			It("should run npm run with script name", func() {
 				testDir := GinkgoT().TempDir()
 				originalDir, err := os.Getwd()
@@ -1456,9 +1379,9 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				content := `{ "scripts": { "test": "echo 'test'" } }`
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0o644)
 				assert.NoError(err)
-				err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_ENV=development"), 0644)
+				err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_ENV=development"), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "test")
@@ -1485,9 +1408,9 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				content := `{ "scripts": { "test": "echo 'test'" } }`
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(content), 0o644)
 				assert.NoError(err)
-				err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_MODE=development"), 0644)
+				err = os.WriteFile(filepath.Join(testDir, ".env"), []byte("GO_MODE=development"), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
@@ -1504,7 +1427,7 @@ var _ = Describe("JPD Commands", func() {
 					os.Chdir(originalDir)
 				})
 
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {}}`), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "nonexistent")
@@ -1534,7 +1457,7 @@ var _ = Describe("JPD Commands", func() {
 					os.Chdir(originalDir)
 				})
 
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {"build": "echo building"}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"name": "test", "scripts": {"build": "echo building"}}`), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "nonexistent")
@@ -1546,7 +1469,6 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
@@ -1581,7 +1503,7 @@ var _ = Describe("JPD Commands", func() {
 					}
 				})
 
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"test": "echo 'test'"}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"test": "echo 'test'"}}`), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(pnpmRootCmd, "run", "--if-present", "test")
@@ -1616,7 +1538,6 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
@@ -1634,7 +1555,7 @@ var _ = Describe("JPD Commands", func() {
 					}
 				})
 
-				err = os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(`{"tasks": {"test": "vitest"}}`), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(`{"tasks": {"test": "vitest"}}`), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(denoRootCmd, "run", "--", "test", "--eval")
@@ -1667,7 +1588,7 @@ var _ = Describe("JPD Commands", func() {
 					os.Chdir(originalDir)
 				})
 
-				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte("invalid json"), 0644)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte("invalid json"), 0o644)
 				assert.NoError(err)
 
 				_, err = executeCmd(rootCmd, "run", "--if-present", "test")
@@ -1675,7 +1596,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("unknown")
 				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
@@ -1768,7 +1688,6 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
@@ -1785,7 +1704,6 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
 				bunRootCmd = factory.CreateBunAsDefault(nil)
@@ -1802,7 +1720,6 @@ var _ = Describe("JPD Commands", func() {
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
@@ -1832,7 +1749,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("unknown")
 				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
@@ -1844,7 +1760,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Update Command", func() {
-
 		BeforeEach(func() {
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
@@ -1974,7 +1889,6 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
@@ -2018,11 +1932,9 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("deno", func() {
-
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
@@ -2069,7 +1981,6 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
 				bunRootCmd = factory.CreateBunAsDefault(nil)
@@ -2116,7 +2027,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("unknown")
 				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
@@ -2128,7 +2038,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Uninstall Command", func() {
-
 		BeforeEach(func() {
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
@@ -2167,7 +2076,6 @@ var _ = Describe("JPD Commands", func() {
 		Context(
 			"Interactive Uninstall",
 			func() {
-
 				var (
 					testDir     string
 					originalCwd string
@@ -2195,7 +2103,7 @@ var _ = Describe("JPD Commands", func() {
 				})
 
 				It("should return an error if no packages are found for interactive uninstall", func() {
-					//Create a package.json with no dependencies/devDependencies
+					// Create a package.json with no dependencies/devDependencies
 					err := os.WriteFile("package.json", []byte(
 						`{
 							"name": "test-project",
@@ -2302,7 +2210,6 @@ var _ = Describe("JPD Commands", func() {
 								mockCommandRunner.CommandCall.Args,
 							),
 						)
-
 					})
 
 				It(
@@ -2373,18 +2280,14 @@ var _ = Describe("JPD Commands", func() {
 								mockCommandRunner.CommandCall.Args,
 							),
 						)
-
 					})
-
 			},
 		)
 
 		Context("deno", func() {
-
 			var denoRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
@@ -2424,7 +2327,6 @@ var _ = Describe("JPD Commands", func() {
 				assert.Contains(err.Error(), "if any flags in the group [global interactive] are set none of the others can be")
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
-
 		})
 
 		Context("npm", func() {
@@ -2481,7 +2383,6 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
@@ -2498,7 +2399,6 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
 				bunRootCmd = factory.CreateBunAsDefault(nil)
@@ -2527,7 +2427,6 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return error for unsupported package manager", func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("unknown")
 				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
@@ -2539,7 +2438,6 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	Describe("Clean Install Command", func() {
-
 		BeforeEach(func() {
 			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
@@ -2547,15 +2445,12 @@ var _ = Describe("JPD Commands", func() {
 
 		var cleanInstallCmd *cobra.Command
 		BeforeEach(func() {
-
 			cleanInstallCmd, _ = getSubCommandWithName(rootCmd, "clean-install")
 		})
 		Context("Volta", func() {
-
 			DescribeTable(
 				"Appends volta run when a node package manager is the agent",
 				func(packageManager string) {
-
 					// Align debug expectations to the specific packageManager for this row
 
 					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
@@ -2571,7 +2466,6 @@ var _ = Describe("JPD Commands", func() {
 					assert.Equal("volta", mockCommandRunner.CommandCall.Name)
 
 					assert.Equal([]string{"run", packageManager, "install"}, mockCommandRunner.CommandCall.Args)
-
 				},
 				EntryDescription("Volta run was appended to %s"),
 				Entry(nil, detect.NPM),
@@ -2582,7 +2476,6 @@ var _ = Describe("JPD Commands", func() {
 			DescribeTable(
 				"Doesn't append volta run when a non-node package manager is the agent",
 				func(packageManager string) {
-
 					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					var (
@@ -2630,7 +2523,6 @@ var _ = Describe("JPD Commands", func() {
 						assert.Equal(mockCommandRunner.CommandCall.Args, []string{"install"})
 
 					}
-
 				},
 				EntryDescription("Volta run was't appended to %s"),
 				Entry(nil, detect.DENO),
@@ -2638,7 +2530,6 @@ var _ = Describe("JPD Commands", func() {
 			)
 
 			It("rejects volta usage if the --no-volta flag is passed", func() {
-
 				rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
 
 				output, error := executeCmd(rootCommmand, "install", "--no-volta")
@@ -2650,7 +2541,6 @@ var _ = Describe("JPD Commands", func() {
 
 				assert.Equal([]string{"install"}, mockCommandRunner.CommandCall.Args)
 			})
-
 		})
 
 		It("should show help", func() {
@@ -2676,7 +2566,6 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
@@ -2700,7 +2589,6 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
@@ -2717,7 +2605,6 @@ var _ = Describe("JPD Commands", func() {
 			var bunRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
 				bunRootCmd = factory.CreateBunAsDefault(nil)
@@ -2748,7 +2635,6 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Error Handling", func() {
 			It("should return error for unsupported package manager", func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("foo")
 				rootCmd := factory.GenerateWithPackageManagerDetector("foo", nil)
@@ -2808,7 +2694,6 @@ var _ = Describe("JPD Commands", func() {
 			var yarnRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.YARN)
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
@@ -2825,7 +2710,6 @@ var _ = Describe("JPD Commands", func() {
 			var pnpmRootCmd *cobra.Command
 
 			BeforeEach(func() {
-
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
@@ -3183,5 +3067,4 @@ var _ = Describe("JPD Commands", func() {
 			assert.Equal([]string{"add", "react"}, cmdCall.Args)
 		})
 	})
-
 })

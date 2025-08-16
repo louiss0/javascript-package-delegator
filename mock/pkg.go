@@ -90,10 +90,8 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 }
 
 func (m *MockCommandRunner) SetTargetDir(dir string) error {
-
 	fileInfo, err := os.Stat(dir) // Get file information
 	if err != nil {
-
 		return err
 	}
 
@@ -164,21 +162,17 @@ type mockYarnCommandVersionOutputer struct {
 }
 
 func (my mockYarnCommandVersionOutputer) Output() (string, error) {
-
 	match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
 
 	if error != nil {
-
 		return "", error
 	}
 
 	if !match {
-
 		return "", fmt.Errorf("invalid version format you must use semver versioning")
 	}
 
 	return my.version, nil
-
 }
 
 // NewMockYarnCommandVersionOutputer creates a fake yarn version outputer for tests
@@ -191,7 +185,6 @@ type MockCommandTextUI struct {
 }
 
 func (ui MockCommandTextUI) Value() string {
-
 	return ui.value
 }
 
@@ -201,12 +194,10 @@ func (ui *MockCommandTextUI) SetValue(value string) string {
 }
 
 func NewMockCommandTextUI(string) cmd.CommandUITexter {
-
 	return &MockCommandTextUI{}
 }
 
 func (ui *MockCommandTextUI) Run() error {
-
 	match, error := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, ui.Value())
 
 	if error != nil {
@@ -214,12 +205,10 @@ func (ui *MockCommandTextUI) Run() error {
 	}
 
 	if match {
-
 		return nil
 	}
 
 	return fmt.Errorf(strings.Join(cmd.INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), ui.value)
-
 }
 
 type MockPackageMultiSelectUI struct {
@@ -227,22 +216,18 @@ type MockPackageMultiSelectUI struct {
 }
 
 func (ui MockPackageMultiSelectUI) Values() []string {
-
 	return ui.values
 }
 
 func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISelecter {
-
 	return &MockPackageMultiSelectUI{
 		values: lo.Map(packages, func(item services.PackageInfo, index int) string {
-
 			return item.Name
 		}),
 	}
 }
 
 func (ui *MockPackageMultiSelectUI) Run() error {
-
 	if len(ui.values) == 0 {
 		return fmt.Errorf("no packages available")
 	}
@@ -283,7 +268,6 @@ func (t MockTaskSelectUI) Value() string {
 }
 
 func (t *MockTaskSelectUI) Run() error {
-
 	if len(t.options) == 0 {
 		return fmt.Errorf("no tasks available for selection")
 	}

@@ -49,7 +49,6 @@ Examples:
 		Aliases: []string{"x"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
@@ -62,7 +61,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 
 			// Build command based on package manager
@@ -121,7 +119,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
-
 			})
 
 			return cmdRunner.Run()

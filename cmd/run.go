@@ -59,7 +59,6 @@ func (t taskSelectorUI) Value() string {
 }
 
 func (t taskSelectorUI) Run() error {
-
 	return t.selectUI.Value(&t.selectedValue).Run()
 }
 
@@ -90,10 +89,8 @@ Examples:
 			var selectedPackage string
 
 			if pm == "deno" {
-
 				if len(args) == 0 {
 					pkg, err := readDenoJSON()
-
 					if err != nil {
 						return err
 					}
@@ -103,13 +100,11 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-
 						fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Tasks), ","),
 						)
-
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Tasks))
@@ -120,12 +115,9 @@ Examples:
 
 					selectedPackage = taskSelectorUI.Value()
 				}
-
 			} else {
-
 				if len(args) == 0 {
 					pkg, err := readPackageJSONAndUnmarshalScripts()
-
 					if err != nil {
 						return err
 					}
@@ -135,13 +127,11 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-
 						fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Scripts), ","),
 						)
-
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
@@ -153,7 +143,6 @@ Examples:
 					selectedPackage = taskSelectorUI.Value()
 
 				}
-
 			}
 
 			scriptName := lo.TernaryF(
@@ -189,7 +178,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 			// Build command based on package manager
 			var cmdArgs []string

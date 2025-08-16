@@ -53,7 +53,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 
 			// Get flags
@@ -119,7 +118,6 @@ Examples:
 					}
 
 				} else {
-
 					if len(args) == 0 {
 						cmdArgs = []string{"update"}
 					} else {
@@ -163,11 +161,9 @@ Examples:
 
 				if global {
 					cmdArgs = append(cmdArgs, "--global")
-
 				}
 
 				if latest {
-
 					if len(args) > 0 {
 
 						cmdArgs = append(cmdArgs, "--latest")
@@ -176,9 +172,7 @@ Examples:
 
 					} else {
 						cmdArgs = append(cmdArgs, "--latest")
-
 					}
-
 				}
 
 			default:
@@ -191,7 +185,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
-
 			})
 			return cmdRunner.Run()
 		},

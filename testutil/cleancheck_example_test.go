@@ -80,7 +80,7 @@ func TestCleanCheck_DetectsArtifacts(t *testing.T) {
 	// Create a temporary test file (artifact) in the project root
 	// Using .artifact extension which is not in .gitignore
 	testFile := "test_artifact.artifact"
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 

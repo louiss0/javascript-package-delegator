@@ -47,16 +47,20 @@ import (
 )
 
 // Constants for context keys and configuration
-const PACKAGE_NAME = "package-name"                      // Used for storing detected package name in context
-const _GO_ENV = "go_env"                                 // Used for storing GoEnv in context
-const _YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
-const _DEBUG_EXECUTOR = "debug_executor"
+const (
+	PACKAGE_NAME            = "package-name"           // Used for storing detected package name in context
+	_GO_ENV                 = "go_env"                 // Used for storing GoEnv in context
+	_YARN_VERSION_OUTPUTTER = "yarn_version_outputter" // Key for YarnCommandVersionOutputter
+	_DEBUG_EXECUTOR         = "debug_executor"
+)
 
-const COMMAND_RUNNER_KEY = "command_runner"
-const JPD_AGENT_ENV_VAR = "JPD_AGENT"
-const AGENT_FLAG = "agent"
-const _CWD_FLAG = "cwd"
-const _DEBUG_FLAG = "debug"
+const (
+	COMMAND_RUNNER_KEY = "command_runner"
+	JPD_AGENT_ENV_VAR  = "JPD_AGENT"
+	AGENT_FLAG         = "agent"
+	_CWD_FLAG          = "cwd"
+	_DEBUG_FLAG        = "debug"
+)
 
 // CommandRunner Interface and its implementation
 // This interface allows for mocking command execution in tests.
@@ -159,7 +163,6 @@ var INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE = []string{
 }
 
 func newCommandTextUI(lockfile string) CommandUITexter {
-
 	return &CommandTextUI{
 		textUI: huh.NewText().
 			Title("Command").
@@ -174,28 +177,21 @@ func newCommandTextUI(lockfile string) CommandUITexter {
 				),
 			).
 			Validate(func(s string) error {
-
 				match, error := regexp.MatchString(VALID_INSTALL_COMMAND_STRING_RE, s)
 
 				if error != nil {
-
 					return error
 				}
 
 				if lockfile != "" && !strings.Contains(s, detect.LockFileToPackageManagerMap[lockfile]) {
-
 					return fmt.Errorf("The command you entered does not contain the package manager command for %s", detect.LockFileToPackageManagerMap[lockfile])
-
 				}
 
 				if match {
-
 					return nil
-
 				}
 
 				return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), s)
-
 			}),
 	}
 }
@@ -206,15 +202,11 @@ type CommandTextUI struct {
 }
 
 func (ui CommandTextUI) Value() string {
-
 	return ui.value
-
 }
 
 func (ui *CommandTextUI) Run() error {
-
 	return ui.textUI.Value(&ui.value).Run()
-
 }
 
 type DebugExecutor interface {
@@ -227,31 +219,23 @@ type debugExecutor struct {
 }
 
 func newDebugExecutor(debugFlag bool) DebugExecutor {
-
 	return debugExecutor{debugFlag}
 }
 
 func (d debugExecutor) ExecuteIfDebugIsTrue(cb func()) {
-
 	if d.debugFlag {
-
 		cb()
 	}
-
 }
 
 func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {
-
 	if d.debugFlag {
-
 		log.Debug(msg, keyvals...)
 	}
-
 }
 
 // NewRootCmd creates a new root command with injectable dependencies.
 func NewRootCmd(deps Dependencies) *cobra.Command {
-
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 
 	cmd := &cobra.Command{
@@ -295,7 +279,6 @@ Available commands:
 			if cwd := cwdFlag.String(); cwd != "" {
 
 				err := commandRunner.SetTargetDir(cwd)
-
 				if err != nil {
 					return err
 				}
@@ -303,7 +286,6 @@ Available commands:
 			}
 
 			debug, err := c.Flags().GetBool(_DEBUG_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -329,7 +311,6 @@ Available commands:
 
 			persistentFlags := c.Flags()
 			agent, err := persistentFlags.GetString(AGENT_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -340,7 +321,7 @@ Available commands:
 					"Agent flag is set",
 					"agent", agent,
 				)
-				persistentFlags.Set(AGENT_FLAG, agent)
+				_ = persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -350,36 +331,31 @@ Available commands:
 			if ok {
 
 				if !lo.Contains(detect.SupportedJSPackageManagers[:], agent) {
-
 					return fmt.Errorf(
 						"The %s variable is set the wrong way use one of these values instead %v",
 						JPD_AGENT_ENV_VAR,
 						detect.SupportedJSPackageManagers,
 					)
-
 				}
 
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Info("Using package manager", "agent", agent)
-
 				})
 
 				debugExecutor.LogDebugMessageIfDebugIsTrue(
 					"JPD_AGENT environment variable detected setting agent",
 					"agent", agent,
 				)
-				persistentFlags.Set(AGENT_FLAG, agent)
+				_ = persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
 
 			}
 
 			lockFile, err := deps.DetectLockfile()
-
 			if err != nil {
 
 				pm, err := deps.DetectJSPackageManager()
-
 				if err != nil {
 
 					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")
@@ -387,14 +363,11 @@ Available commands:
 					commandTextUI := deps.NewCommandTextUI("")
 
 					if err := commandTextUI.Run(); err != nil {
-
 						return err
 					}
 
 					goEnv.ExecuteIfModeIsProduction(func() {
-
 						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
-
 					})
 					re := regexp.MustCompile(`\s+`)
 					splitCommandString := re.Split(commandTextUI.Value(), -1)
@@ -402,13 +375,12 @@ Available commands:
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 					if err := commandRunner.Run(); err != nil {
-
 						return err
 					}
 					return nil
 				}
 				debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager detected from path", "pm", pm)
-				persistentFlags.Set(AGENT_FLAG, pm)
+				_ = persistentFlags.Set(AGENT_FLAG, pm)
 				c.SetContext(c_ctx)
 				return nil
 			}
@@ -417,10 +389,9 @@ Available commands:
 
 			// Package manager detection and potential installation logic
 			pm, err := deps.DetectJSPackageManagerBasedOnLockFile(lockFile) // Use injected detector
-
 			if err != nil {
 
-				if errors.Is(detect.ErrNoPackageManager, err) {
+				if errors.Is(err, detect.ErrNoPackageManager) {
 					// The package manager indicated by the lock file is not installed
 					// Let's check if any other package manager is available in PATH
 					goEnv.ExecuteIfModeIsProduction(func() {
@@ -435,7 +406,7 @@ Available commands:
 						goEnv.ExecuteIfModeIsProduction(func() {
 							log.Infof("Found %s as an alternative package manager\n", pm)
 						})
-						persistentFlags.Set(AGENT_FLAG, pm)
+					_ = persistentFlags.Set(AGENT_FLAG, pm)
 						c.SetContext(c_ctx)
 						return nil
 					}
@@ -449,14 +420,11 @@ Available commands:
 					commandTextUI := deps.NewCommandTextUI(lockFile)
 
 					if err := commandTextUI.Run(); err != nil {
-
 						return err
 					}
 
 					goEnv.ExecuteIfModeIsProduction(func() {
-
 						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
-
 					})
 
 					re := regexp.MustCompile(`\s+`)
@@ -465,7 +433,6 @@ Available commands:
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 					if err := commandRunner.Run(); err != nil {
-
 						return err
 					}
 
@@ -478,7 +445,7 @@ Available commands:
 
 			debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is detected based on lock file", "pm", pm)
 
-			persistentFlags.Set(AGENT_FLAG, pm)
+		_ = persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},
@@ -501,7 +468,7 @@ Available commands:
 
 	cmd.PersistentFlags().VarP(&cwdFlag, _CWD_FLAG, "C", "Set the working directory for commands (must end with '/' unless it's just '/')")
 
-	cmd.RegisterFlagCompletionFunc(
+	_ = cmd.RegisterFlagCompletionFunc(
 		AGENT_FLAG,
 		cobra.FixedCompletions(detect.SupportedJSPackageManagers[:], cobra.ShellCompDirectiveNoFileComp),
 	)
@@ -537,7 +504,6 @@ func init() {
 			NewDebugExecutor:        newDebugExecutor,
 		},
 	)
-
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -553,17 +519,14 @@ func Execute() {
 // These functions are used by subcommands to get their required dependencies.
 
 func getDebugExecutorFromCommandContext(cmd *cobra.Command) DebugExecutor {
-
 	return cmd.Context().Value(_DEBUG_EXECUTOR).(DebugExecutor)
 }
 
 func getCommandRunnerFromCommandContext(cmd *cobra.Command) CommandRunner {
-
 	return cmd.Context().Value(COMMAND_RUNNER_KEY).(CommandRunner)
 }
 
 func getYarnVersionRunnerCommandContext(cmd *cobra.Command) detect.YarnCommandVersionOutputter {
-
 	return cmd.Context().Value(_YARN_VERSION_OUTPUTTER).(detect.YarnCommandVersionOutputter)
 }
 

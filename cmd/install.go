@@ -60,14 +60,12 @@ type packageMultiSelectUI struct {
 
 func newPackageMultiSelectUI(packageInfo []services.PackageInfo) MultiUISelecter {
 	return &packageMultiSelectUI{
-
 		multiSelectUI: huh.NewMultiSelect[string]().
 			Title("What packages do you want to install?").
 			Options(
 				lo.Map(
 					packageInfo,
 					func(packageInfo services.PackageInfo, index int) huh.Option[string] {
-
 						return huh.NewOption(
 							packageInfo.Name,
 							fmt.Sprintf(
@@ -75,7 +73,6 @@ func newPackageMultiSelectUI(packageInfo []services.PackageInfo) MultiUISelecter
 								packageInfo.Name, packageInfo.Version,
 							),
 						)
-
 					})...,
 			),
 	}
@@ -86,9 +83,7 @@ func (p packageMultiSelectUI) Values() []string {
 }
 
 func (p *packageMultiSelectUI) Run() error {
-
 	return p.multiSelectUI.Value(&p.value).Run()
-
 }
 
 // NewInstallCmd creates a new Cobra command for the "install" functionality.
@@ -96,8 +91,7 @@ func (p *packageMultiSelectUI) Run() error {
 // to install project dependencies or specific packages.
 // It also includes optional Volta integration to ensure consistent toolchain usage.
 func NewInstallCmd(detectVolta func() bool, newPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter) *cobra.Command {
-
-	var searchFlag = custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
+	searchFlag := custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
 
 	cmd := &cobra.Command{
 		Use:   "install [packages...]",
@@ -114,7 +108,6 @@ Examples:
 `,
 		Aliases: []string{"i", "add"},
 		Args: func(cmd *cobra.Command, args []string) error {
-
 			return lo.Ternary(
 				searchFlag.String() != "" && len(args) > 0,
 				custom_errors.CreateInvalidArgumentErrorWithMessage(
@@ -122,7 +115,6 @@ Examples:
 				),
 				nil,
 			)
-
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
@@ -142,7 +134,6 @@ Examples:
 				npmRegistryService := services.NewNpmRegistryService()
 
 				packageInfo, err := npmRegistryService.SearchPackages(searchFlag.String())
-
 				if err != nil {
 					return err
 				}
@@ -209,7 +200,6 @@ Examples:
 			case "pnpm":
 				if len(args) == 0 {
 					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
-
 				} else {
 					cmdArgs = lo.Flatten([][]string{
 						{"add"},
@@ -233,7 +223,6 @@ Examples:
 			case "bun":
 				if len(args) == 0 {
 					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
-
 				} else {
 					cmdArgs = lo.Flatten([][]string{
 						{"add"},
@@ -253,7 +242,6 @@ Examples:
 			case "deno":
 
 				if len(args) == 0 {
-
 					return fmt.Errorf("For deno one or more packages is required")
 				}
 
@@ -278,7 +266,6 @@ Examples:
 			}
 
 			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -301,18 +288,14 @@ Examples:
 				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", completeVoltaCommand)
-
 				})
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
-
 				})
 			}
 

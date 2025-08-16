@@ -46,7 +46,6 @@ type dependencyMultiSelectUI struct {
 }
 
 func newDependencySelectorUI(options []string) DependencyUIMultiSelector {
-
 	return &dependencyMultiSelectUI{
 		selectUI: *huh.NewMultiSelect[string]().
 			Title("Select a dependency to uninstall").
@@ -60,26 +59,22 @@ func (t dependencyMultiSelectUI) Values() []string {
 }
 
 func (t dependencyMultiSelectUI) Run() error {
-
 	return t.selectUI.Value(&t.selectedValues).Run()
 }
 
 func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
-
 	type PackageJSONDependencies struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 
 	cwd, err := os.Getwd()
-
 	if err != nil {
 		return nil, err
 	}
 
 	packageJSONPath := filepath.Join(cwd, "package.json")
 	data, err := os.ReadFile(packageJSONPath)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
 	}
@@ -93,7 +88,6 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 	prodAndDevDependenciesMerged := lo.Map(
 		lo.Entries(lo.Assign(pkg.Dependencies, pkg.DevDependencies)),
 		func(item lo.Entry[string, string], index int) string {
-
 			return fmt.Sprintf("%s@%s", item.Key, item.Value)
 		},
 	)
@@ -102,20 +96,17 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 }
 
 func extractImportsFromDenoJSON() ([]string, error) {
-
 	type DenoJSONDependencies struct {
 		Imports map[string]string `json:"imports"`
 	}
 
 	cwd, err := os.Getwd()
-
 	if err != nil {
 		return nil, err
 	}
 
 	denoJSONPath := filepath.Join(cwd, "deno.json")
 	data, err := os.ReadFile(denoJSONPath)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to read deno.json: %w", err)
 	}
@@ -146,9 +137,7 @@ Examples:
   javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
 		Args: func(cmd *cobra.Command, args []string) error {
-
 			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -158,7 +147,6 @@ Examples:
 				cobra.MinimumNArgs(1)(cmd, args),
 				nil,
 			)
-
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
@@ -171,14 +159,12 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 
 			// Get flags
 			global, _ := cmd.Flags().GetBool("global")
 
 			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -215,7 +201,6 @@ Examples:
 				dependencySelectorUI := newDependencySelectorUI(dependencies)
 
 				if error := dependencySelectorUI.Run(); error != nil {
-
 					return error
 				}
 
@@ -262,7 +247,6 @@ Examples:
 				if global {
 					cmdArgs = []string{"uninstall"}
 				} else {
-
 					cmdArgs = []string{"remove"}
 				}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
@@ -275,7 +259,6 @@ Examples:
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
 			goEnv.ExecuteIfModeIsProduction(func() {
-
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 			})
 

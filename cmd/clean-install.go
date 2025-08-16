@@ -49,7 +49,6 @@ Examples:
   javascript-package-delegator clean-install     # Clean install all dependencies`,
 		Aliases: []string{"ci"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
@@ -92,7 +91,6 @@ Examples:
 			}
 
 			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -114,18 +112,14 @@ Examples:
 				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", completeVoltaCommand)
-
 				})
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
-
 				})
 			}
 

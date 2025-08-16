@@ -84,7 +84,6 @@ var _ = Describe("Detect", func() {
 	assert := assert.New(GinkgoT()) // Initialize assert for each spec
 
 	Context("DetectJSPacakgeManager", func() {
-
 		var mockPath *MockPathLookup
 
 		BeforeEach(func() {
@@ -200,7 +199,6 @@ var _ = Describe("Detect", func() {
 			assert.Equal(detect.ErrNoPackageManager, err)
 			assert.Empty(manager) // Manager should be an empty string
 		})
-
 	})
 
 	Context("DetectLockfile", func() {
@@ -333,7 +331,6 @@ var _ = Describe("Detect", func() {
 			assert.Error(err)
 			assert.Contains(err.Error(), "permission denied")
 		})
-
 	})
 
 	Context("DetectJSPackageManagerBasedOnLockFile", func() {

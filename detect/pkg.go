@@ -42,11 +42,13 @@ func (r RealFileSystem) Getwd() (string, error) {
 	return os.Getwd()
 }
 
-const DENO = "deno"
-const BUN = "bun"
-const NPM = "npm"
-const PNPM = "pnpm"
-const YARN = "yarn"
+const (
+	DENO = "deno"
+	BUN  = "bun"
+	NPM  = "npm"
+	PNPM = "pnpm"
+	YARN = "yarn"
+)
 
 // ErrNoPackageManager is returned when no supported JavaScript package manager
 // lock file or configuration file is found in the current directory.
@@ -77,9 +79,7 @@ var lockFiles = [9]string{
 }
 
 func DetectLockfile(fs FileSystem) (lockfile string, error error) {
-
 	cwd, err := fs.Getwd() // Use the injected FileSystem
-
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +104,6 @@ func DetectLockfile(fs FileSystem) (lockfile string, error error) {
 var SupportedJSPackageManagers = [5]string{DENO, BUN, PNPM, YARN, NPM}
 
 func DetectJSPackageManager(pathLookup PathLookup) (string, error) {
-
 	for _, manager := range SupportedJSPackageManagers {
 		if _, err := pathLookup.LookPath(manager); err == nil {
 			return manager, nil
@@ -127,17 +126,13 @@ var LockFileToPackageManagerMap = map[string]string{
 }
 
 func DetectJSPackageManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
-
 	if !lo.Contains(lockFiles[:], detectedLockFile) {
-
 		return "", fmt.Errorf("unsupported lockfile %s it must be one of these %v", detectedLockFile, lockFiles)
-
 	}
 
 	packageManagerToFind := LockFileToPackageManagerMap[detectedLockFile]
 	// Use the injected pathLookup here
 	_, err := pathLookup.LookPath(packageManagerToFind)
-
 	if err != nil {
 		// If LookPath returns os.ErrNotExist, return our specific error
 		if errors.Is(err, os.ErrNotExist) {
@@ -158,36 +153,29 @@ type RealYarnCommandVersionRunner struct {
 }
 
 func NewRealYarnCommandVersionRunner() RealYarnCommandVersionRunner {
-
 	return RealYarnCommandVersionRunner{
 		cmd: exec.Command("yarn", "--version"),
 	}
 }
 
 func (r RealYarnCommandVersionRunner) Output() (string, error) {
-
 	output, error := r.cmd.Output()
 
 	if error != nil {
-
 		return "", error
 	}
 
 	return string(output), nil
-
 }
 
 func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, error) {
-
 	result, error := yarnVersionRunner.Output()
 
 	if error != nil {
-
 		return "", error
 	}
 
 	return result, nil
-
 }
 
 const VOLTA = "volta"
@@ -196,9 +184,7 @@ var VOLTA_RUN_COMMAND = []string{VOLTA, "run"}
 
 // DetectVolta now accepts a PathLookup interface to enable mocking.
 func DetectVolta(pathLookup PathLookup) bool {
-
 	_, err := pathLookup.LookPath(VOLTA) // Use the injected pathLookup
-
 	if err != nil {
 		return false
 	}

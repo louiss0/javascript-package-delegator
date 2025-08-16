@@ -19,10 +19,6 @@ linters:
     - lll
 
 linters-settings:
-  revive:
-    rules:
-      - name: exported
-        arguments: ["disableStuttering", true]
   govet:
     enable:
       - shadow

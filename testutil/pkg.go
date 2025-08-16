@@ -21,24 +21,31 @@ var DebugExecutorExpectationManager debugExecutorExpectationManager
 func (m *debugExecutorExpectationManager) ExpectNoLockfile() {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Lock file is not detected").Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectLockfileDetected(lf string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Lock file is detected", "lockfile", lf).Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectPMDetectedFromLockfile(pm string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Package manager is detected based on lock file", "pm", pm).Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectPMDetectedFromPath(pm string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Package manager detected from path", "pm", pm).Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectNoPMFromPath() {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Package manager is not detected from path").Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectJPDAgentSet(agent string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "JPD_AGENT environment variable detected setting agent", "agent", agent).Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectAgentFlagSet(agent string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Agent flag is set", "agent", agent).Return()
 }
+
 func (m *debugExecutorExpectationManager) ExpectCommandStart(name, pm string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Command start", "name", name, "pm", pm).Return()
 }
