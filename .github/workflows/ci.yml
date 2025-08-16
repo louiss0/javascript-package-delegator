@@ -49,16 +49,19 @@ jobs:
 
       - name: Build jpd (CI mode)
         run: |
-          go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd ./
+          JPD_BIN="$RUNNER_TEMP/jpd"
+          go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o "$JPD_BIN" ./...
+          echo "Built jpd at $JPD_BIN"
 
       - name: Validate -C behavior in CI (no trailing slash allowed)
         run: |
           set -e
+          JPD_BIN="$RUNNER_TEMP/jpd"
           dir="$(mktemp -d)"
           # Should succeed without trailing slash in CI mode
-          ./jpd --cwd "$dir" agent > /dev/null
+          "$JPD_BIN" --cwd "$dir" agent > /dev/null
           # And still succeed with trailing slash
-          ./jpd --cwd "$dir/" agent > /dev/null
+          "$JPD_BIN" --cwd "$dir/" agent > /dev/null
 
       - name: Check for dirty repository
         run: |
