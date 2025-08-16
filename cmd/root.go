@@ -500,8 +500,10 @@ func init() {
 			DetectJSPackageManager: func() (string, error) {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
 			},
-			NewPackageMultiSelectUI: newPackageMultiSelectUI,
-			NewDebugExecutor:        newDebugExecutor,
+			NewPackageMultiSelectUI:    newPackageMultiSelectUI,
+			NewTaskSelectorUI:          newTaskSelectorUI,
+			NewDependencyMultiSelectUI: newDependencySelectorUI,
+			NewDebugExecutor:           newDebugExecutor,
 		},
 	)
 }

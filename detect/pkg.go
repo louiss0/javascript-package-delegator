@@ -185,9 +185,5 @@ var VOLTA_RUN_COMMAND = []string{VOLTA, "run"}
 // DetectVolta now accepts a PathLookup interface to enable mocking.
 func DetectVolta(pathLookup PathLookup) bool {
 	_, err := pathLookup.LookPath(VOLTA) // Use the injected pathLookup
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }

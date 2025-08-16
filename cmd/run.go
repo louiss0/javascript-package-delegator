@@ -100,7 +100,7 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-						fmt.Fprintf(
+						_, _ = fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Tasks), ","),
@@ -127,11 +127,11 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-						fmt.Fprintf(
-							cmd.OutOrStdout(),
-							"Here are the scripts %s",
-							strings.Join(lo.Keys(pkg.Scripts), ","),
-						)
+					_, _ = fmt.Fprintf(
+						cmd.OutOrStdout(),
+						"Here are the scripts %s",
+						strings.Join(lo.Keys(pkg.Scripts), ","),
+					)
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
