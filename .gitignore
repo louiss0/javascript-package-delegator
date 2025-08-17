@@ -12,6 +12,7 @@ forks/
 *.test
 *.out
 vendor/
+jpd
 
 # Test artifacts
 *.tmp
