@@ -51,9 +51,6 @@ Examples:
 			// Get the environment configuration to determine if logging should be verbose.
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
-			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
-				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "agent", "pm", pm)
-			}
 
 			// Log the detected package manager in production mode.
 			goEnv.ExecuteIfModeIsProduction(func() {
@@ -72,6 +69,7 @@ Examples:
 			// Prepare the command to be executed. For the 'agent' command, it typically
 			// runs the package manager itself. Any additional arguments provided to 'jpd agent'
 			// are passed directly to the detected package manager.
+			de.LogJSCommandIfDebugIsTrue(pm, args...)
 			cmdRunner.Command(pm, args...)
 
 			// Execute the command and return any error.

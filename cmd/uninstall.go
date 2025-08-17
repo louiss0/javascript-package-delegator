@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 type dependencyMultiSelectUI struct {
 	selectedValues []string
 	selectUI       huh.MultiSelect[string]
@@ -129,9 +128,6 @@ Examples:
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
-			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
-				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "uninstall", "pm", pm)
-			}
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
@@ -171,7 +167,7 @@ Examples:
 				}
 
 				if len(dependencies) == 0 {
-				return fmt.Errorf("no packages found for interactive uninstall")
+					return fmt.Errorf("no packages found for interactive uninstall")
 				}
 
 				dependencySelectorUI := newDependencySelectorUI(dependencies)
@@ -234,6 +230,7 @@ Examples:
 			// Execute the command
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 			})

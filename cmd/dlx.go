@@ -53,9 +53,7 @@ Examples:
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
-			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
-				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "dlx", "pm", pm)
-			}
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 
 			packageName := args[0]
 			packageArgs := args[1:]
@@ -108,14 +106,14 @@ Examples:
 				cmdArgs = append(cmdArgs, packageArgs...)
 
 			case "deno":
-			return fmt.Errorf("deno doesn't have a dlx or x like the others")
+				return fmt.Errorf("deno doesn't have a dlx or x like the others")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
 			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de.LogJSCommandIfDebugIsTrue(execCommand, cmdArgs...)
 			cmdRunner.Command(execCommand, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {

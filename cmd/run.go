@@ -37,7 +37,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 type taskSelectorUI struct {
 	selectedValue string
 	selectUI      huh.Select[string]
@@ -75,12 +74,10 @@ Examples:
 		Aliases: []string{"r"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
-			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
-				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "run", "pm", pm)
-			}
 
 			// If no script name provided, list available scripts
 
@@ -222,8 +219,8 @@ Examples:
 			}
 
 			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))

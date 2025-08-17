@@ -53,10 +53,8 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
-			if dbg, _ := cmd.Flags().GetBool(_DEBUG_FLAG); dbg {
-				de.LogDebugMessageIfDebugIsTrue("Command start", "name", "exec", "pm", pm)
-			}
 
 			packageName := args[0]
 			packageArgs := args[1:]
@@ -109,15 +107,15 @@ Examples:
 				cmdArgs = append(cmdArgs, packageArgs...)
 
 			case "deno":
-			return fmt.Errorf("deno doesn't have a dlx or x like the others")
+				return fmt.Errorf("deno doesn't have a dlx or x like the others")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
 			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(execCommand, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(execCommand, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))

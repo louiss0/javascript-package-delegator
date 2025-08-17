@@ -229,6 +229,7 @@ func (ui *CommandTextUI) Run() error {
 type DebugExecutor interface {
 	ExecuteIfDebugIsTrue(cb func())
 	LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{})
+	LogJSCommandIfDebugIsTrue(command string, args ...string)
 }
 
 type debugExecutor struct {
@@ -248,6 +249,12 @@ func (d debugExecutor) ExecuteIfDebugIsTrue(cb func()) {
 func (d debugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {
 	if d.debugFlag {
 		log.Debug(msg, keyvals...)
+	}
+}
+
+func (d debugExecutor) LogJSCommandIfDebugIsTrue(command string, args ...string) {
+	if d.debugFlag {
+		log.Debug("Executing command:", "command", strings.Join(append([]string{command}, args...), " "))
 	}
 }
 
@@ -348,7 +355,7 @@ Available commands:
 			if ok {
 
 				if !lo.Contains(detect.SupportedJSPackageManagers[:], agent) {
-				return fmt.Errorf(
+					return fmt.Errorf(
 						"the %s variable is set the wrong way use one of these values instead %v",
 						JPD_AGENT_ENV_VAR,
 						detect.SupportedJSPackageManagers,
