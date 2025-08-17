@@ -19,6 +19,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -35,10 +37,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type TaskUISelector interface {
-	Value() string
-	Run() error
-}
 
 type taskSelectorUI struct {
 	selectedValue string
@@ -96,7 +94,7 @@ Examples:
 					}
 
 					if len(pkg.Tasks) == 0 {
-						return fmt.Errorf("No tasks found in deno.json")
+						return fmt.Errorf("no tasks found in deno.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
@@ -123,15 +121,15 @@ Examples:
 					}
 
 					if len(pkg.Scripts) == 0 {
-						return fmt.Errorf("No scripts found in package.json")
+						return fmt.Errorf("no scripts found in package.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
-					_, _ = fmt.Fprintf(
-						cmd.OutOrStdout(),
-						"Here are the scripts %s",
-						strings.Join(lo.Keys(pkg.Scripts), ","),
-					)
+						_, _ = fmt.Fprintf(
+							cmd.OutOrStdout(),
+							"Here are the scripts %s",
+							strings.Join(lo.Keys(pkg.Scripts), ","),
+						)
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
@@ -214,7 +212,7 @@ Examples:
 				cmdArgs = []string{"task", scriptName}
 
 				if lo.Contains(scriptArgs, "--eval") {
-					return fmt.Errorf("Don't pass --eval here use the exec command instead")
+					return fmt.Errorf("don't pass --eval here use the exec command instead")
 				}
 
 				cmdArgs = append(cmdArgs, scriptArgs...)

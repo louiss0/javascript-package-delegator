@@ -1,3 +1,5 @@
+// Package env provides utilities for managing Go environment mode detection
+// and executing mode-specific functionality.
 package env
 
 import (
@@ -14,12 +16,12 @@ func NewGoEnv() GoEnv {
 
 // Mode returns the current Go environment mode string (e.g., "production", "development").
 // Per naming rules, avoid a Get prefix for simple getters.
-func (e GoEnv) Mode() string {
-	return e.goEnv
+func (env GoEnv) Mode() string {
+	return env.goEnv
 }
 
-func (e GoEnv) IsDebugMode() bool {
-	return e.goEnv == "debug"
+func (env GoEnv) IsDebugMode() bool {
+	return env.goEnv == "debug"
 }
 
 func (env GoEnv) IsDevelopmentMode() bool {

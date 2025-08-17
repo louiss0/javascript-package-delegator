@@ -69,7 +69,7 @@ func TestCleanCheck_DetectsArtifacts(t *testing.T) {
 	if err := os.Chdir(".."); err != nil {
 		t.Fatalf("failed to change directory: %v", err)
 	}
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Take initial snapshot
 	snapshot, err := testutil.SnapshotWorkingTree()
@@ -85,7 +85,7 @@ func TestCleanCheck_DetectsArtifacts(t *testing.T) {
 	}
 
 	// Clean up the file after test
-	defer os.Remove(testFile)
+	defer func() { _ = os.Remove(testFile) }()
 
 	// Create a custom testing.T to capture the error without failing this test
 	mockT := &mockTestingT{}

@@ -34,7 +34,7 @@ func (p filePathFlag) String() string {
 func (p *filePathFlag) Set(value string) error {
 	// First, check if the value is empty or just whitespace
 	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
-		return fmt.Errorf("The %s flag cannot be empty or contain only whitespace", p.flagName)
+		return fmt.Errorf("the %s flag cannot be empty or contain only whitespace", p.flagName)
 	}
 
 	// Regex for general POSIX/UNIX file paths (relative or absolute)
@@ -88,7 +88,7 @@ func (p folderPathFlag) String() string {
 func (p *folderPathFlag) Set(value string) error {
 	// First, check if the value is empty or just whitespace
 	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
-		return fmt.Errorf("The %s flag cannot be empty or contain only whitespace", p.flagName)
+		return fmt.Errorf("the %s flag cannot be empty or contain only whitespace", p.flagName)
 	}
 
 	// Regex for general POSIX/UNIX paths (relative or absolute)

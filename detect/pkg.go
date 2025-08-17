@@ -1,3 +1,5 @@
+// Package detect provides functionality for detecting JavaScript package managers
+// and their configuration files in the current directory.
 package detect
 
 import (
@@ -96,11 +98,11 @@ func DetectLockfile(fs FileSystem) (lockfile string, error error) {
 		// We need to check all lock files.
 	}
 
-	return "", fmt.Errorf("No lock file found") // Return a specific error if no lockfile is found after checking all
+	return "", fmt.Errorf("no lock file found") // Return a specific error if no lockfile is found after checking all
 }
 
-// This is a list of the JS package managers
-// ! NPM must be last if the user has node on their computer it will be detected before the others
+// SupportedJSPackageManagers is a list of supported JavaScript package managers.
+// NPM must be last if the user has node on their computer it will be detected before the others.
 var SupportedJSPackageManagers = [5]string{DENO, BUN, PNPM, YARN, NPM}
 
 func DetectJSPackageManager(pathLookup PathLookup) (string, error) {

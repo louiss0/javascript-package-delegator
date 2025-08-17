@@ -1,4 +1,4 @@
-// This package defines all the build info that this repo needs
+// Package build_info defines all the build info that this repo needs
 // All variables must be capitalised and must use the `BuildInfo` type
 // All validation of individual types must be handled by the init function
 // javascript-package-delegator/build_info/root.go

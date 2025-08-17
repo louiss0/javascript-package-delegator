@@ -112,8 +112,8 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 		// Arrange
 		f, err := os.CreateTemp("", "executor-file-*")
 		Expect(err).NotTo(HaveOccurred())
-		defer os.Remove(f.Name())
-		f.Close()
+		defer func() { _ = os.Remove(f.Name()) }()
+		_ = f.Close()
 		e := NewMockExecutor(false)
 
 		// Act

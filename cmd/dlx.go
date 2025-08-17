@@ -19,6 +19,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -106,7 +108,7 @@ Examples:
 				cmdArgs = append(cmdArgs, packageArgs...)
 
 			case "deno":
-				return fmt.Errorf("Deno doesn't have a dlx or x like the others")
+			return fmt.Errorf("deno doesn't have a dlx or x like the others")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)

@@ -1,3 +1,5 @@
+// Package services provides external service integrations for the JavaScript Package Delegator.
+// It includes functionality for interacting with package registries and searching for packages.
 package services
 
 import (

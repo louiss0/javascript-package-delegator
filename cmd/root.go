@@ -19,6 +19,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -133,6 +135,21 @@ func (e *commandRunner) Run() error {
 
 // Dependencies holds the external dependencies for testing and real execution
 
+type MultiUISelecter interface {
+	Values() []string
+	Run() error
+}
+
+type TaskUISelector interface {
+	Value() string
+	Run() error
+}
+
+type DependencyUIMultiSelector interface {
+	Values() []string
+	Run() error
+}
+
 type Dependencies struct {
 	CommandRunnerGetter                   func() CommandRunner
 	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
@@ -184,7 +201,7 @@ func newCommandTextUI(lockfile string) CommandUITexter {
 				}
 
 				if lockfile != "" && !strings.Contains(s, detect.LockFileToPackageManagerMap[lockfile]) {
-					return fmt.Errorf("The command you entered does not contain the package manager command for %s", detect.LockFileToPackageManagerMap[lockfile])
+					return fmt.Errorf("the command you entered does not contain the package manager command for %s", detect.LockFileToPackageManagerMap[lockfile])
 				}
 
 				if match {
@@ -331,8 +348,8 @@ Available commands:
 			if ok {
 
 				if !lo.Contains(detect.SupportedJSPackageManagers[:], agent) {
-					return fmt.Errorf(
-						"The %s variable is set the wrong way use one of these values instead %v",
+				return fmt.Errorf(
+						"the %s variable is set the wrong way use one of these values instead %v",
 						JPD_AGENT_ENV_VAR,
 						detect.SupportedJSPackageManagers,
 					)
@@ -406,7 +423,7 @@ Available commands:
 						goEnv.ExecuteIfModeIsProduction(func() {
 							log.Infof("Found %s as an alternative package manager\n", pm)
 						})
-					_ = persistentFlags.Set(AGENT_FLAG, pm)
+						_ = persistentFlags.Set(AGENT_FLAG, pm)
 						c.SetContext(c_ctx)
 						return nil
 					}
@@ -445,7 +462,7 @@ Available commands:
 
 			debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is detected based on lock file", "pm", pm)
 
-		_ = persistentFlags.Set(AGENT_FLAG, pm)
+			_ = persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},

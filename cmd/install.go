@@ -19,6 +19,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -48,10 +50,6 @@ const (
 	_NO_VOLTA_FLAG   = "no-volta"
 )
 
-type MultiUISelecter interface {
-	Values() []string
-	Run() error
-}
 
 type packageMultiSelectUI struct {
 	value         []string
@@ -139,7 +137,7 @@ Examples:
 				}
 
 				if len(packageInfo) == 0 {
-					return fmt.Errorf("Your query has failed %s", searchFlag.String())
+				return fmt.Errorf("query failed: %s", searchFlag.String())
 				}
 
 				installMultiSelect := newPackageMultiSelectUI(packageInfo)
@@ -242,11 +240,11 @@ Examples:
 			case "deno":
 
 				if len(args) == 0 {
-					return fmt.Errorf("For deno one or more packages is required")
+				return fmt.Errorf("for deno one or more packages is required")
 				}
 
 				if production, _ := cmd.Flags().GetBool("production"); production {
-					return fmt.Errorf("Deno doesn't support prod!")
+				return fmt.Errorf("deno doesn't support prod")
 				}
 
 				if global, _ := cmd.Flags().GetBool("global"); global {

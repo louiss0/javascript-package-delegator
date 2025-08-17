@@ -18,10 +18,10 @@ type FlagName string
 
 // Error validates the FlagName and returns an error if it's invalid.
 // A valid flag name must contain only alphanumeric characters.
-func (self FlagName) Error() error {
+func (f FlagName) Error() error {
 	regex := regexp.MustCompile(`^[a-z0-9]+$`)
-	if !regex.MatchString(string(self)) {
-		return fmt.Errorf("%w: %s must be alphanumeric: %s", ErrInvalidFlag, self, string(self))
+	if !regex.MatchString(string(f)) {
+		return fmt.Errorf("%w: %s must be alphanumeric: %s", ErrInvalidFlag, f, string(f))
 	}
 	return nil
 }

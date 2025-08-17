@@ -1,3 +1,4 @@
+// Package mock provides mock implementations for testing the javascript-package-delegator.
 package mock
 
 import (
@@ -36,8 +37,8 @@ func (m *MockDebugExecutor) AssertExpectations(t mock.TestingT) bool {
 	return true
 }
 
-// ExcuteIfDebugIsTrue records the call to this method.
-// In tests, you can set expectations using `On("ExcuteIfDebugIsTrue")`.
+// ExecuteIfDebugIsTrue records the call to this method.
+// In tests, you can set expectations using `On("ExecuteIfDebugIsTrue")`.
 // If the `cb` itself needs to be verified or controlled, the test can pass a mockable function.
 func (m *MockDebugExecutor) ExecuteIfDebugIsTrue(cb func()) {
 	m.Called(cb)
