@@ -301,7 +301,7 @@ var _ = Describe("Detect", func() {
 			lockfile, err := detect.DetectLockfile(mockFs)
 			assert.Error(err)
 			assert.Equal("", lockfile)
-			assert.Contains(err.Error(), "No lock file found") // Check for specific error message
+		assert.Contains(err.Error(), "no lock file found") // Check for specific error message
 		})
 
 		It("should prioritize deno over other package managers", func() {

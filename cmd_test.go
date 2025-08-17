@@ -320,8 +320,8 @@ var _ = Describe("JPD Commands", func() {
 						assert.Contains(err.Error(), expectedErr)
 					}
 				},
-				Entry("an empty string", "", "The cwd flag cannot be empty or contain only whitespace"),
-				Entry("a string with only whitespace", "   ", "The cwd flag cannot be empty or contain only whitespace"),
+				Entry("an empty string", "", "the cwd flag cannot be empty or contain only whitespace"),
+				Entry("a string with only whitespace", "   ", "the cwd flag cannot be empty or contain only whitespace"),
 				Entry("a path with invalid characters", "/path/with:colon/", "is not a valid POSIX/UNIX folder path", "cwd", "/path/with:colon/"),
 			)
 
@@ -543,7 +543,7 @@ var _ = Describe("JPD Commands", func() {
 				// Directly call PersistentPreRunE and capture the error
 				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.Error(err)
-				assert.Contains(err.Error(), fmt.Sprintf("The %s variable is set the wrong way", cmd.JPD_AGENT_ENV_VAR))
+				assert.Contains(err.Error(), fmt.Sprintf("the %s variable is set the wrong way", cmd.JPD_AGENT_ENV_VAR))
 				// Verify that the command runner was not called for installation since an invalid agent was set
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
@@ -746,7 +746,7 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(rootCmd, "install", "--search", "89ispsnsnis")
 
 				assert.Error(err)
-				assert.ErrorContains(err, "Your query has failed 89ispsnsnis")
+				assert.ErrorContains(err, "query failed: 89ispsnsnis")
 
 			})
 
@@ -1141,7 +1141,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should return an error if no packages are provided for a non-global install", func() {
 				_, err := executeCmd(denoRootCmd, "install")
 				assert.Error(err)
-				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.Contains(err.Error(), "for deno one or more packages is required")
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 
@@ -1149,7 +1149,7 @@ var _ = Describe("JPD Commands", func() {
 				// This case should still trigger the "one or more packages" error first
 				_, err := executeCmd(denoRootCmd, "install", "--global")
 				assert.Error(err)
-				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.Contains(err.Error(), "for deno one or more packages is required")
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 
@@ -1163,7 +1163,7 @@ var _ = Describe("JPD Commands", func() {
 				// Pass a package to ensure it bypasses the "no packages" error and hits the "production" error
 				_, err := executeCmd(denoRootCmd, "install", "--production", "my-package")
 				assert.Error(err)
-				assert.Contains(err.Error(), "Deno doesn't support prod!")
+				assert.Contains(err.Error(), "deno doesn't support prod")
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 
@@ -1183,7 +1183,7 @@ var _ = Describe("JPD Commands", func() {
 				// This case should still trigger the "one or more packages" error first
 				_, err := executeCmd(denoRootCmd, "install", "--dev")
 				assert.Error(err)
-				assert.Contains(err.Error(), "For deno one or more packages is required")
+				assert.Contains(err.Error(), "for deno one or more packages is required")
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 		})
@@ -1312,7 +1312,7 @@ var _ = Describe("JPD Commands", func() {
 					_, err = executeCmd(rootCmdWithDenoAsDefault, "run")
 
 					assert.Error(err)
-					assert.ErrorContains(err, "No tasks found in deno.json")
+				assert.ErrorContains(err, "no tasks found in deno.json")
 				})
 
 				It(
@@ -1382,7 +1382,7 @@ var _ = Describe("JPD Commands", func() {
 						_, err = executeCmd(rootCmd, "run")
 
 						assert.Error(err)
-						assert.Contains(err.Error(), "No scripts found in package.json")
+				assert.Contains(err.Error(), "no scripts found in package.json")
 					},
 				)
 
@@ -1629,7 +1629,7 @@ var _ = Describe("JPD Commands", func() {
 
 				_, err = executeCmd(denoRootCmd, "run", "--", "test", "--eval")
 				assert.Error(err)
-				assert.Contains(err.Error(), fmt.Sprintf("Don't pass %s here use the exec command instead", "--eval"))
+				assert.Contains(err.Error(), fmt.Sprintf("don't pass %s here use the exec command instead", "--eval"))
 			})
 
 			It("should run deno task with script name", func() {
@@ -1800,7 +1800,7 @@ var _ = Describe("JPD Commands", func() {
 			It("should handle deno exec error", func() {
 				_, err := executeCmd(denoRootCmd, "exec", "some-package")
 				assert.Error(err)
-				assert.Contains(err.Error(), "Deno doesn't have a dlx or x like the others")
+				assert.Contains(err.Error(), "deno doesn't have a dlx or x like the others")
 			})
 		})
 
@@ -2208,7 +2208,7 @@ var _ = Describe("JPD Commands", func() {
 					_, cmdErr := executeCmd(rootCmdForNoPackages, "uninstall", "--interactive")
 
 					assert.Error(cmdErr)
-					assert.Contains(cmdErr.Error(), "No packages found for interactive uninstall.")
+				assert.Contains(cmdErr.Error(), "no packages found for interactive uninstall")
 					assert.False(mockCommandRunner.HasBeenCalled) // No command should be run
 				})
 
