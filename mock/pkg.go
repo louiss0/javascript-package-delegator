@@ -25,18 +25,6 @@ type MockDebugExecutor struct {
 	mock.Mock
 }
 
-// AssertExpectations overrides the default to be lenient when no debug logs were produced.
-// Some tests (e.g., `--help`) don't run the root PersistentPreRunE and therefore
-// won't emit any debug logs. Those tests may still register expectations in a shared
-// BeforeEach, which would normally fail. If there were no calls to
-// LogDebugMessageIfDebugIsTrue at all, consider expectations satisfied.
-func (m *MockDebugExecutor) AssertExpectations(t mock.TestingT) bool {
-	// Be fully lenient for debug logs to avoid coupling tests to exact debug output.
-	// We still allow tests to set expectations and they will be matched when present,
-	// but we do not fail the suite if some expectations were not met.
-	return true
-}
-
 // ExecuteIfDebugIsTrue records the call to this method.
 // In tests, you can set expectations using `On("ExecuteIfDebugIsTrue")`.
 // If the `cb` itself needs to be verified or controlled, the test can pass a mockable function.
@@ -52,6 +40,11 @@ func (m *MockDebugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...
 	args := []interface{}{msg}
 	args = append(args, keyvals...)
 	m.Called(args...)
+}
+
+func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(cmd string, args ...string) {
+
+	m.Called("Executing command:", "command", strings.Join(append([]string{cmd}, args...), " "))
 }
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes

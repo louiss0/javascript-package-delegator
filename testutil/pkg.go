@@ -10,6 +10,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/mock"
 	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/spf13/cobra"
+	tmock "github.com/stretchr/testify/mock"
 )
 
 type debugExecutorExpectationManager struct {
@@ -47,12 +48,12 @@ func (m *debugExecutorExpectationManager) ExpectAgentFlagSet(agent string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Agent flag is set", "agent", agent).Return()
 }
 
-func (m *debugExecutorExpectationManager) ExpectCommandStart(name, pm string) {
-	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Command start", "name", name, "pm", pm).Return()
+func (m *debugExecutorExpectationManager) ExpectJSCommandLog(pm string, args ...string) {
+	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", "Executing command:", "command", strings.Join(append([]string{pm}, args...), " ")).Return()
 }
 
-func (m *debugExecutorExpectationManager) ExpectJSCommandLog(pm string, args ...string) {
-	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Executing command", "command", strings.Join(append([]string{pm}, args...), " ")).Return()
+func (m *debugExecutorExpectationManager) ExpectJSCommandRandomLog() {
+	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", "Executing command:", "command", tmock.AnythingOfType("string")).Return()
 }
 
 // RootCommandFactory is a helper struct for creating cobra.Command instances
