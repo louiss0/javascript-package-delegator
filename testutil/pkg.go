@@ -3,6 +3,7 @@ package testutil
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
@@ -48,6 +49,10 @@ func (m *debugExecutorExpectationManager) ExpectAgentFlagSet(agent string) {
 
 func (m *debugExecutorExpectationManager) ExpectCommandStart(name, pm string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Command start", "name", name, "pm", pm).Return()
+}
+
+func (m *debugExecutorExpectationManager) ExpectJSCommandLog(pm string, args ...string) {
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Executing command", "command", strings.Join(append([]string{pm}, args...), " ")).Return()
 }
 
 // RootCommandFactory is a helper struct for creating cobra.Command instances
