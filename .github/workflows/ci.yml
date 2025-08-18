@@ -79,7 +79,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: latest
-          args: --out-format colored-line-number,github-actions --timeout=5m
+          args: --timeout=5m --output.text.colors=true --output.text.print-linter-name=true
 
   test:
     name: Test (Ginkgo) + coverage
