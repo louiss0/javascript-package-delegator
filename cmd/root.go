@@ -376,10 +376,11 @@ Available commands:
 
 			}
 
-			lockFile, err := deps.DetectLockfile()
-			if err != nil {
+		lockFile, err := deps.DetectLockfile()
+		if err != nil {
+			debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
 
-				pm, err := deps.DetectJSPackageManager()
+			pm, err := deps.DetectJSPackageManager()
 				if err != nil {
 
 					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")
@@ -396,6 +397,7 @@ Available commands:
 					re := regexp.MustCompile(`\s+`)
 					splitCommandString := re.Split(commandTextUI.Value(), -1)
 
+					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 					if err := commandRunner.Run(); err != nil {
@@ -454,6 +456,7 @@ Available commands:
 					re := regexp.MustCompile(`\s+`)
 					splitCommandString := re.Split(commandTextUI.Value(), -1)
 
+					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
 
 					if err := commandRunner.Run(); err != nil {

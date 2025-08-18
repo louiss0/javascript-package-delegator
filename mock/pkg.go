@@ -43,8 +43,12 @@ func (m *MockDebugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...
 }
 
 func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(cmd string, args ...string) {
-
-	m.Called("Executing command:", "command", strings.Join(append([]string{cmd}, args...), " "))
+	// Build the expected arguments slice for m.Called()
+	callArgs := []interface{}{cmd}
+	for _, arg := range args {
+		callArgs = append(callArgs, arg)
+	}
+	m.Called(callArgs...)
 }
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes

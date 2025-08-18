@@ -3,7 +3,6 @@ package testutil
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
@@ -40,6 +39,10 @@ func (m *debugExecutorExpectationManager) ExpectNoPMFromPath() {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Package manager is not detected from path").Return()
 }
 
+func (m *debugExecutorExpectationManager) ExpectNoPMFromLockfile() {
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "Package manager is not detected from lockfile").Return()
+}
+
 func (m *debugExecutorExpectationManager) ExpectJPDAgentSet(agent string) {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", "JPD_AGENT environment variable detected setting agent", "agent", agent).Return()
 }
@@ -49,11 +52,69 @@ func (m *debugExecutorExpectationManager) ExpectAgentFlagSet(agent string) {
 }
 
 func (m *debugExecutorExpectationManager) ExpectJSCommandLog(pm string, args ...string) {
-	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", "Executing command:", "command", strings.Join(append([]string{pm}, args...), " ")).Return()
+	// Build expected arguments slice for mock expectation
+	expectedArgs := []interface{}{pm}
+	for _, arg := range args {
+		expectedArgs = append(expectedArgs, arg)
+	}
+	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", expectedArgs...).Return()
 }
 
 func (m *debugExecutorExpectationManager) ExpectJSCommandRandomLog() {
-	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", "Executing command:", "command", tmock.AnythingOfType("string")).Return()
+	// Use mock.Anything multiple times to handle variable arguments (up to 25 args should be enough)
+	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", 
+		tmock.AnythingOfType("string"), // Package manager
+		tmock.Anything, // Command 
+		tmock.Anything, // Args...
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe() // Maybe allows this expectation to match zero or more times
+}
+
+// ExpectAnyDebugMessages allows any debug messages to be logged without specific expectations
+func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
+	// Allow any LogDebugMessageIfDebugIsTrue calls
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything).Return().Maybe()
+	
+	// Allow any LogJSCommandIfDebugIsTrue calls
+	m.ExpectJSCommandRandomLog()
+}
+
+// ExpectCommonPMDetectionFlow expects the most common package manager detection flow based on lockfile
+func (m *debugExecutorExpectationManager) ExpectCommonPMDetectionFlow(pm, lockfile string) {
+	m.ExpectLockfileDetected(lockfile)
+	m.ExpectPMDetectedFromLockfile(pm)
+}
+
+// ExpectCommonPathDetectionFlow expects the most common package manager detection flow based on PATH
+func (m *debugExecutorExpectationManager) ExpectCommonPathDetectionFlow(pm string) {
+	m.ExpectNoLockfile()
+	m.ExpectPMDetectedFromPath(pm)
 }
 
 // RootCommandFactory is a helper struct for creating cobra.Command instances
@@ -170,33 +231,33 @@ func (f *RootCommandFactory) GenerateWithPackageManagerDetectedAndVolta(packageM
 // CreateBunAsDefault creates a root command with "bun" as the default detected package manager,
 // simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateBunAsDefault(err error) *cobra.Command {
-	return f.GenerateWithPackageManagerDetector("bun", err)
+	return f.CreateRootCmdWithLockfileDetected("bun", detect.BUN_LOCKB, err, false)
 }
 
 // CreateDenoAsDefault creates a root command with "deno" as the default detected package manager,
 // simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
-	return f.GenerateWithPackageManagerDetector("deno", err)
+	return f.CreateRootCmdWithLockfileDetected("deno", detect.DENO_JSON, err, false)
 }
 
 // CreateYarnTwoAsDefault creates a root command with "yarn" (version 2+) as the default detected package manager,
-// simulating detection via PATH and specific yarn version output.
+// simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func() (string, error) {
-		return "", os.ErrNotExist // No lockfile found, forcing path detection
+		return detect.YARN_LOCK, nil // Lockfile found
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
-		// This function should not be called if lockfile detection failed
-		return "", fmt.Errorf("DetectJSPackageManagerBasedOnLockFile should not be called when lockfile detection fails")
+		return "yarn", err // PM detected from lockfile
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
-		return "yarn", err // PM detected globally via PATH, for yarn
+		// This function should not be called if lockfile detection succeeded
+		return "", fmt.Errorf("DetectJSPackageManager should not be called in lockfile detection scenario")
 	}
 	deps.DetectVolta = func() bool {
 		return false // Default to no Volta detected
 	}
-	// Override specific dependency for Yarn version output, as it's part of how yarn is "path-detected"
+	// Override specific dependency for Yarn version output
 	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("2.0.0")
 	return cmd.NewRootCmd(deps)
 }
@@ -235,7 +296,7 @@ func (f *RootCommandFactory) CreateNoYarnVersion(err error) *cobra.Command {
 // CreatePnpmAsDefault creates a root command with "pnpm" as the default detected package manager,
 // simulating lockfile-based detection.
 func (f *RootCommandFactory) CreatePnpmAsDefault(err error) *cobra.Command {
-	return f.GenerateWithPackageManagerDetector("pnpm", err)
+	return f.CreateRootCmdWithLockfileDetected("pnpm", detect.PNPM_LOCK_YAML, err, false)
 }
 
 // CreateNpmAsDefault creates a root command with "npm" as the default detected package manager,
@@ -297,6 +358,20 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 	deps.DetectJSPackageManager = func() (string, error) {
 		return packageManager, nil
 	}
-	deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
+		deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
+		return cmd.NewRootCmd(deps)
+	}
+
+// CreateWithDependencySelectUI creates a root command configured for dependency selection UI based on a
+// package manager detected via PATH.
+func (f *RootCommandFactory) CreateWithDependencySelectUI(packageManager string) *cobra.Command {
+	deps := f.baseDependencies()
+	deps.DetectLockfile = func() (lockfile string, error error) {
+		return "", os.ErrNotExist
+	}
+	deps.DetectJSPackageManager = func() (string, error) {
+		return packageManager, nil
+	}
+	deps.NewDependencyMultiSelectUI = mock.NewMockDependencySelectUI
 	return cmd.NewRootCmd(deps)
 }

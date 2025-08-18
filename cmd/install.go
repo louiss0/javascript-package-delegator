@@ -288,6 +288,7 @@ Examples:
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Info("Executing this ", "command", completeVoltaCommand)
 				})
+				de.LogJSCommandIfDebugIsTrue(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
@@ -295,6 +296,7 @@ Examples:
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
 				})
+				de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			}
 
 			// Execute the command

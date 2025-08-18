@@ -54,6 +54,7 @@ Examples:
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			// Build command based on package manager
 			var cmdArgs []string
@@ -112,6 +113,7 @@ Examples:
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Info("Executing this ", "command", completeVoltaCommand)
 				})
+				de.LogJSCommandIfDebugIsTrue(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
@@ -119,6 +121,7 @@ Examples:
 				goEnv.ExecuteIfModeIsProduction(func() {
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
 				})
+				de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			}
 
 			return cmdRunner.Run()
