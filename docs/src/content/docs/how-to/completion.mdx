@@ -1,0 +1,395 @@
+---
+title: Enable shell completion
+description: Generate completion scripts for Bash, Zsh, Fish, PowerShell, and Nushell.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Shell completion makes jpd faster and more discoverable by providing tab completion for commands, flags, and values. jpd supports completion for all major shells and provides easy setup instructions.
+
+## Why Use Shell Completion?
+
+### Faster Command Entry
+
+Instead of typing full commands:
+```bash
+jpd install --agent yarn --dev lodash
+```
+
+Use tab completion to speed up entry:
+```bash
+jpd i<TAB> --a<TAB> y<TAB> --d<TAB> lodash
+# Expands to: jpd install --agent yarn --dev lodash
+```
+
+### Discoverability
+
+Discover available commands and flags without consulting documentation:
+```bash
+jpd <TAB><TAB>
+# Shows: install run exec update uninstall clean-install agent completion
+
+jpd install --<TAB><TAB>  
+# Shows: --agent --cwd --debug --dev --global --production --search
+```
+
+### Error Prevention
+
+Completion prevents typos and ensures valid values:
+```bash
+jpd install --agent <TAB><TAB>
+# Shows: npm yarn pnpm bun deno
+# Prevents invalid agent names
+```
+
+## Supported Shells
+
+jpd provides completion for these shells:
+
+| Shell | Status | Notes |
+|-------|--------|-------|
+| **Bash** | ✅ Full support | Works with Bash 4.0+ |
+| **Zsh** | ✅ Full support | Compatible with Oh My Zsh |
+| **Fish** | ✅ Full support | Native Fish completion format |
+| **PowerShell** | ✅ Full support | Windows PowerShell and PowerShell Core |
+| **Nushell** | ✅ Full support | Modern shell with custom output option |
+
+## Installation by Shell
+
+### Bash
+
+<Tabs>
+  <TabItem label="System-wide (Linux)">
+    ```bash
+    # Generate and install system-wide
+    sudo jpd completion bash > /etc/bash_completion.d/jpd
+    
+    # Reload bash completion
+    source /etc/bash_completion.d/jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="User-specific">
+    ```bash
+    # Create user completion directory if it doesn't exist
+    mkdir -p ~/.bash_completion.d
+    
+    # Generate completion script
+    jpd completion bash > ~/.bash_completion.d/jpd
+    
+    # Add to .bashrc if not already there
+    echo 'source ~/.bash_completion.d/jpd' >> ~/.bashrc
+    
+    # Reload your shell
+    source ~/.bashrc
+    ```
+  </TabItem>
+  
+  <TabItem label="One-liner">
+    ```bash
+    # Direct sourcing (temporary, lost on restart)
+    source <(jpd completion bash)
+    
+    # Make permanent by adding to .bashrc
+    echo 'source <(jpd completion bash)' >> ~/.bashrc
+    ```
+  </TabItem>
+</Tabs>
+
+### Zsh
+
+<Tabs>
+  <TabItem label="Oh My Zsh">
+    ```bash
+    # Generate completion for Oh My Zsh
+    jpd completion zsh > ~/.oh-my-zsh/completions/_jpd
+    
+    # Reload your shell
+    exec zsh
+    ```
+  </TabItem>
+  
+  <TabItem label="Manual Setup">
+    ```bash
+    # Create completion directory
+    mkdir -p ~/.zsh/completions
+    
+    # Generate completion script
+    jpd completion zsh > ~/.zsh/completions/_jpd
+    
+    # Add to .zshrc if not already there
+    echo 'fpath=(~/.zsh/completions $fpath)' >> ~/.zshrc
+    echo 'autoload -U compinit && compinit' >> ~/.zshrc
+    
+    # Reload your shell
+    exec zsh
+    ```
+  </TabItem>
+  
+  <TabItem label="Direct Loading">
+    ```bash
+    # Direct sourcing (temporary)
+    source <(jpd completion zsh)
+    
+    # Make permanent
+    echo 'source <(jpd completion zsh)' >> ~/.zshrc
+    ```
+  </TabItem>
+</Tabs>
+
+### Fish
+
+```bash
+# Generate completion for Fish
+jpd completion fish > ~/.config/fish/completions/jpd.fish
+
+# Reload Fish completions
+fish -c "complete -f"
+```
+
+<Aside type="note">
+  Fish automatically loads completions from `~/.config/fish/completions/` - no additional configuration needed.
+</Aside>
+
+### PowerShell
+
+<Tabs>
+  <TabItem label="Current Session">
+    ```powershell
+    # Load completion for current session
+    jpd completion powershell | Out-String | Invoke-Expression
+    ```
+  </TabItem>
+  
+  <TabItem label="Permanent Setup">
+    ```powershell
+    # Add to PowerShell profile
+    jpd completion powershell >> $PROFILE
+    
+    # Reload profile
+    . $PROFILE
+    ```
+  </TabItem>
+  
+  <TabItem label="Check Profile Location">
+    ```powershell
+    # See where your profile is located
+    echo $PROFILE
+    
+    # Create profile if it doesn't exist
+    if (!(Test-Path -Path $PROFILE)) {
+      New-Item -ItemType File -Path $PROFILE -Force
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Nushell
+
+Nushell supports a special `--output` flag for easier file management:
+
+```bash
+# Generate completion with output flag (Nushell-specific feature)
+jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
+
+# Add to config.nu or env.nu
+echo 'source ~/.config/nushell/completions/jpd_completions.nu' >> ~/.config/nushell/config.nu
+
+# Restart Nushell
+```
+
+<Aside type="tip">
+  The `--output` flag is only available for Nushell and provides a convenient way to write completion directly to a file.
+</Aside>
+
+## Testing Completion
+
+After installing completion, test that it works:
+
+### Basic Command Completion
+
+```bash
+jpd <TAB><TAB>
+# Should show: install run exec update uninstall clean-install agent completion
+```
+
+### Flag Completion
+
+```bash
+jpd install --<TAB><TAB>
+# Should show: --agent --cwd --debug --dev --global --production --search --help
+```
+
+### Value Completion
+
+```bash
+jpd install --agent <TAB><TAB>
+# Should show: npm yarn pnpm bun deno
+```
+
+### Alias Completion
+
+```bash
+jpd i<TAB>        # Should complete to: jpd install
+jpd r<TAB>        # Should complete to: jpd run
+jpd u<TAB>        # Should complete to: jpd update (or show uninstall)
+```
+
+## Troubleshooting
+
+### Completion Not Working
+
+1. **Check shell**: Ensure you're using a supported shell
+   ```bash
+   echo $SHELL
+   ```
+
+2. **Verify completion is loaded**:
+   ```bash
+   # For Bash
+   complete -p jpd
+   
+   # For Zsh  
+   which _jpd
+   
+   # For Fish
+   complete -C jpd
+   ```
+
+3. **Reload shell configuration**:
+   ```bash
+   # Bash
+   source ~/.bashrc
+   
+   # Zsh
+   source ~/.zshrc
+   
+   # Fish
+   source ~/.config/fish/config.fish
+   ```
+
+### Outdated Completions
+
+If jpd commands have changed and completion is outdated:
+
+```bash
+# Regenerate completion for your shell
+jpd completion bash > ~/.bash_completion.d/jpd     # Bash
+jpd completion zsh > ~/.zsh/completions/_jpd       # Zsh  
+jpd completion fish > ~/.config/fish/completions/jpd.fish  # Fish
+
+# Reload shell
+exec $SHELL
+```
+
+### Permission Issues
+
+If you get permission errors:
+
+```bash
+# For system-wide installation (Linux/macOS)
+sudo jpd completion bash > /etc/bash_completion.d/jpd
+
+# For user installation (no sudo needed)
+jpd completion bash > ~/.bash_completion.d/jpd
+```
+
+### Multiple Shell Support
+
+If you use multiple shells, set up completion for each:
+
+```bash
+# Set up for all your shells
+jpd completion bash > ~/.bash_completion.d/jpd
+jpd completion zsh > ~/.zsh/completions/_jpd
+jpd completion fish > ~/.config/fish/completions/jpd.fish
+```
+
+## Advanced Configuration
+
+### Custom Completion Location
+
+You can generate completion to any location:
+
+```bash
+# Custom location
+jpd completion bash > /path/to/my/completions/jpd
+
+# Source from custom location in your shell config
+echo 'source /path/to/my/completions/jpd' >> ~/.bashrc
+```
+
+### Conditional Loading
+
+Load completion only if jpd is available:
+
+```bash
+# Add to .bashrc/.zshrc
+if command -v jpd &> /dev/null; then
+  source <(jpd completion bash)  # or zsh
+fi
+```
+
+### Team Setup
+
+Include completion setup in your team's development documentation:
+
+```markdown
+## Shell Completion Setup
+
+After installing jpd, enable shell completion:
+
+### Bash
+```bash
+jpd completion bash > ~/.bash_completion.d/jpd
+source ~/.bash_completion.d/jpd
+```
+
+### Zsh (Oh My Zsh)
+```bash
+jpd completion zsh > ~/.oh-my-zsh/completions/_jpd
+exec zsh
+```
+
+This enables tab completion for jpd commands and flags.
+```
+
+## Completion Features
+
+### What Gets Completed
+
+jpd completion provides suggestions for:
+
+1. **Commands**: `install`, `run`, `exec`, `update`, etc.
+2. **Aliases**: `i`, `r`, `e`, `u`, etc.
+3. **Global flags**: `--agent`, `--cwd`, `--debug`
+4. **Command-specific flags**: `--dev`, `--global`, `--search`, etc.
+5. **Agent values**: `npm`, `yarn`, `pnpm`, `bun`, `deno`
+6. **Help options**: `--help`, `-h`
+
+### Smart Completion
+
+jpd completion is context-aware:
+
+```bash
+# After typing --agent, only shows valid package managers
+jpd install --agent <TAB>
+# Shows: npm yarn pnpm bun deno
+
+# After typing a command, shows relevant flags
+jpd install --<TAB>
+# Shows: --agent --cwd --debug --dev --global --production --search --help
+```
+
+### Performance
+
+jpd completions are:
+- **Fast**: Generated statically, no runtime overhead
+- **Accurate**: Based on actual jpd command definitions
+- **Complete**: Covers all commands, flags, and valid values
+
+## See Also
+
+- **[Getting Started](/tutorial/getting-started/)** - Basic jpd installation and usage
+- **[Complete Commands Reference](/reference/commands/)** - All commands that benefit from completion
+- **[Shell-specific documentation](https://starlight.astro.build)** - Learn more about your shell's completion system

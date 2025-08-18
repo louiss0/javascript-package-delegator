@@ -1,0 +1,336 @@
+---
+title: Use Volta automatically
+description: Ensure Node and PM commands run under Volta when detected.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+[Volta](https://volta.sh/) is a JavaScript toolchain manager that ensures you're using the right version of Node.js and package managers for your project. jpd automatically detects and integrates with Volta when it's available, ensuring consistent toolchain usage across your development workflow.
+
+## What is Volta?
+
+Volta is a tool that manages Node.js versions on a per-project basis. When you specify Node and package manager versions in your `package.json`, Volta ensures those exact versions are used whenever you run commands in that project.
+
+### Example package.json with Volta config
+
+```json
+{
+  "name": "my-project",
+  "volta": {
+    "node": "18.17.0",
+    "npm": "9.6.7"
+  }
+}
+```
+
+With this configuration, Volta ensures that Node.js 18.17.0 and npm 9.6.7 are used for this project, regardless of what versions you have globally installed.
+
+## How jpd Integrates with Volta
+
+### Automatic Detection
+
+jpd automatically detects if Volta is installed on your system by checking for the `volta` command in your PATH. When Volta is detected:
+
+1. **All package manager commands are executed through Volta**
+2. **The correct Node.js version is used automatically**
+3. **Package manager versions are respected per project**
+4. **No additional configuration is required**
+
+### Example Integration
+
+```bash
+# Without jpd + Volta
+node --version    # Might be v20.0.0 (global)
+cd my-project
+npm install       # Uses global npm with global Node
+
+# With jpd + Volta  
+jpd install       # Volta ensures Node 18.17.0 and npm 9.6.7 are used
+jpd run dev       # Same consistent versions
+jpd exec tsc      # TypeScript runs with the correct Node version
+```
+
+## Benefits of jpd + Volta
+
+### Consistent Development Environment
+
+**Problem**: Team members have different Node.js versions installed
+```bash
+# Developer A has Node 16, Developer B has Node 20
+npm install  # Might work differently or fail on different machines
+```
+
+**Solution**: jpd + Volta ensures everyone uses the same versions
+```bash
+# Both developers get Node 18.17.0 and npm 9.6.7
+jpd install  # Consistent behavior across all machines
+```
+
+### Simplified Project Switching
+
+**Without Volta**: Manually manage Node versions when switching projects
+```bash
+cd project-a
+nvm use 16      # Remember to switch
+npm install
+
+cd ../project-b  
+nvm use 18      # Remember to switch again
+npm install
+```
+
+**With jpd + Volta**: Automatic version switching
+```bash
+cd project-a
+jpd install     # Automatically uses Node 16
+
+cd ../project-b
+jpd install     # Automatically uses Node 18
+```
+
+### CI/CD Consistency
+
+Volta configuration in `package.json` ensures the same versions are used in CI:
+
+```yaml
+# GitHub Actions - Volta setup
+- uses: volta-cli/action@v4
+- name: Install dependencies
+  run: jpd install    # Uses versions from package.json
+```
+
+## Volta Configuration Examples
+
+### Basic Node.js Version Pinning
+
+```json
+{
+  "volta": {
+    "node": "18.17.0"
+  }
+}
+```
+
+jpd will ensure this Node.js version is used for all commands.
+
+### Package Manager Version Pinning
+
+```json
+{
+  "volta": {
+    "node": "18.17.0", 
+    "npm": "9.6.7"
+  }
+}
+```
+
+jpd will use npm 9.6.7 specifically, not the version that ships with Node.js.
+
+### Alternative Package Managers
+
+```json
+{
+  "volta": {
+    "node": "18.17.0",
+    "yarn": "3.6.0"
+  }
+}
+```
+
+jpd will use Yarn 3.6.0 when executing Yarn commands in this project.
+
+### Multiple Tool Versions
+
+```json
+{
+  "volta": {
+    "node": "18.17.0",
+    "npm": "9.6.7", 
+    "yarn": "3.6.0"
+  }
+}
+```
+
+jpd will use the appropriate tool version based on what's detected or specified via `--agent`.
+
+## Debug Volta Integration
+
+### Check if Volta is Detected
+
+Use debug mode to see Volta integration:
+
+```bash
+jpd install --debug
+
+# Debug output shows:
+# DEBUG Volta detected: true
+# DEBUG Package manager detected: npm
+# DEBUG Executing command: npm install
+```
+
+### Verify Volta Configuration
+
+Check your project's Volta configuration:
+
+```bash
+# See current Volta settings
+volta list
+
+# Check what Node version Volta would use
+volta which node
+
+# Check what npm version Volta would use  
+volta which npm
+```
+
+### Test Volta Integration
+
+Verify that jpd is using Volta-managed versions:
+
+```bash
+# Check Node version jpd uses
+jpd exec node --version
+
+# Check npm version jpd uses
+jpd exec npm --version
+
+# Compare with global versions
+node --version  # Might be different
+npm --version   # Might be different
+```
+
+## Troubleshooting
+
+### Volta Not Detected
+
+If jpd isn't detecting Volta:
+
+```bash
+# Check if Volta is in PATH
+command -v volta
+
+# If not found, ensure Volta is properly installed
+curl https://get.volta.sh | bash
+source ~/.bashrc  # or restart your shell
+
+# Verify installation
+volta --version
+```
+
+### Version Conflicts
+
+If you're getting unexpected versions:
+
+```bash
+# Check what Volta thinks should be used
+volta list
+
+# Update Volta configuration if needed
+volta pin node@18.17.0
+volta pin npm@9.6.7
+
+# Verify the change
+cat package.json | grep -A 5 volta
+```
+
+### Performance Issues
+
+Volta adds a small overhead to command execution. If this is problematic:
+
+```bash
+# Bypass Volta for specific commands using --no-volta flag (if available)
+# Or temporarily disable Volta
+export VOLTA_FEATURE_PNPM=0  # Disable specific Volta features if needed
+```
+
+## Best Practices
+
+### Project Setup
+
+1. **Pin Node.js version** for all team projects:
+   ```bash
+   volta pin node@18.17.0
+   ```
+
+2. **Pin package manager version** to avoid inconsistencies:
+   ```bash
+   volta pin npm@9.6.7
+   # or
+   volta pin yarn@3.6.0
+   ```
+
+3. **Commit Volta configuration** with your project:
+   ```bash
+   git add package.json  # Contains volta configuration
+   git commit -m "Pin Node.js and npm versions with Volta"
+   ```
+
+### Team Workflows
+
+1. **Document Volta requirement** in your README:
+   ```markdown
+   ## Prerequisites
+   - [Volta](https://volta.sh/) for Node.js version management
+   - Run `jpd install` to install dependencies with correct versions
+   ```
+
+2. **Use jpd consistently** instead of direct package manager calls:
+   ```bash
+   # ✅ Good - respects Volta configuration
+   jpd install
+   jpd run dev
+   jpd exec tsc
+   
+   # ❌ Avoid - might use wrong versions
+   npm install
+   npm run dev
+   npx tsc
+   ```
+
+### CI/CD Integration
+
+Set up Volta in your CI environment:
+
+```yaml
+# GitHub Actions
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: volta-cli/action@v4
+      - name: Install dependencies
+        run: jpd install
+      - name: Run tests
+        run: jpd run test
+```
+
+## Volta + jpd vs Alternatives
+
+### vs. nvm/fnm
+
+| Aspect | Volta + jpd | nvm/fnm |
+|--------|-------------|---------|
+| **Per-project versions** | Automatic | Manual `.nvmrc` + `nvm use` |
+| **Package manager versions** | Supported | Not supported |  
+| **Zero config switching** | Yes | No (must remember `nvm use`) |
+| **CI/CD friendly** | Yes | Requires additional setup |
+| **Performance** | Fast | Slightly slower |
+
+### vs. Docker
+
+| Aspect | Volta + jpd | Docker |
+|--------|-------------|--------|
+| **Setup complexity** | Low | Medium-High |
+| **Resource usage** | Low | Higher |
+| **Development speed** | Fast | Slower (build times) |
+| **Version isolation** | Per-project | Per-container |
+| **IDE integration** | Seamless | Requires configuration |
+
+## See Also
+
+- **[Volta Official Documentation](https://docs.volta.sh/)** - Complete Volta setup and usage guide
+- **[Getting Started](/tutorial/getting-started/)** - Basic jpd installation and usage
+- **[Complete Commands Reference](/reference/commands/)** - All jpd commands work with Volta automatically

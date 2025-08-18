@@ -1,0 +1,406 @@
+---
+title: Override or choose the agent
+description: Force or override the detected package manager per command or via environment.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Sometimes you need to override jpd's automatic package manager detection. This might be for testing, compatibility, personal preference, or when working with projects that support multiple package managers.
+
+## Why Override the Agent?
+
+### Testing Different Package Managers
+
+```bash
+# Test how your project works with different tools
+jpd install --agent npm
+jpd install --agent yarn  
+jpd install --agent pnpm
+jpd install --agent bun
+```
+
+### Team Standardization
+
+Even if a project has multiple lock files, you might want to enforce a specific package manager:
+
+```bash
+# Team policy: always use pnpm
+jpd install --agent pnpm
+jpd run --agent pnpm build
+```
+
+### Compatibility Issues
+
+Some packages or scripts might work better with specific package managers:
+
+```bash
+# Use npm for a specific installation that has compatibility issues
+jpd install --agent npm problematic-package
+
+# Use yarn for the rest of the workflow
+jpd run build  # Uses detected yarn
+```
+
+### Performance Testing
+
+Compare installation and execution performance across package managers:
+
+```bash
+# Time npm installation
+time jpd install --agent npm
+
+# Time pnpm installation  
+time jpd install --agent pnpm
+```
+
+## Method 1: Per-Command Override (--agent flag)
+
+### Basic Usage
+
+Override the agent for a single command:
+
+```bash
+jpd install --agent yarn lodash
+jpd run --agent pnpm dev
+jpd exec --agent bun create-react-app my-app
+jpd update --agent npm
+```
+
+### Supported Agents
+
+jpd supports these package manager values for the `--agent` flag:
+
+| Agent | Description |
+|-------|-------------|
+| `npm` | Node Package Manager |
+| `yarn` | Yarn (auto-detects v1 vs v2+) |
+| `pnpm` | Fast, disk space efficient PM |
+| `bun` | All-in-one JavaScript runtime |
+| `deno` | Secure TypeScript/JavaScript runtime |
+
+### Command Examples
+
+<Tabs>
+  <TabItem label="Installation">
+    ```bash
+    # Install with specific package manager
+    jpd install --agent yarn
+    jpd install --agent pnpm react
+    jpd install --agent npm --dev vitest
+    jpd install --agent bun --global typescript
+    ```
+  </TabItem>
+  
+  <TabItem label="Script Execution">
+    ```bash
+    # Run scripts with specific package manager
+    jpd run --agent npm dev
+    jpd run --agent yarn build  
+    jpd run --agent pnpm test
+    jpd run --agent bun start
+    ```
+  </TabItem>
+  
+  <TabItem label="Package Execution">
+    ```bash
+    # Execute packages with specific tool
+    jpd exec --agent npm create-react-app my-app
+    jpd exec --agent yarn create vite my-app
+    jpd exec --agent pnpm create-next-app my-app  
+    jpd exec --agent bun create hono my-app
+    ```
+  </TabItem>
+</Tabs>
+
+### Flag Position
+
+The `--agent` flag can appear in different positions:
+
+```bash
+# All of these are equivalent
+jpd install --agent yarn lodash
+jpd install lodash --agent yarn  
+jpd --agent yarn install lodash
+```
+
+## Method 2: Session-Wide Override (Environment Variable)
+
+### Setting JPD_AGENT
+
+Set the `JPD_AGENT` environment variable to override the default for all commands in your session:
+
+<Tabs>
+  <TabItem label="Bash/Zsh">
+    ```bash
+    # Set for current session
+    export JPD_AGENT=yarn
+    
+    # All jpd commands now use yarn by default
+    jpd install          # Uses yarn
+    jpd run dev          # Uses yarn  
+    jpd update           # Uses yarn
+    
+    # Clear the override
+    unset JPD_AGENT
+    ```
+  </TabItem>
+  
+  <TabItem label="Fish">
+    ```fish
+    # Set for current session
+    set -x JPD_AGENT yarn
+    
+    # All jpd commands now use yarn by default
+    jpd install          # Uses yarn
+    jpd run dev          # Uses yarn
+    
+    # Clear the override
+    set -e JPD_AGENT
+    ```
+  </TabItem>
+  
+  <TabItem label="PowerShell">
+    ```powershell
+    # Set for current session
+    $env:JPD_AGENT = "yarn"
+    
+    # All jpd commands now use yarn by default
+    jpd install          # Uses yarn
+    jpd run dev          # Uses yarn
+    
+    # Clear the override
+    Remove-Item Env:JPD_AGENT
+    ```
+  </TabItem>
+  
+  <TabItem label="Nushell">
+    ```nushell
+    # Set for current session
+    $env.JPD_AGENT = "yarn"
+    
+    # All jpd commands now use yarn by default
+    jpd install          # Uses yarn
+    jpd run dev          # Uses yarn
+    ```
+  </TabItem>
+</Tabs>
+
+### Persistent Environment Setup
+
+Add to your shell configuration file for permanent override:
+
+<Tabs>
+  <TabItem label="Bash (~/.bashrc)">
+    ```bash
+    # Always use pnpm as default
+    export JPD_AGENT=pnpm
+    ```
+  </TabItem>
+  
+  <TabItem label="Zsh (~/.zshrc)">
+    ```bash
+    # Always use pnpm as default  
+    export JPD_AGENT=pnpm
+    ```
+  </TabItem>
+  
+  <TabItem label="Fish (~/.config/fish/config.fish)">
+    ```fish
+    # Always use pnpm as default
+    set -x JPD_AGENT pnpm
+    ```
+  </TabItem>
+</Tabs>
+
+## Override Precedence
+
+jpd checks for package manager overrides in this order (highest to lowest priority):
+
+1. **Command-line flag**: `--agent yarn`
+2. **Environment variable**: `JPD_AGENT=yarn`  
+3. **Lock file detection**: `yarn.lock` → yarn
+4. **PATH detection**: First available package manager
+5. **Interactive prompt**: Ask user to install one
+
+### Example of Precedence
+
+```bash
+# Set environment default
+export JPD_AGENT=npm
+
+# This uses yarn (flag overrides environment)
+jpd install --agent yarn
+
+# This uses npm (environment variable)
+jpd install
+
+# This uses whatever is detected from lock files (if JPD_AGENT is unset)
+unset JPD_AGENT
+jpd install
+```
+
+## Validation and Error Handling
+
+### Invalid Agent Names
+
+jpd validates agent names and provides helpful error messages:
+
+```bash
+$ jpd install --agent invalid-pm
+
+Error: the agent flag is set the wrong way use one of these values instead [npm yarn pnpm bun deno]
+```
+
+### Supported Agents List
+
+jpd only accepts these exact values (case-sensitive):
+- `npm`
+- `yarn` 
+- `pnpm`
+- `bun`
+- `deno`
+
+### Agent Availability
+
+jpd doesn't check if the specified agent is installed. If you override to an unavailable package manager, you'll get the standard "command not found" error from your shell.
+
+## Practical Workflows
+
+### Project-Specific Overrides
+
+Use `.env` files for project-specific package manager preferences:
+
+```bash
+# In your project's .env file
+JPD_AGENT=pnpm
+
+# jpd automatically loads .env files
+jpd install  # Uses pnpm for this project
+```
+
+### CI/CD Pipeline Standardization
+
+Ensure consistent package manager usage in CI:
+
+```yaml
+# GitHub Actions
+- name: Install dependencies
+  run: jpd install --agent pnpm
+  env:
+    JPD_AGENT: pnpm  # Backup via environment
+
+- name: Run tests  
+  run: jpd run --agent pnpm test
+```
+
+### Development vs Production
+
+Use different package managers for different environments:
+
+```bash
+# Development - use fast local installs
+export JPD_AGENT=bun
+jpd install
+jpd run dev
+
+# Production builds - use npm for compatibility
+jpd install --agent npm --production
+jpd run --agent npm build
+```
+
+### Monorepo Mixed Usage
+
+Different packages in a monorepo might prefer different package managers:
+
+```bash
+# Frontend uses yarn
+jpd install --agent yarn --cwd ./apps/frontend/
+
+# Backend uses npm
+jpd install --agent npm --cwd ./apps/backend/
+
+# Shared packages use pnpm
+jpd install --agent pnpm --cwd ./packages/shared/
+```
+
+## Debugging Agent Selection
+
+### Check Current Agent
+
+See which package manager jpd would use:
+
+```bash
+jpd agent
+```
+
+### Debug Detection Process
+
+Use debug mode to see how jpd selects the package manager:
+
+```bash
+jpd install --debug
+
+# Shows detection process:
+# DEBUG Agent flag is set: yarn
+# DEBUG Package manager detected: yarn
+# DEBUG Executing command: yarn install
+```
+
+### Test Different Agents
+
+Quickly test which package managers are available:
+
+```bash
+jpd install --agent npm --dry-run 2>/dev/null && echo "npm available"
+jpd install --agent yarn --dry-run 2>/dev/null && echo "yarn available"  
+jpd install --agent pnpm --dry-run 2>/dev/null && echo "pnpm available"
+jpd install --agent bun --dry-run 2>/dev/null && echo "bun available"
+```
+
+<Aside type="note">
+  The `--dry-run` flag doesn't exist in jpd, but you can test package manager availability by checking their individual `--version` commands.
+</Aside>
+
+## Advanced Usage Patterns
+
+### Conditional Agent Selection
+
+Use shell logic to select agents based on conditions:
+
+```bash
+# Use yarn if available, fallback to npm
+if command -v yarn >/dev/null 2>&1; then
+  jpd install --agent yarn
+else
+  jpd install --agent npm
+fi
+
+# Use pnpm for large projects, npm for small ones
+if [ $(find . -name "node_modules" -prune -o -name "*.js" -print | wc -l) -gt 100 ]; then
+  jpd install --agent pnpm  # Better for large projects
+else
+  jpd install --agent npm   # Simpler for small projects
+fi
+```
+
+### Function Wrappers
+
+Create shell functions with preset agents:
+
+```bash
+# Add to your shell config
+function jpnpm() { jpd "$@" --agent npm; }
+function jpyarn() { jpd "$@" --agent yarn; }
+function jppnpm() { jpd "$@" --agent pnpm; }
+function jpbun() { jpd "$@" --agent bun; }
+
+# Usage
+jpnpm install lodash     # Always uses npm
+jpyarn run dev          # Always uses yarn
+jppnpm update           # Always uses pnpm
+```
+
+## See Also
+
+- **[Complete Commands Reference](/reference/commands/)** - Full `--agent` flag documentation  
+- **[Getting Started](/tutorial/getting-started/)** - Basic jpd usage patterns

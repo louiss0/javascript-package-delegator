@@ -1,0 +1,307 @@
+---
+title: Interactive install and uninstall
+description: Search the npm registry and interactively add or remove dependencies.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+jpd provides powerful interactive features that make package management more discoverable and user-friendly. Instead of remembering exact package names or manually listing dependencies to remove, you can use interactive modes to search, select, and manage packages visually.
+
+## Interactive Package Search
+
+### Basic Search Usage
+
+Use the `--search` or `-s` flag to search the npm registry interactively:
+
+```bash
+jpd install --search react
+jpd install -s lodash
+jpd install -s @types/node
+```
+
+### How Interactive Search Works
+
+1. **Enter your search term** when prompted
+2. **Browse search results** from the npm registry
+3. **Select packages** using checkboxes or keyboard navigation
+4. **jpd installs** your selected packages using the detected package manager
+
+### Example Workflow
+
+```bash
+$ jpd install -s react
+
+# jpd searches the npm registry and shows results like:
+┌─────────────────────────────────────────────────────────┐
+│ What packages do you want to install?                   │
+├─────────────────────────────────────────────────────────┤
+│ [ ] react@18.2.0                                       │
+│ [ ] react-dom@18.2.0                                   │
+│ [ ] react-router@6.8.1                                 │
+│ [ ] react-query@4.29.25                                │
+│ [ ] react-hook-form@7.43.9                             │
+│ [ ] react-testing-library@13.4.0                       │
+└─────────────────────────────────────────────────────────┘
+
+# Use arrow keys to navigate, space to select, enter to confirm
+# Selected packages: react@18.2.0, react-dom@18.2.0
+
+Installing selected packages...
+Using npm
+npm install react@18.2.0 react-dom@18.2.0
+```
+
+### Search Tips
+
+**Broad searches** help you discover related packages:
+```bash
+jpd install -s testing    # Finds vitest, jest, testing-library, etc.
+jpd install -s ui          # Finds various UI frameworks and components
+jpd install -s typescript # Finds TypeScript and related tooling
+```
+
+**Specific searches** when you know what you want:
+```bash
+jpd install -s "@types/react"     # Find TypeScript definitions
+jpd install -s "webpack-"        # Find webpack plugins
+jpd install -s "eslint-config-"  # Find ESLint configurations
+```
+
+## Interactive Script Selection
+
+When you run `jpd run` without specifying a script, jpd shows an interactive menu of available scripts:
+
+### Package.json Scripts
+
+```bash
+$ jpd run
+
+# jpd reads package.json and shows:
+┌─────────────────────────────────────────────────────────┐
+│ Select a task                                           │
+├─────────────────────────────────────────────────────────┤
+│   dev                                                   │
+│   build                                                 │
+│   test                                                  │
+│   lint                                                  │
+│   preview                                               │
+│   typecheck                                             │
+└─────────────────────────────────────────────────────────┘
+
+# Use arrow keys to select, enter to run
+# Selected: dev
+
+Using npm
+npm run dev
+```
+
+### Deno Tasks
+
+For Deno projects, jpd shows tasks from `deno.json`:
+
+```bash
+$ jpd run
+
+# jpd reads deno.json and shows:
+┌─────────────────────────────────────────────────────────┐
+│ Select a task                                           │
+├─────────────────────────────────────────────────────────┤
+│   start                                                 │
+│   dev                                                   │
+│   test                                                  │
+│   format                                                │
+│   check                                                 │
+└─────────────────────────────────────────────────────────┘
+
+# Selected: dev
+
+Using deno
+deno task dev
+```
+
+## Interactive Uninstall
+
+### Basic Interactive Uninstall
+
+Use the `--interactive` or `-i` flag to select packages for removal:
+
+```bash
+jpd uninstall -i
+jpd uninstall --interactive
+```
+
+### How Interactive Uninstall Works
+
+1. **jpd scans** your `package.json` dependencies and devDependencies
+2. **Shows a checklist** of all installed packages
+3. **You select** which packages to remove
+4. **jpd uninstalls** your selections using the detected package manager
+
+### Example Workflow
+
+```bash
+$ jpd uninstall -i
+
+# jpd reads package.json and shows:
+┌─────────────────────────────────────────────────────────┐
+│ What packages do you want to remove?                    │
+├─────────────────────────────────────────────────────────┤
+│ Dependencies:                                           │
+│ [ ] react@18.2.0                                       │
+│ [ ] react-dom@18.2.0                                   │
+│ [ ] lodash@4.17.21                                     │
+│                                                         │
+│ DevDependencies:                                        │
+│ [ ] @types/react@18.0.28                               │
+│ [ ] vitest@0.29.8                                      │
+│ [ ] typescript@4.9.5                                   │
+└─────────────────────────────────────────────────────────┘
+
+# Use arrow keys to navigate, space to select, enter to confirm
+# Selected packages: lodash@4.17.21, @types/react@18.0.28
+
+Removing selected packages...
+Using npm  
+npm uninstall lodash @types/react
+```
+
+### Targeted Uninstall
+
+You can also combine interactive mode with specific package names to filter the selection:
+
+```bash
+# Interactive uninstall but only show packages matching a pattern
+jpd uninstall -i lodash react
+```
+
+This would only show lodash and react-related packages in the interactive menu.
+
+## User Interface Details
+
+jpd uses [Charmbracelet Huh](https://github.com/charmbracelet/huh) for its terminal user interface, providing:
+
+### Navigation Controls
+
+- **Arrow keys** or **j/k** - Navigate up/down through options
+- **Space** - Toggle selection (multi-select modes)
+- **Enter** - Confirm selection and proceed
+- **Escape** or **Ctrl+C** - Cancel operation
+- **Tab** - Move between different sections (if applicable)
+
+### Visual Indicators
+
+- **[ ]** - Unselected checkbox
+- **[✓]** - Selected checkbox  
+- **>** - Current cursor position
+- **Bold text** - Currently highlighted option
+- **Dimmed text** - Unselected or disabled options
+
+### Accessibility Features
+
+- **Keyboard-only navigation** - No mouse required
+- **Clear visual hierarchy** - Easy to scan and understand
+- **Consistent interaction patterns** - Same controls across all jpd interactive features
+
+## Best Practices
+
+### Efficient Package Discovery
+
+**Start with broad searches** to explore options:
+```bash
+# Discover testing frameworks
+jpd install -s testing
+
+# Explore state management options  
+jpd install -s state
+
+# Find utility libraries
+jpd install -s util
+```
+
+**Refine with specific terms** once you know what you want:
+```bash
+# Once you know you want React Testing Library
+jpd install -s "@testing-library/react"
+```
+
+### Safe Dependency Management
+
+**Review selections carefully** before confirming:
+- Check package versions
+- Verify you're selecting the right packages
+- Consider whether packages should be dev dependencies
+
+**Use interactive uninstall for cleanup**:
+```bash
+# Regularly clean up unused dependencies
+jpd uninstall -i
+
+# Review and remove outdated @types packages
+jpd uninstall -i @types
+```
+
+### Development Workflow Integration
+
+**Combine with other jpd features**:
+```bash
+# Search and install in a specific project
+jpd install -s react --cwd ./packages/ui/
+
+# Interactive script running for unfamiliar projects
+cd new-project
+jpd run  # See what scripts are available
+
+# Debug interactive installations
+jpd install -s lodash --debug
+```
+
+## Terminal Compatibility
+
+### Supported Terminals
+
+jpd's interactive features work in most modern terminals:
+
+- **Linux**: GNOME Terminal, Konsole, xterm, Alacritty, Kitty
+- **macOS**: Terminal.app, iTerm2, Alacritty, Kitty  
+- **Windows**: Windows Terminal, PowerShell, Git Bash, WSL terminals
+
+### Terminal Requirements
+
+- **UTF-8 support** - For proper checkbox and arrow characters
+- **ANSI color support** - For syntax highlighting and visual cues
+- **Keyboard input handling** - For navigation and selection
+
+### Troubleshooting Display Issues
+
+If interactive features don't display correctly:
+
+```bash
+# Check terminal capabilities
+echo $TERM
+echo $COLORTERM
+
+# Force color output if needed
+FORCE_COLOR=1 jpd install -s react
+
+# Use alternative terminal if available
+# Most issues are resolved by using a modern terminal emulator
+```
+
+## Performance Considerations
+
+### Search Performance
+
+- **Network-dependent** - Search speed depends on npm registry response time
+- **Cached results** - Subsequent searches for the same term may be faster
+- **Timeout handling** - jpd will timeout gracefully if the registry is slow
+
+### Large Package Lists
+
+- **Efficient rendering** - UI handles hundreds of packages smoothly
+- **Keyboard navigation** - Faster than scrolling with mouse
+- **Search filtering** - Use more specific search terms for better performance
+
+## See Also
+
+- **[Complete Commands Reference](/reference/commands/)** - Full documentation for install and uninstall commands
+- **[Mental Model](/explanation/mental-model/)** - Understanding jpd's design philosophy

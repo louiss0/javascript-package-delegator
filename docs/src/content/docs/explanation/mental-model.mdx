@@ -1,0 +1,235 @@
+---
+title: Mental model (Why / What / How)
+description: Understand how jpd's root, subcommands, and flags map to Why, What, and How.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Understanding jpd's design philosophy helps you use the tool more effectively and predictably. jpd follows a clean **Why/What/How** mental model that makes the CLI intuitive and consistent.
+
+## The Why/What/How Framework
+
+jpd's command structure follows this logical hierarchy:
+
+### **Why** → Root Command: `jpd`
+
+The root command `jpd` represents the **Why** - your overall purpose or goal. In this case:
+
+> "I want a universal package manager interface that works across all JavaScript runtimes."
+
+When you type `jpd`, you're saying "I want to work with JavaScript packages, but I don't want to think about which specific package manager to use."
+
+### **What** → Subcommands
+
+Subcommands represent the **What** - the specific action or concept you want to work with:
+
+| Subcommand | What it represents | Purpose |
+|------------|-------------------|---------|
+| `install` | Package installation | Add dependencies to your project |
+| `run` | Script execution | Execute tasks defined in your project |
+| `exec` | Package execution | Run packages without installing them |
+| `update` | Package updates | Upgrade dependencies to newer versions |
+| `uninstall` | Package removal | Remove dependencies from your project |
+| `clean-install` | Clean installation | Install packages with frozen lockfiles (CI/CD) |
+| `agent` | Package manager detection | Show which package manager jpd detected |
+| `completion` | Shell completion | Generate tab completion scripts |
+
+Each subcommand is a **verb** (action) or **noun** (entity) that clearly describes what you're trying to accomplish.
+
+### **How** → Flags and Environment Variables
+
+Flags and environment variables represent the **How** - they modify how your action is executed:
+
+#### Global Flags (How to execute any command)
+
+| Flag | Purpose | Mental Model |
+|------|---------|--------------|
+| `--agent` / `-a` | Override package manager | "Do this, but force a specific tool" |
+| `--cwd` / `-C` | Change working directory | "Do this, but in a different location" |
+| `--debug` / `-d` | Enable debug logging | "Do this, but show me exactly what's happening" |
+
+#### Command-Specific Flags (How to modify specific actions)
+
+| Command | Flag | Purpose |
+|---------|------|---------|
+| `install` | `--dev` / `-D` | "Install this, but as a development dependency" |
+| `install` | `--global` / `-g` | "Install this, but globally" |
+| `install` | `--search` / `-s` | "Install this, but let me search for packages first" |
+| `uninstall` | `--interactive` / `-i` | "Uninstall this, but let me select what to remove" |
+| `run` | `--if-present` | "Run this, but only if the script exists" |
+
+#### Environment Variables (Session-wide How)
+
+| Variable | Purpose |
+|----------|---------|
+| `JPD_AGENT` | Set default package manager for the entire session |
+
+## Real-World Examples
+
+Let's see how this mental model works in practice:
+
+### Example 1: Basic Installation
+
+```bash
+jpd install lodash
+```
+
+- **Why**: "I want to use the universal package manager interface"
+- **What**: "To install a package"
+- **How**: "Using whatever package manager jpd detects"
+
+### Example 2: Development Dependency with Override
+
+```bash
+jpd install --dev --agent yarn vitest
+```
+
+- **Why**: "I want to use the universal package manager interface"
+- **What**: "To install a package"
+- **How**: "As a development dependency, using Yarn specifically"
+
+### Example 3: Running in a Subproject with Debug
+
+```bash
+jpd run --cwd ./packages/ui/ --debug build
+```
+
+- **Why**: "I want to use the universal package manager interface"
+- **What**: "To run a script"
+- **How**: "In a specific directory, showing me debug information"
+
+## Alignment with CLI Design Principles
+
+jpd's mental model aligns with well-established CLI design principles:
+
+### Predictability
+
+Once you understand the Why/What/How pattern, you can predict how new commands will work:
+
+- New **What** commands will be verbs or nouns describing actions/entities
+- New **How** flags will modify behavior without changing the core action
+- The **Why** (universal package management) remains constant
+
+### Composability
+
+Flags can be combined logically because they operate at the "How" level:
+
+```bash
+# Multiple "How" modifiers work together
+jpd install --dev --global --agent pnpm --debug typescript
+```
+
+### Discoverability
+
+The structure helps you discover functionality:
+
+- `jpd --help` shows all the "What" you can do
+- `jpd install --help` shows all the "How" for installation
+- Tab completion guides you through valid combinations
+
+## Consistent Help System
+
+jpd's help system reinforces the mental model:
+
+### Root Help (Why)
+
+```bash
+jpd --help
+```
+
+Shows the overall purpose and lists all available "What" actions.
+
+### Command Help (What + How)
+
+```bash
+jpd install --help
+```
+
+Shows what installation does and all the ways you can modify how it works.
+
+### Global Flags (How for Everything)
+
+Global flags like `--agent`, `--cwd`, and `--debug` work consistently across all commands because they modify "How" rather than "What".
+
+## Mental Model Benefits
+
+Understanding this structure provides several benefits:
+
+### 1. **Faster Learning**
+
+New users can quickly understand the command structure without memorizing each command individually.
+
+### 2. **Reduced Errors**
+
+The logical hierarchy makes it easier to construct valid commands and avoid syntax errors.
+
+### 3. **Better Automation**
+
+Scripts and CI/CD pipelines become more maintainable when the underlying logic is clear.
+
+### 4. **Easier Troubleshooting**
+
+When something goes wrong, you can systematically check:
+- Is the "Why" correct? (Are you using jpd appropriately?)
+- Is the "What" correct? (Is this the right action?)
+- Is the "How" correct? (Are the flags and environment set properly?)
+
+## Comparison with Other Tools
+
+Most package managers mix "What" and "How":
+
+```bash
+# Traditional approach - mixes what and how
+npm install --save-dev typescript
+yarn add --dev typescript
+pnpm add --save-dev typescript
+
+# jpd approach - clear separation
+jpd install --dev typescript
+```
+
+jpd's approach keeps the "What" (install) consistent while only changing the "How" (--dev flag and auto-detected package manager).
+
+## Advanced Usage Patterns
+
+Once you understand the mental model, advanced patterns become intuitive:
+
+### Session Configuration
+
+```bash
+export JPD_AGENT=yarn
+# All subsequent jpd commands use Yarn
+jpd install
+jpd run build
+jpd update
+```
+
+### Project-Specific Workflows
+
+```bash
+# Monorepo workflow - consistent "What", different "How"
+jpd install --cwd ./frontend/
+jpd install --cwd ./backend/
+jpd run --cwd ./frontend/ build
+jpd run --cwd ./backend/ test
+```
+
+### Debug-Driven Development
+
+```bash
+# Add --debug to any command to understand what's happening
+jpd install --debug
+jpd run --debug build
+jpd exec --debug create-react-app my-app
+```
+
+<Aside type="tip">
+  The mental model isn't just documentation - it's how jpd was actually designed. Understanding it will make you more effective with the tool and help you predict how new features will work.
+</Aside>
+
+## Next Steps
+
+Now that you understand jpd's mental model:
+
+- **[Complete Commands Reference](/reference/commands/)** - Browse all "What" actions and their "How" modifiers
+- **[Interactive Workflows](/how-to/interactive/)** - See the mental model in action with real examples

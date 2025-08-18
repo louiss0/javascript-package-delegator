@@ -1,0 +1,730 @@
+---
+title: Commands (all-in-one)
+description: Complete command reference for jpd in a single page, including global flags and environment variables.
+---
+
+import { Aside, Badge, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This page contains the complete reference for all jpd commands, global flags, and environment variables in a single location.
+
+## Global Usage
+
+### Syntax
+
+```bash
+jpd <command> [arguments] [flags]
+```
+
+### Global Flags
+
+These flags can be used with any command:
+
+| Flag | Short | Description | Example |
+|------|-------|-------------|---------|
+| `--agent` | `-a` | Override detected package manager | `jpd install --agent yarn` |
+| `--cwd` | `-C` | Run command in specified directory | `jpd install --cwd ./my-app/` |
+| `--debug` | `-d` | Enable debug logging | `jpd install --debug` |
+| `--help` | `-h` | Show help for command | `jpd install --help` |
+
+### Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `JPD_AGENT` | Set default package manager for session | `export JPD_AGENT=yarn` |
+
+### Volta Integration
+
+When Volta is detected on your system, jpd automatically uses it to run Node.js package manager commands, ensuring the correct Node.js version is used as defined by your Volta configuration.
+
+<Aside type="note">
+  jpd automatically detects Volta and uses it when available. You don't need to configure anything special.
+</Aside>
+
+---
+
+## install <Badge text="Aliases: i, add" variant="tip" />
+
+Install packages using the detected package manager.
+
+### Usage
+
+```bash
+jpd install [packages...] [flags]
+```
+
+### Flags
+
+| Flag | Short | Description | Package Manager Support |
+|------|-------|-------------|------------------------|
+| `--dev` | `-D` | Install as development dependency | All |
+| `--global` | `-g` | Install globally | npm, yarn, pnpm, bun |
+| `--production` | `-P` | Install only production dependencies | All |
+| `--frozen` | | Use frozen lockfile | All |
+| `--search` | `-s` | Interactive package search | All |
+| `--no-volta` | | Skip Volta even if detected | All |
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd install
+    npm install
+    
+    # jpd install lodash
+    npm install lodash
+    
+    # jpd install -D vitest
+    npm install --save-dev vitest
+    
+    # jpd install -g typescript
+    npm install --global typescript
+    
+    # jpd install --production
+    npm install --omit=dev
+    
+    # jpd install --frozen
+    npm install --package-lock-only
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn">
+    ```bash
+    # jpd install
+    yarn install
+    
+    # jpd install lodash
+    yarn add lodash
+    
+    # jpd install -D vitest
+    yarn add --dev vitest
+    
+    # jpd install -g typescript
+    yarn add --global typescript
+    
+    # jpd install --production
+    yarn install --production
+    
+    # jpd install --frozen
+    yarn install --frozen-lockfile
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd install
+    pnpm install
+    
+    # jpd install lodash
+    pnpm add lodash
+    
+    # jpd install -D vitest
+    pnpm add --save-dev vitest
+    
+    # jpd install -g typescript
+    pnpm add --global typescript
+    
+    # jpd install --production
+    pnpm install --prod
+    
+    # jpd install --frozen
+    pnpm install --frozen-lockfile
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd install
+    bun install
+    
+    # jpd install lodash
+    bun add lodash
+    
+    # jpd install -D vitest
+    bun add --development vitest
+    
+    # jpd install -g typescript
+    bun add --global typescript
+    
+    # jpd install --production
+    bun install --production
+    
+    # jpd install --frozen
+    bun install --frozen-lockfile
+    ```
+  </TabItem>
+</Tabs>
+
+### Interactive Search
+
+Use the `--search` flag to search the npm registry interactively:
+
+```bash
+jpd install --search react
+jpd install -s lodash
+```
+
+This opens a terminal UI where you can search for packages and select which ones to install.
+
+---
+
+## run <Badge text="Alias: r" variant="tip" />
+
+Run scripts defined in `package.json` or tasks in `deno.json`.
+
+### Usage
+
+```bash
+jpd run [script] [args...] [flags]
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--if-present` | Only run script if it exists |
+
+### Interactive Selection
+
+When no script name is provided, jpd shows an interactive menu:
+
+```bash
+# Shows list of available scripts to choose from
+jpd run
+```
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd run dev
+    npm run dev
+    
+    # jpd run build --prod
+    npm run build -- --prod
+    
+    # jpd run test --if-present
+    npm run --if-present test
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn">
+    ```bash
+    # jpd run dev
+    yarn run dev
+    
+    # jpd run build --prod
+    yarn run build --prod
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd run dev
+    pnpm run dev
+    
+    # jpd run build --prod
+    pnpm run build -- --prod
+    
+    # jpd run test --if-present
+    pnpm run --if-present test
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd run dev
+    bun run dev
+    
+    # jpd run build --prod
+    bun run build --prod
+    ```
+  </TabItem>
+  
+  <TabItem label="deno">
+    ```bash
+    # jpd run dev
+    deno task dev
+    
+    # jpd run build --prod
+    deno task build --prod
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## exec <Badge text="Alias: e" variant="tip" />
+
+Execute packages using the detected package manager's executor.
+
+### Usage
+
+```bash
+jpd exec <package> [args...]
+```
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd exec create-react-app my-app
+    npx create-react-app my-app
+    
+    # jpd exec typescript --version
+    npx typescript --version
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v1">
+    ```bash
+    # jpd exec create-react-app my-app
+    yarn create-react-app my-app
+    
+    # jpd exec typescript --version
+    yarn typescript --version
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v2+">
+    ```bash
+    # jpd exec create-react-app my-app
+    yarn dlx create-react-app my-app
+    
+    # jpd exec typescript --version
+    yarn dlx typescript --version
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd exec create-react-app my-app
+    pnpm dlx create-react-app my-app
+    
+    # jpd exec typescript --version
+    pnpm dlx typescript --version
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd exec create-react-app my-app
+    bunx create-react-app my-app
+    
+    # jpd exec typescript --version
+    bunx typescript --version
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution">
+  Deno doesn't have a direct equivalent to `dlx`/`npx`. The `exec` command will return an error when used with Deno projects.
+</Aside>
+
+### Yarn Version Detection
+
+jpd automatically detects whether you're using Yarn v1 (Classic) or Yarn v2+ (Berry) and uses the appropriate command:
+
+- **Yarn v1**: Uses `yarn <package>` directly
+- **Yarn v2+**: Uses `yarn dlx <package>`
+
+---
+
+## dlx
+
+Dedicated package-runner command that behaves identically to `exec` but provides a separate command for clarity.
+
+### Usage
+
+```bash
+jpd dlx <package> [args...]
+```
+
+This command is functionally identical to `jpd exec` but provides a dedicated entry point for package execution workflows.
+
+---
+
+## update <Badge text="Aliases: u, up, upgrade" variant="tip" />
+
+Update packages to their latest compatible versions.
+
+### Usage
+
+```bash
+jpd update [packages...]
+```
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd update
+    npm update
+    
+    # jpd update lodash
+    npm update lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn">
+    ```bash
+    # jpd update
+    yarn upgrade
+    
+    # jpd update lodash
+    yarn upgrade lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd update
+    pnpm update
+    
+    # jpd update lodash
+    pnpm update lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd update
+    bun update
+    
+    # jpd update lodash
+    bun update lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="deno">
+    ```bash
+    # jpd update
+    deno outdated
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## uninstall <Badge text="Aliases: un, remove, rm" variant="tip" />
+
+Remove packages from your project.
+
+### Usage
+
+```bash
+jpd uninstall [packages...] [flags]
+```
+
+### Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--interactive` | `-i` | Interactive package selection |
+
+### Interactive Mode
+
+Use the `-i` flag to select packages to remove interactively:
+
+```bash
+jpd uninstall -i
+```
+
+This shows a list of installed dependencies that you can select for removal.
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd uninstall lodash
+    npm uninstall lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn">
+    ```bash
+    # jpd uninstall lodash
+    yarn remove lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd uninstall lodash
+    pnpm remove lodash
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd uninstall lodash
+    bun remove lodash
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## clean-install <Badge text="Alias: ci" variant="tip" />
+
+Perform a clean installation with frozen lockfiles, ideal for CI/CD environments.
+
+### Usage
+
+```bash
+jpd clean-install
+```
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd clean-install
+    npm ci
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v1">
+    ```bash
+    # jpd clean-install
+    yarn install --frozen-lockfile
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v2+">
+    ```bash
+    # jpd clean-install
+    yarn install --immutable
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd clean-install
+    pnpm install --frozen-lockfile
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd clean-install
+    bun install --frozen-lockfile
+    ```
+  </TabItem>
+</Tabs>
+
+### Yarn Version Handling
+
+jpd intelligently handles different Yarn versions:
+
+- **Yarn v1**: Uses `--frozen-lockfile` flag
+- **Yarn v2+**: Uses `--immutable` flag
+
+The version is detected automatically by running `yarn --version`.
+
+---
+
+## agent <Badge text="Alias: a" variant="tip" />
+
+Display the detected package manager for the current project.
+
+### Usage
+
+```bash
+jpd agent
+```
+
+### Output Examples
+
+```bash
+$ jpd agent
+npm
+
+$ jpd agent
+yarn
+
+$ jpd agent
+pnpm
+```
+
+This command is useful for:
+- Debugging package manager detection
+- Scripting and automation
+- Understanding which package manager jpd will use
+
+---
+
+## completion
+
+Generate shell completion scripts for jpd commands.
+
+### Usage
+
+```bash
+jpd completion <shell> [flags]
+```
+
+### Supported Shells
+
+- `bash`
+- `zsh`
+- `fish`
+- `powershell`
+- `nushell`
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--output` | Write completion to file (Nushell only) |
+
+### Installation Examples
+
+<Tabs>
+  <TabItem label="Bash">
+    ```bash
+    # System-wide installation
+    jpd completion bash > /etc/bash_completion.d/jpd
+    
+    # User installation
+    jpd completion bash > ~/.bash_completion.d/jpd
+    
+    # Add to .bashrc
+    echo 'source <(jpd completion bash)' >> ~/.bashrc
+    ```
+  </TabItem>
+  
+  <TabItem label="Zsh">
+    ```bash
+    # Add to .zshrc
+    echo 'autoload -U compinit; compinit' >> ~/.zshrc
+    jpd completion zsh > ~/.zsh/completions/_jpd
+    
+    # Or use Oh My Zsh
+    jpd completion zsh > ~/.oh-my-zsh/completions/_jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="Fish">
+    ```bash
+    jpd completion fish > ~/.config/fish/completions/jpd.fish
+    ```
+  </TabItem>
+  
+  <TabItem label="PowerShell">
+    ```powershell
+    jpd completion powershell | Out-String | Invoke-Expression
+    
+    # Add to profile
+    jpd completion powershell >> $PROFILE
+    ```
+  </TabItem>
+  
+  <TabItem label="Nushell">
+    ```bash
+    # Generate completion file
+    jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
+    
+    # Add to config.nu or env.nu
+    echo 'source ~/.config/nushell/completions/jpd_completions.nu' >> ~/.config/nushell/config.nu
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Debug Mode
+
+Enable verbose logging with the `--debug` flag to see exactly what commands jpd is executing:
+
+```bash
+jpd install --debug
+jpd run build --debug
+jpd exec create-react-app my-app --debug
+```
+
+### Debug Output
+
+Debug mode shows:
+- Package manager detection process
+- Lock file analysis
+- Volta detection status
+- Exact commands being executed
+- Command execution results
+
+Example debug output:
+```
+DEBUG Package manager detection started
+DEBUG Lock file detected: package-lock.json
+DEBUG Package manager detected: npm
+DEBUG Volta detected: true
+DEBUG Executing command: npm install
+INFO Using npm
+```
+
+---
+
+## Working Directory (--cwd)
+
+The `--cwd` flag allows you to run jpd commands in a different directory without changing your shell's working directory.
+
+### Usage
+
+```bash
+jpd <command> --cwd <path> [args...]
+```
+
+### Path Requirements
+
+<Aside type="caution" title="Trailing Slash Required">
+  The `--cwd` flag requires paths to end with `/` except for the root directory `/`.
+</Aside>
+
+### Examples
+
+```bash
+# Install dependencies in a subdirectory
+jpd install --cwd ./my-frontend-app/
+
+# Run build script in a package
+jpd run --cwd ./packages/ui/ build
+
+# Root directory (no trailing slash needed)
+jpd install --cwd /
+
+# Invalid - missing trailing slash
+jpd install --cwd ./my-app  # ❌ Error
+
+# Valid - with trailing slash
+jpd install --cwd ./my-app/ # ✅ OK
+```
+
+### CI Build Behavior
+
+When jpd is compiled with the CI build flag (`-ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"`), the trailing slash requirement is relaxed:
+
+```bash
+# In CI mode, both work:
+jpd install --cwd ./my-app   # ✅ OK in CI
+jpd install --cwd ./my-app/  # ✅ OK always
+```
+
+### Use Cases
+
+- **Monorepos**: Run commands in different workspaces
+- **Build scripts**: Execute commands in subdirectories without `cd`
+- **CI/CD**: Install dependencies in specific project folders
+- **Development**: Test commands in different project structures
+
+---
+
+## See Also
+
+- **[Getting Started Tutorial](/tutorial/getting-started/)** - Learn jpd basics
+- **[Interactive Workflows](/how-to/interactive/)** - Master search and selection features
+- **[Mental Model](/explanation/mental-model/)** - Learn the Why/What/How design philosophy

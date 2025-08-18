@@ -1,0 +1,250 @@
+---
+title: Getting started
+description: Install jpd, detect your project's package manager, and run common tasks.
+---
+
+import { Steps, Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Welcome to jpd! This tutorial will get you up and running in just a few minutes. By the end, you'll understand how to install jpd, detect your package manager, and use the most common commands.
+
+## Installation
+
+jpd is distributed as a single binary and can be installed via popular package managers:
+
+<Tabs>
+  <TabItem label="macOS/Linux (Homebrew)">
+    ```bash
+    brew install louiss0/tap/jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="Windows (Scoop)">
+    ```bash
+    scoop bucket add louiss0 https://github.com/louiss0/scoop-bucket.git
+    scoop install jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="Windows (Winget)">
+    ```bash
+    winget install jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="Windows (Chocolatey)">
+    ```bash
+    choco install jpd
+    ```
+  </TabItem>
+  
+  <TabItem label="Manual Installation">
+    1. Visit the [releases page](https://github.com/louiss0/javascript-package-delegator/releases)
+    2. Download the appropriate binary for your operating system:
+       - `jpd-linux-amd64` for Linux x64
+       - `jpd-darwin-amd64` for macOS Intel
+       - `jpd-darwin-arm64` for macOS Apple Silicon
+       - `jpd-windows-amd64.exe` for Windows x64
+    3. Rename the binary to `jpd` (or `jpd.exe` on Windows)
+    4. Make it executable: `chmod +x jpd` (Linux/macOS)
+    5. Move it to a directory in your PATH (e.g., `/usr/local/bin`, `~/bin`)
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+  Once installed, run `jpd --version` to verify the installation was successful.
+</Aside>
+
+## Basic Workflow
+
+<Steps>
+
+1. **Detect your package manager**
+
+   Navigate to any JavaScript project and run:
+   
+   ```bash
+   jpd agent
+   ```
+   
+   This shows which package manager jpd detected for your project. It will show something like `npm`, `yarn`, `pnpm`, `bun`, or `deno`.
+
+2. **Install dependencies**
+
+   Instead of remembering whether to run `npm install`, `yarn install`, or `pnpm install`, just run:
+   
+   ```bash
+   jpd install
+   ```
+   
+   jpd automatically delegates to the correct package manager based on your project's lock files.
+
+3. **Run scripts interactively**
+
+   To see all available scripts and select one:
+   
+   ```bash
+   jpd run
+   ```
+   
+   Or run a specific script directly:
+   
+   ```bash
+   jpd run dev
+   jpd run build
+   jpd run test
+   ```
+
+4. **Execute packages**
+
+   Instead of `npx`, `yarn dlx`, `pnpm dlx`, or `bunx`:
+   
+   ```bash
+   jpd exec create-react-app my-app
+   jpd exec typescript --version
+   jpd exec prettier --check .
+   ```
+
+</Steps>
+
+## Common Tasks
+
+### Adding Dependencies
+
+Add packages to your project:
+
+```bash
+# Add a regular dependency
+jpd install lodash
+
+# Add a development dependency  
+jpd install -D vitest
+
+# Add multiple packages
+jpd install react react-dom
+```
+
+<Aside type="note">
+  jpd automatically uses the correct flags for each package manager:
+  - npm: `--save-dev`
+  - yarn: `--dev` 
+  - pnpm: `--save-dev`
+  - bun: `--development`
+</Aside>
+
+### Interactive Package Search
+
+Search the npm registry and select packages interactively:
+
+```bash
+jpd install -s react
+```
+
+This opens an interactive interface where you can search for packages and select which ones to install.
+
+### Updating Dependencies
+
+Update all dependencies to their latest compatible versions:
+
+```bash
+jpd update
+```
+
+### Removing Dependencies
+
+Remove packages from your project:
+
+```bash
+# Remove specific packages
+jpd uninstall lodash
+
+# Interactive removal - select packages to remove
+jpd uninstall -i
+```
+
+### Clean Install for CI/CD
+
+Perform a clean installation with frozen lockfiles (ideal for CI environments):
+
+```bash
+jpd clean-install
+```
+
+This maps to the appropriate command for each package manager:
+- npm: `npm ci`
+- yarn v1: `yarn install --frozen-lockfile`
+- yarn v2+: `yarn install --immutable`
+- pnpm: `pnpm install --frozen-lockfile`
+- bun: `bun install --frozen-lockfile`
+
+## Advanced Usage
+
+### Override the Agent
+
+Sometimes you might want to force a specific package manager:
+
+```bash
+# Use yarn even if npm is detected
+jpd install --agent yarn
+
+# Set for entire session
+export JPD_AGENT=yarn
+jpd install
+```
+
+### Run Commands in Subprojects
+
+Execute commands in different directories without changing your shell's working directory:
+
+```bash
+# Install dependencies in a subdirectory
+jpd install --cwd ./my-frontend-app/
+
+# Run build script in a subdirectory
+jpd run --cwd ./packages/ui/ build
+```
+
+<Aside type="caution" title="Trailing Slash Requirement">
+  The `--cwd` flag requires paths to end with `/` (except for root `/`). In CI builds compiled with the CI flag, both `path` and `path/` are accepted.
+</Aside>
+
+### Debug Mode
+
+See exactly what commands jpd is executing:
+
+```bash
+jpd install --debug
+jpd run build --debug
+```
+
+This shows detailed logging about package manager detection and the actual commands being run.
+
+### Shell Completion
+
+Enable tab completion for your shell:
+
+```bash
+# Bash
+jpd completion bash > /etc/bash_completion.d/jpd
+
+# Zsh (add to .zshrc)
+jpd completion zsh > ~/.zsh/completions/_jpd
+
+# Fish
+jpd completion fish > ~/.config/fish/completions/jpd.fish
+
+# Nushell (with output flag)
+jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
+```
+
+## What's Next?
+
+Now that you've mastered the basics, explore these advanced topics:
+
+- **[Interactive Workflows](/how-to/interactive/)** - Learn about interactive package search and dependency management
+- **[Working with Subprojects](/how-to/run-in-subproject/)** - Master the `--cwd` flag for monorepos
+- **[Agent Override](/how-to/agent/)** - Control which package manager to use
+- **[Complete Command Reference](/reference/commands/)** - Browse all available commands and flags
+
+<Aside>
+  **Having trouble?** Use the `jpd agent` command to see which package manager jpd detected, or try the `--debug` flag to see detailed detection information.
+</Aside>

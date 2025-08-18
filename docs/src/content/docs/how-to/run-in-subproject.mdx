@@ -1,0 +1,296 @@
+---
+title: Run in a subproject with --cwd
+description: Execute jpd commands in a different directory without changing your shell's cwd.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The `--cwd` flag is one of jpd's most powerful features for working with complex project structures. It allows you to execute commands in any directory without changing your shell's current working directory.
+
+## Why Use --cwd?
+
+### Monorepos
+
+Modern JavaScript projects often use monorepo structures with multiple packages:
+
+```
+my-monorepo/
+├── apps/
+│   ├── web/          # React frontend
+│   └── mobile/       # React Native app
+├── packages/
+│   ├── ui/           # Shared UI components  
+│   ├── utils/        # Shared utilities
+│   └── config/       # Shared configuration
+└── tools/
+    └── build/        # Build scripts
+```
+
+Instead of constantly using `cd` to navigate between projects, you can use `--cwd` to run commands from anywhere:
+
+```bash
+# From the monorepo root, install deps in all subprojects
+jpd install --cwd ./apps/web/
+jpd install --cwd ./apps/mobile/
+jpd install --cwd ./packages/ui/
+jpd install --cwd ./packages/utils/
+```
+
+### Build Scripts and Automation
+
+When writing build scripts or CI/CD pipelines, `--cwd` lets you maintain a single working directory while operating on multiple projects:
+
+```bash
+#!/bin/bash
+# build-all.sh - stays in monorepo root
+
+echo "Building all packages..."
+jpd run --cwd ./packages/ui/ build
+jpd run --cwd ./packages/utils/ build
+jpd run --cwd ./apps/web/ build
+echo "All builds complete!"
+```
+
+### Development Workflows
+
+During development, you can quickly run commands in related projects without losing your current context:
+
+```bash
+# Working in the main app, need to test a dependency
+pwd  # /home/user/my-monorepo/apps/web
+
+# Test the shared UI package without changing directories
+jpd run --cwd ./../../packages/ui/ test
+
+pwd  # Still /home/user/my-monorepo/apps/web
+```
+
+## Path Requirements
+
+<Aside type="caution" title="Trailing Slash Required">
+  The `--cwd` flag requires paths to end with `/` except for the root directory `/`.
+</Aside>
+
+### Valid Path Examples
+
+```bash
+# ✅ Correct - relative paths with trailing slash
+jpd install --cwd ./my-app/
+jpd run --cwd ./packages/ui/ build
+jpd exec --cwd ./frontend/ create-react-app new-component
+
+# ✅ Correct - absolute paths with trailing slash  
+jpd install --cwd /home/user/projects/my-app/
+jpd run --cwd /opt/apps/frontend/ dev
+
+# ✅ Correct - root directory (special case, no trailing slash)
+jpd install --cwd /
+```
+
+### Invalid Path Examples
+
+```bash
+# ❌ Wrong - missing trailing slash
+jpd install --cwd ./my-app
+jpd run --cwd ./packages/ui build
+
+# ❌ Wrong - these will produce validation errors
+jpd exec --cwd /home/user/projects/my-app create-react-app
+```
+
+## CI Build Flag Behavior
+
+In CI environments, path validation can be relaxed by compiling jpd with the CI build flag:
+
+```bash
+# How to build jpd in CI mode
+go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true" -o jpd
+```
+
+When compiled in CI mode:
+
+<Tabs>
+  <TabItem label="Normal Mode">
+    ```bash
+    # Only trailing slash paths work
+    jpd install --cwd ./my-app/   # ✅ OK
+    jpd install --cwd ./my-app    # ❌ Error
+    ```
+  </TabItem>
+  
+  <TabItem label="CI Mode">
+    ```bash
+    # Both formats work
+    jpd install --cwd ./my-app/   # ✅ OK  
+    jpd install --cwd ./my-app    # ✅ OK
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="note">
+  The CI mode relaxation only affects `--cwd` path validation. All other functionality remains identical.
+</Aside>
+
+## Real-World Examples
+
+### Monorepo Package Management
+
+```bash
+# Install dependencies for all packages from root
+jpd install --cwd ./packages/shared/
+jpd install --cwd ./packages/client/
+jpd install --cwd ./packages/server/
+
+# Add a dev dependency to the client package
+jpd install --cwd ./packages/client/ --dev vitest
+
+# Update dependencies in the server package
+jpd update --cwd ./packages/server/
+```
+
+### Cross-Project Development
+
+```bash
+# Test the impact of changes across multiple projects
+jpd run --cwd ./packages/ui/ test
+jpd run --cwd ./apps/dashboard/ test  
+jpd run --cwd ./apps/mobile/ test
+
+# Build packages in dependency order
+jpd run --cwd ./packages/utils/ build
+jpd run --cwd ./packages/ui/ build      # depends on utils
+jpd run --cwd ./apps/web/ build         # depends on ui + utils
+```
+
+### CI/CD Pipeline Usage
+
+```yaml
+# GitHub Actions example
+steps:
+  - name: Install dependencies for all packages
+    run: |
+      jpd install --cwd ./packages/core/
+      jpd install --cwd ./packages/plugins/
+      jpd install --cwd ./apps/web/
+      
+  - name: Run tests for all packages  
+    run: |
+      jpd run --cwd ./packages/core/ test
+      jpd run --cwd ./packages/plugins/ test
+      jpd run --cwd ./apps/web/ test
+      
+  - name: Build for production
+    run: |
+      jpd run --cwd ./packages/core/ build
+      jpd run --cwd ./packages/plugins/ build  
+      jpd run --cwd ./apps/web/ build
+```
+
+### Development Server Management
+
+```bash
+# Start multiple development servers from a single terminal
+jpd run --cwd ./apps/api/ dev &        # Backend on port 3001
+jpd run --cwd ./apps/web/ dev &        # Frontend on port 3000  
+jpd run --cwd ./apps/admin/ dev &      # Admin panel on port 3002
+
+# All servers running, you can monitor logs or stop them as needed
+wait  # Wait for all background processes
+```
+
+## Troubleshooting
+
+### Common Path Issues
+
+**Problem**: "target directory is not a directory"
+```bash
+jpd install --cwd ./nonexistent/
+# Error: target directory ./nonexistent/ is not a directory
+```
+
+**Solution**: Ensure the directory exists before running the command.
+
+**Problem**: "no command set to run"  
+```bash
+jpd --cwd ./packages/ui/ install  # Wrong order
+```
+
+**Solution**: Global flags must come after the command:
+```bash
+jpd install --cwd ./packages/ui/  # Correct order
+```
+
+### Package Manager Detection
+
+When using `--cwd`, jpd detects the package manager in the target directory, not your current directory:
+
+```bash
+# Your current directory has package-lock.json (npm)
+# But ./packages/ui/ has yarn.lock (yarn)
+
+jpd install --cwd ./packages/ui/
+# jpd will use yarn, not npm, because it looks in ./packages/ui/
+```
+
+### Relative vs Absolute Paths
+
+```bash
+# Relative paths are resolved from your current working directory
+pwd  # /home/user/monorepo/apps/web
+jpd install --cwd ../../packages/ui/   # Goes to /home/user/monorepo/packages/ui/
+
+# Absolute paths work from anywhere
+jpd install --cwd /home/user/monorepo/packages/ui/
+```
+
+## Advanced Patterns
+
+### Batch Operations
+
+```bash
+# Use shell loops for repetitive operations
+for project in apps/*/; do
+  echo "Installing dependencies in $project"
+  jpd install --cwd "./$project"
+done
+
+# Or with specific projects
+projects=("packages/ui/" "packages/utils/" "apps/web/")
+for project in "${projects[@]}"; do
+  jpd run --cwd "./$project" test
+done
+```
+
+### Conditional Execution
+
+```bash
+# Only run if package.json exists in target directory
+if [ -f "./packages/ui/package.json" ]; then
+  jpd install --cwd ./packages/ui/
+fi
+
+# Run different commands based on detected package manager
+if jpd agent --cwd ./packages/ui/ | grep -q "yarn"; then
+  echo "Using Yarn in UI package"
+else
+  echo "Using npm in UI package"  
+fi
+```
+
+### Error Handling
+
+```bash
+# Capture and handle errors appropriately
+if ! jpd install --cwd ./packages/ui/; then
+  echo "Failed to install dependencies in UI package"
+  exit 1
+fi
+
+# Continue on error for non-critical operations
+jpd run --cwd ./packages/ui/ lint || echo "Linting failed, continuing..."
+```
+
+## See Also
+
+- **[Complete Commands Reference](/reference/commands/#working-directory---cwd)** - Full `--cwd` documentation
+- **[Interactive Workflows](/how-to/interactive/)** - Combine `--cwd` with interactive features

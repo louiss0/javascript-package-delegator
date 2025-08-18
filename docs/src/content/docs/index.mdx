@@ -1,0 +1,121 @@
+---
+title: javascript-package-delegator (jpd)
+description: A universal JavaScript package manager CLI that delegates to npm, Yarn, pnpm, Bun, and Deno.
+template: splash
+hero:
+  title: |
+    javascript-package-delegator
+    <span class="text-accent">(jpd)</span>
+  tagline: A universal JavaScript package manager CLI written in Go that automatically detects and delegates to npm, Yarn, pnpm, Bun, and Deno.
+  actions:
+    - text: Get started
+      link: /tutorial/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View commands
+      link: /reference/commands/
+      icon: external
+---
+
+import { Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+<div style="text-align: center; margin-bottom: 2rem;">
+  <Badge text="Documentation for jpd v1.1.0" variant="note" />
+</div>
+
+## What is jpd?
+
+**javascript-package-delegator (jpd)** is a powerful CLI tool that eliminates the friction of working across JavaScript projects with different package managers. Instead of remembering whether a project uses `npm install`, `yarn add`, `pnpm add`, or `bun add`, you simply use `jpd install` and let the tool figure out the rest.
+
+Inspired by [@antfu/ni](https://github.com/antfu/ni), jpd automatically detects your project's package manager by analyzing lock files and configuration, then transparently delegates commands to the appropriate tool. This creates a **unified development experience** that's especially valuable for:
+
+- **Teams with diverse preferences** (some prefer npm, others prefer pnpm)
+- **Polyglot developers** switching between Node.js and Deno projects  
+- **Monorepos** with different package managers in different workspaces
+- **Open source contributors** working across many different projects
+
+## Key Features
+
+<CardGrid>
+  <Card title="Automatic Detection" icon="magnifier">
+    Intelligently identifies package managers by checking for `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lockb`, `deno.json`, and more.
+  </Card>
+  
+  <Card title="Unified Commands" icon="rocket">
+    One consistent API for install, run, exec, update, uninstall, and clean-install across all supported package managers.
+  </Card>
+  
+  <Card title="Interactive Workflows" icon="puzzle">
+    Search npm registry interactively, select scripts/tasks from a menu, and choose dependencies to uninstall with built-in UI.
+  </Card>
+  
+  <Card title="Volta Integration" icon="setting">
+    Automatically uses Volta when detected to ensure consistent Node.js versions across your environments.
+  </Card>
+  
+  <Card title="Shell Completion" icon="open-book">
+    Generate completion scripts for Bash, Zsh, Fish, PowerShell, and Nushell to boost productivity and reduce errors.
+  </Card>
+  
+  <Card title="Debug Mode" icon="information">
+    Built-in debugging with `--debug` flag shows exactly what commands are being executed behind the scenes.
+  </Card>
+</CardGrid>
+
+## Supported Package Managers
+
+jpd seamlessly works with all major JavaScript package managers:
+
+- **npm** - The default Node.js package manager
+- **Yarn** - Both v1 (Classic) and v2+ (Berry) with intelligent version detection
+- **pnpm** - Fast, disk space efficient package manager
+- **Bun** - All-in-one JavaScript runtime and toolkit
+- **Deno** - Secure runtime with built-in TypeScript support
+
+## Quick Start
+
+Get up and running in under a minute:
+
+```bash
+# Install jpd
+brew install louiss0/tap/jpd
+
+# Detect your project's package manager
+jpd agent
+
+# Install dependencies (equivalent to npm/yarn/pnpm/bun install)
+jpd install
+
+# Run a script interactively
+jpd run
+```
+
+## Mental Model
+
+jpd follows a clean **Why/What/How** CLI design:
+
+- **Why** (Root): `jpd` represents the universal package manager interface
+- **What** (Subcommands): `install`, `run`, `exec`, `update`, etc. represent the actions you want to take
+- **How** (Flags): `--agent`, `--cwd`, `--debug` modify how those actions are executed
+
+This design makes jpd predictable and easy to learn, whether you're a newcomer or switching from existing tools.
+
+## Next Steps
+
+<CardGrid>
+  <Card title="Tutorial" icon="rocket">
+    [Get started](/tutorial/getting-started/) with installation and basic usage patterns.
+  </Card>
+  
+  <Card title="How-to Guides" icon="list-format">
+    Learn specific techniques like [running commands in subprojects](/how-to/run-in-subproject/) and [interactive workflows](/how-to/interactive/).
+  </Card>
+  
+  <Card title="Commands Reference" icon="document">
+    Browse the complete [command reference](/reference/commands/) with all flags and examples.
+  </Card>
+  
+  <Card title="Mental Model" icon="puzzle">
+    Understand the [design philosophy](/explanation/mental-model/) behind jpd's CLI structure.
+  </Card>
+</CardGrid>
