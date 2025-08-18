@@ -19,16 +19,15 @@ builds:
 
       # Inject CLI_VERSION using the Git tag
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawCLI_VERSION
-      - "-X '{{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}'"
+      - -X {{ .ModulePath }}/build_info.rawCLI_VERSION={{ .Version }}
 
       # Inject GO_MODE, forcing it to "production" for release builds
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawGO_MODE
-      - "-X '{{ .ModulePath }}/build_info.rawGO_MODE=production'"
+      - -X {{ .ModulePath }}/build_info.rawGO_MODE=production
 
-      # Inject BUILD_DATE using the release date, formatted as YYYY-MM-DD (time.DateOnly)
-      # .Date is RFC3339, so we need to reformat it to match your build_info.go validation.
+      # Inject BUILD_DATE using the release date (RFC3339 format)
       # Target: github.com/louiss0/javascript-package-delegator/build_info.rawBUILD_DATE
-      - "-X {{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date }}"
+      - -X {{ .ModulePath }}/build_info.rawBUILD_DATE={{ .Date }}
 
 archives:
   - formats: [tar.gz]
@@ -55,7 +54,7 @@ winget:
     #
     # Templates: allowed.
     # Required
-    publisher: Shelton Louis
+    publisher: the-code-fixer-23
 
     # Your app's description.
     #
@@ -67,7 +66,7 @@ winget:
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
     # Default: 'manifests/<lowercased first char of publisher>/<publisher>/<name>/<version>'.
-    path: "manifests/t/the-code-fixer23/javascript-package-delegator/{{ .Version }}"
+    path: "manifests/t/the-code-fixer-23/javascript-package-delegator/{{ .Version }}"
 
     # License name.
     #
@@ -213,7 +212,7 @@ homebrew_casks:
       # Repository name.
       #
       # Templates: allowed.
-      name: homebrew-jpd
+      name: homebrew-the-code-fixer-23
 
       # Clone, create the file, commit and push, to a regular Git repository.
       #
@@ -232,7 +231,7 @@ scoops:
       name: louiss0
       email: louishelton0@gmail.com
 
-    shortcuts: [[javascript-package-delegator.exe, jpd]]
+    # shortcuts: [[javascript-package-delegator.exe, jpd]]  # Not needed for CLI tools
 
     # The project name and current git tag are used in the format string.
     #
@@ -351,7 +350,7 @@ nix:
       # Repository name.
       #
       # Templates: allowed.
-      name: javascript-package-delegator
+      name: the-code-fixer-23-nur
 
       # Optionally a branch can be provided.
       #
