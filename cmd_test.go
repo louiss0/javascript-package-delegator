@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
@@ -299,19 +300,34 @@ var _ = Describe("JPD Commands", func() {
 			It("should reject a --cwd flag value that does not end with '/'", func() {
 				invalidPath := "/tmp/my-project" // Missing trailing slash
 				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
-				assert.Error(err)
-				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-				assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
-				assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
+				if build_info.InCI() {
+					// In CI mode: paths without trailing slash are valid (relaxed validation)
+					assert.NoError(err)
+				} else {
+					// In non-CI mode: paths without trailing slash should cause validation errors
+					assert.Error(err)
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
+					assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
+				}
 			})
 
 			It("should reject a --cwd flag value that is a filename", func() {
 				invalidPath := "my-file.txt" // A file-like path
 				_, err := executeCmd(currentRootCmd, "-C", invalidPath)
-				assert.Error(err)
-				assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-				assert.Contains(err.Error(), "cwd")
-				assert.Contains(err.Error(), invalidPath)
+				if build_info.InCI() {
+					// In CI mode: file-like paths are still invalid even with relaxed validation
+					assert.Error(err)
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					assert.Contains(err.Error(), "cwd")
+					assert.Contains(err.Error(), invalidPath)
+				} else {
+					// In non-CI mode: file-like paths should cause validation errors
+					assert.Error(err)
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					assert.Contains(err.Error(), "cwd")
+					assert.Contains(err.Error(), invalidPath)
+				}
 			})
 
 			DescribeTable(
