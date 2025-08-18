@@ -4,8 +4,10 @@ package custom_flags
 
 import (
 	"fmt"
+	"path"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
@@ -85,10 +87,23 @@ func (p folderPathFlag) String() string {
 }
 
 // Set validates and sets the flag's value, checking for valid path format
+// File-like paths are always rejected regardless of CI mode; only trailing slash validation is relaxed in CI
 func (p *folderPathFlag) Set(value string) error {
 	// First, check if the value is empty or just whitespace
 	if len(value) == 0 || regexp.MustCompile(`^\s+$`).MatchString(value) {
 		return fmt.Errorf("the %s flag cannot be empty or contain only whitespace", p.flagName)
+	}
+
+	// Early rejection of file-like paths (regardless of CI mode)
+	// Strip any trailing slash to get the final path segment
+	trimmed := strings.TrimRight(value, "/")
+	if trimmed != "" {
+		base := path.Base(trimmed)
+		ext := path.Ext(base)
+		// If there's a file extension and it's not "." or "..", reject as file-like
+		if ext != "" && base != "." && base != ".." {
+			return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
+		}
 	}
 
 	// Regex for general POSIX/UNIX paths (relative or absolute)
