@@ -24,7 +24,7 @@ func (value BuildInfo) String() string {
 // They must be of type string and package-level.
 // Initialize with default/placeholder values that indicate they weren't set.
 var (
-	rawCLI_VERSION = "v1.0.2"      // Patch release - test fix, no functional changes
+	rawCLI_VERSION = "dev"         // Default for local development, overridden by GoReleaser
 	rawGO_MODE     = "development" // Default for local development
 	rawBUILD_DATE  = "unknown"     // Default, will be overwritten by ldflags for releases
 	// CI flag used exclusively to control behavior in CI (set via -ldflags)
@@ -41,10 +41,25 @@ var (
 
 // init function runs automatically when the package is initialized (before main).
 func init() {
-	// Assign raw values to public BuildInfo typed variables
-	CLI_VERSION = BuildInfo(rawCLI_VERSION)
+	// Process rawCLI_VERSION - strip 'v' prefix if present
+	processedVersion := rawCLI_VERSION
+	if len(rawCLI_VERSION) > 0 && rawCLI_VERSION[0] == 'v' {
+		processedVersion = rawCLI_VERSION[1:] // Strip leading 'v'
+	}
+
+	// Process rawBUILD_DATE - parse different formats
+	processedDate := rawBUILD_DATE
+	if rawBUILD_DATE != "unknown" {
+		// Try parsing as RFC3339 (GoReleaser's .Date default format)
+		if t, err := time.Parse(time.RFC3339, rawBUILD_DATE); err == nil {
+			processedDate = t.Format("2006-01-02") // Convert to YYYY-MM-DD
+		}
+	}
+
+	// Assign processed values to public BuildInfo typed variables
+	CLI_VERSION = BuildInfo(processedVersion)
 	GO_MODE = BuildInfo(rawGO_MODE)
-	BUILD_DATE = BuildInfo(rawBUILD_DATE)
+	BUILD_DATE = BuildInfo(processedDate)
 	CI = BuildInfo(rawCI)
 
 	// --- GO_MODE Validation ---
@@ -79,8 +94,8 @@ func init() {
 			panic("build_info: BUILD_DATE is 'unknown' in production mode. It must be set via ldflags.")
 		}
 	} else {
-		// Attempt to parse the date to ensure its format is correct
-		_, err := time.Parse(time.RFC3339, BUILD_DATE.String())
+		// Attempt to parse the date to ensure its format is correct (now expecting YYYY-MM-DD)
+		_, err := time.Parse("2006-01-02", BUILD_DATE.String())
 		if err != nil {
 			panic(fmt.Sprintf("build_info: invalid BUILD_DATE format: '%s'. Must be YYYY-MM-DD or 'unknown': %v", BUILD_DATE.String(), err))
 		}
