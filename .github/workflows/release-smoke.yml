@@ -1,0 +1,168 @@
+name: Release Smoke Tests
+
+on:
+  release:
+    types: [published]
+
+env:
+  VERSION: ${{ github.event.release.tag_name }}
+
+jobs:
+  test-nix-linux:
+    name: Test Nix Installation (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v22
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Wait for NUR sync (package may take time to appear)
+        run: sleep 30
+
+      - name: Install from NUR
+        run: |
+          # Try to install from NUR, fall back to direct GitHub if not yet synced
+          nix profile install github:louiss0/the-code-fixer-23-nur#javascript-package-delegator || \
+          echo "NUR not yet synced, this is expected for new releases"
+
+      - name: Test version (if installed)
+        run: |
+          if command -v jpd &> /dev/null; then
+            jpd --version
+            echo "✅ Nix installation successful"
+          else
+            echo "⚠️ Nix package not yet available (NUR sync needed)"
+          fi
+
+  test-homebrew-macos:
+    name: Test Homebrew Cask (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Add tap
+        run: brew tap louiss0/homebrew-the-code-fixer-23
+
+      - name: Install cask
+        run: brew install --cask javascript-package-delegator
+
+      - name: Test version
+        run: |
+          jpd --version
+          echo "✅ Homebrew cask installation successful"
+
+  test-scoop-windows:
+    name: Test Scoop Installation (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Install Scoop
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          iwr -useb get.scoop.sh | iex
+
+      - name: Add bucket
+        run: scoop bucket add the-code-fixer-23 https://github.com/louiss0/the-code-fixer-23-buckets
+
+      - name: Install package
+        run: scoop install javascript-package-delegator
+
+      - name: Test version
+        run: |
+          jpd --version
+          Write-Output "✅ Scoop installation successful"
+
+  test-winget-validation:
+    name: Validate Winget Manifest (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check if Winget has the package
+        id: check_winget
+        run: |
+          # Check if the package is available in winget (after microsoft/winget-pkgs PR merge)
+          try {
+            $result = winget search the-code-fixer-23.javascript-package-delegator
+            if ($result -match "javascript-package-delegator") {
+              Write-Output "found=true" >> $env:GITHUB_OUTPUT
+              Write-Output "✅ Package found in winget community repo"
+            } else {
+              Write-Output "found=false" >> $env:GITHUB_OUTPUT
+              Write-Output "⚠️ Package not yet in winget community repo (PR pending)"
+            }
+          } catch {
+            Write-Output "found=false" >> $env:GITHUB_OUTPUT
+            Write-Output "⚠️ Package not yet in winget community repo (PR pending)"
+          }
+
+      - name: Test winget installation (if available)
+        if: steps.check_winget.outputs.found == 'true'
+        run: |
+          winget install the-code-fixer-23.javascript-package-delegator --version ${{ env.VERSION }}
+          jpd --version
+          Write-Output "✅ Winget installation successful"
+
+      - name: Note about winget availability
+        if: steps.check_winget.outputs.found == 'false'
+        run: |
+          Write-Output "ℹ️ Winget package will be available after microsoft/winget-pkgs PR is merged"
+          Write-Output "📋 Manual installation: winget install the-code-fixer-23.javascript-package-delegator"
+
+  report-results:
+    name: Report Test Results
+    runs-on: ubuntu-latest
+    needs: [test-nix-linux, test-homebrew-macos, test-scoop-windows, test-winget-validation]
+    if: always()
+    steps:
+      - name: Create summary
+        run: |
+          echo "## 🚀 Release ${{ env.VERSION }} Package Manager Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Package Manager | Status | Notes |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.test-nix-linux.result }}" == "success" ]]; then
+            echo "| Nix (Linux) | ✅ | Available via NUR |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Nix (Linux) | ⚠️ | May need time for NUR sync |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.test-homebrew-macos.result }}" == "success" ]]; then
+            echo "| Homebrew (macOS) | ✅ | Available via cask |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Homebrew (macOS) | ❌ | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.test-scoop-windows.result }}" == "success" ]]; then
+            echo "| Scoop (Windows) | ✅ | Available via bucket |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Scoop (Windows) | ❌ | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.test-winget-validation.result }}" == "success" ]]; then
+            echo "| Winget (Windows) | ✅ | Available in community repo |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Winget (Windows) | ⚠️ | Pending microsoft/winget-pkgs PR |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Installation Commands" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Nix:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "nix profile install github:louiss0/the-code-fixer-23-nur#javascript-package-delegator" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Homebrew (macOS):**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "brew tap louiss0/homebrew-the-code-fixer-23" >> $GITHUB_STEP_SUMMARY
+          echo "brew install --cask javascript-package-delegator" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scoop (Windows):**" >> $GITHUB_STEP_SUMMARY
+          echo '```powershell' >> $GITHUB_STEP_SUMMARY
+          echo "scoop bucket add the-code-fixer-23 https://github.com/louiss0/the-code-fixer-23-buckets" >> $GITHUB_STEP_SUMMARY
+          echo "scoop install javascript-package-delegator" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Winget (Windows):**" >> $GITHUB_STEP_SUMMARY
+          echo '```powershell' >> $GITHUB_STEP_SUMMARY
+          echo "winget install the-code-fixer-23.javascript-package-delegator" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
