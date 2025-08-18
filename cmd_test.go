@@ -163,12 +163,12 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("lock file detected", func() {
 
-		It("logs a message about the package manager being detected based on lockfile", func() {
+			It("logs a message about the package manager being detected based on lockfile", func() {
 
-			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
-			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-			// Subcommand should also log its start with the detected PM
-			DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN)
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
+				// Subcommand should also log its start with the detected PM
+				DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN)
 
 				_, err := executeCmd(factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false), "agent", "--debug")
 				assert.NoError(err)
@@ -201,34 +201,34 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(output, "jpd")
 		})
 
-	Context("How it responds when no lockfile or global PM is detected", func() {
+		Context("How it responds when no lockfile or global PM is detected", func() {
 
-		It("should prompt user for install command and return error if input is invalid", func() {
+			It("should prompt user for install command and return error if input is invalid", func() {
 
-			// Simulate no lockfile and no globally detected PM, leading to a prompt for an install command.
-			// An empty string for commandTextUIValue will cause MockCommandTextUI.Run() to fail its validation.
-			DebugExecutorExpectationManager.ExpectNoLockfile()
-			DebugExecutorExpectationManager.ExpectNoPMFromPath()
-			currentRootCmd := factory.GenerateNoDetectionAtAll("")
-			// Set context and parse flags before calling PersistentPreRunE directly
-			currentRootCmd.SetContext(context.Background())
-			_ = currentRootCmd.ParseFlags([]string{})
+				// Simulate no lockfile and no globally detected PM, leading to a prompt for an install command.
+				// An empty string for commandTextUIValue will cause MockCommandTextUI.Run() to fail its validation.
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectNoPMFromPath()
+				currentRootCmd := factory.GenerateNoDetectionAtAll("")
+				// Set context and parse flags before calling PersistentPreRunE directly
+				currentRootCmd.SetContext(context.Background())
+				_ = currentRootCmd.ParseFlags([]string{})
 
-			err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
+				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.Error(err)
 				assert.Contains(err.Error(), "A command for installing a package is at least three words")
 				assert.False(mockCommandRunner.HasBeenCalled, "CommandRunner should not have been called for installation if input is invalid")
 			})
 
-		It("should prompt user for install command and execute it if input is valid", func() {
+			It("should prompt user for install command and execute it if input is valid", func() {
 
-			const validInstallCommand = "npm install -g npm"
-			re := regexp.MustCompile(`\s+`)
-			splitCommandString := re.Split(validInstallCommand, -1)
-			DebugExecutorExpectationManager.ExpectNoLockfile()
-			DebugExecutorExpectationManager.ExpectNoPMFromPath()
-			DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
-			currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
+				const validInstallCommand = "npm install -g npm"
+				re := regexp.MustCompile(`\s+`)
+				splitCommandString := re.Split(validInstallCommand, -1)
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectNoPMFromPath()
+				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
+				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
 				_ = currentRootCmd.ParseFlags([]string{})
@@ -242,15 +242,15 @@ var _ = Describe("JPD Commands", func() {
 				assert.Equal(expectedCmdParts[1:], mockCommandRunner.CommandCall.Args)
 			})
 
-		It("should return an error if the user-provided install command fails to execute", func() {
+			It("should return an error if the user-provided install command fails to execute", func() {
 
-			const validInstallCommand = "npm install -g npm"
-			re := regexp.MustCompile(`\s+`)
-			splitCommandString := re.Split(validInstallCommand, -1)
-			DebugExecutorExpectationManager.ExpectNoLockfile()
-			DebugExecutorExpectationManager.ExpectNoPMFromPath()
-			DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add expectation for JS command log
-			currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
+				const validInstallCommand = "npm install -g npm"
+				re := regexp.MustCompile(`\s+`)
+				splitCommandString := re.Split(validInstallCommand, -1)
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectNoPMFromPath()
+				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add expectation for JS command log
+				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				mockCommandRunner.InvalidCommands = []string{"npm"} // Configure the mock runner to make "npm" command fail
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
@@ -431,74 +431,74 @@ var _ = Describe("JPD Commands", func() {
 
 			}
 
-		It(
-			`propmts the user for which command they would like to use to install package manager
+			It(
+				`propmts the user for which command they would like to use to install package manager
 								If the user refuses an error is produced.
 							`,
-			func() {
+				func() {
 
-			// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
-			// so it goes through the "lock file detected" path with an empty string
-			DebugExecutorExpectationManager.ExpectLockfileDetected("") // Empty lockfile detected
-			currentCommand := generateRootCommandWithCommandRunnerHavingSetValue("")
-				currentCommand.SetContext(context.Background())
-				_ = currentCommand.ParseFlags([]string{})
+					// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
+					// so it goes through the "lock file detected" path with an empty string
+					DebugExecutorExpectationManager.ExpectLockfileDetected("") // Empty lockfile detected
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue("")
+					currentCommand.SetContext(context.Background())
+					_ = currentCommand.ParseFlags([]string{})
 
-				err := currentCommand.PersistentPreRunE(currentCommand, []string{})
-				assert.Error(err)
+					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
+					assert.Error(err)
 
-			},
-		)
+				},
+			)
 
-		It(
-			"executes the command given when the user gives a correct command",
-			func() {
+			It(
+				"executes the command given when the user gives a correct command",
+				func() {
 
-				commandString := "winget install pnpm.pnpm"
+					commandString := "winget install pnpm.pnpm"
 
-				// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
-				// so it goes through the "lock file detected" path with an empty string
-				DebugExecutorExpectationManager.ExpectLockfileDetected("") // Empty lockfile detected
-				currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(commandString)
-				currentCommand.SetContext(context.Background())
-				_ = currentCommand.ParseFlags([]string{})
+					// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
+					// so it goes through the "lock file detected" path with an empty string
+					DebugExecutorExpectationManager.ExpectLockfileDetected("") // Empty lockfile detected
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(commandString)
+					currentCommand.SetContext(context.Background())
+					_ = currentCommand.ParseFlags([]string{})
 
-				re := regexp.MustCompile(`\s+`)
-				splitCommandString := re.Split(commandString, -1)
-				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
+					re := regexp.MustCompile(`\s+`)
+					splitCommandString := re.Split(commandString, -1)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
 
-				error := currentCommand.PersistentPreRunE(currentCommand, []string{})
+					error := currentCommand.PersistentPreRunE(currentCommand, []string{})
 
-				assert.NoError(error)
+					assert.NoError(error)
 
-				assert.True(mockCommandRunner.HasBeenCalled)
-				assert.Equal(mockCommandRunner.CommandCall.Name, splitCommandString[0])
-				assert.Equal(mockCommandRunner.CommandCall.Args, splitCommandString[1:])
+					assert.True(mockCommandRunner.HasBeenCalled)
+					assert.Equal(mockCommandRunner.CommandCall.Name, splitCommandString[0])
+					assert.Equal(mockCommandRunner.CommandCall.Args, splitCommandString[1:])
 
-			},
-		)
+				},
+			)
 
-		DescribeTable(
-			"executes the command based typical instaltion commands",
-			func(inputCommand string, expectedCommandName string, expectedCommandArgs []string) {
+			DescribeTable(
+				"executes the command based typical instaltion commands",
+				func(inputCommand string, expectedCommandName string, expectedCommandArgs []string) {
 
-				// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
-				// so it goes through the "lock file detected" path with an empty string
-				DebugExecutorExpectationManager.ExpectLockfileDetected("") // Empty lockfile detected
-				DebugExecutorExpectationManager.ExpectJSCommandLog(expectedCommandName, expectedCommandArgs...) // Add this line
-				currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(inputCommand)
-				currentCommand.SetContext(context.Background())
-				_ = currentCommand.ParseFlags([]string{})
+					// The generateRootCommandWithCommandRunnerHavingSetValue function returns ("", nil) from DetectLockfile,
+					// so it goes through the "lock file detected" path with an empty string
+					DebugExecutorExpectationManager.ExpectLockfileDetected("")                                      // Empty lockfile detected
+					DebugExecutorExpectationManager.ExpectJSCommandLog(expectedCommandName, expectedCommandArgs...) // Add this line
+					currentCommand := generateRootCommandWithCommandRunnerHavingSetValue(inputCommand)
+					currentCommand.SetContext(context.Background())
+					_ = currentCommand.ParseFlags([]string{})
 
-				err := currentCommand.PersistentPreRunE(currentCommand, []string{})
+					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
 
-				assert.NoError(err)
+					assert.NoError(err)
 
-				assert.Equal(expectedCommandName, mockCommandRunner.CommandCall.Name)
+					assert.Equal(expectedCommandName, mockCommandRunner.CommandCall.Name)
 
-				assert.Equal(expectedCommandArgs, mockCommandRunner.CommandCall.Args)
+					assert.Equal(expectedCommandArgs, mockCommandRunner.CommandCall.Args)
 
-			},
+				},
 				Entry("Using npm to install npm globally", "npm install -g npm", "npm", []string{"install", "-g", "npm"}),
 				Entry("Using yarn to add yarn globally", "yarn global add yarn", "yarn", []string{"global", "add", "yarn"}),
 				Entry("Using pnpm to add pnpm globally", "pnpm add -g pnpm", "pnpm", []string{"add", "-g", "pnpm"}),
@@ -1306,16 +1306,16 @@ var _ = Describe("JPD Commands", func() {
 			})
 		})
 
-	It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
+		It("jpd install -D tsup -C <dir> sets working directory and builds the correct command", func() {
 
-		root := factory.CreateNpmAsDefault(nil)
-		tmpDir := fmt.Sprintf("%s/", GinkgoT().TempDir())
+			root := factory.CreateNpmAsDefault(nil)
+			tmpDir := fmt.Sprintf("%s/", GinkgoT().TempDir())
 
-		// Add missing debug expectations for lockfile detection
-		DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-		DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-		DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install", "tsup", "--save-dev") // REMOVED
-		_, err := executeCmd(root, "install", "-D", "tsup", "-C", tmpDir)
+			// Add missing debug expectations for lockfile detection
+			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+			DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install", "tsup", "--save-dev") // REMOVED
+			_, err := executeCmd(root, "install", "-D", "tsup", "-C", tmpDir)
 			assert.NoError(err)
 			assert.True(factory.MockCommandRunner().HasCommand("npm", "install", "tsup", "--save-dev"))
 			assert.Equal(tmpDir, factory.MockCommandRunner().WorkingDir)
@@ -2373,8 +2373,8 @@ var _ = Describe("JPD Commands", func() {
 					originalCwd, err = os.Getwd()
 					assert.NoError(err)
 					testDir = GinkgoT().TempDir()
+					err = os.Chdir(testDir)
 					assert.NoError(err)
-					os.Chdir(testDir)
 				})
 
 				AfterEach(func() {
@@ -2480,7 +2480,7 @@ var _ = Describe("JPD Commands", func() {
 								},
 							})
 
-					DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
 
 						_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
 
@@ -2557,7 +2557,7 @@ var _ = Describe("JPD Commands", func() {
 							},
 						)
 
-					DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
 						_, cmdErr := executeCmd(rootCmdForSelection, "uninstall", "--interactive")
 
 						assert.NoError(cmdErr)
@@ -2581,9 +2581,9 @@ var _ = Describe("JPD Commands", func() {
 
 			var denoRootCmd *cobra.Command
 
-		BeforeEach(func() {
-			denoRootCmd = factory.CreateDenoAsDefault(nil)
-		})
+			BeforeEach(func() {
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
+			})
 
 			It("should execute deno remove with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
@@ -2866,25 +2866,25 @@ var _ = Describe("JPD Commands", func() {
 				Entry(nil, detect.BUN),
 			)
 
-		It("rejects volta usage if the --no-volta flag is passed", func() {
+			It("rejects volta usage if the --no-volta flag is passed", func() {
 
-			rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
+				rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta("npm")
 
-			// Add missing lockfile detection expectation
-			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("npm")
-			// This section mistakenly calls 'install' instead of 'clean-install' in the original code.
-			// Per prompt, retaining original `executeCmd` arguments and adding corresponding ExpectJSCommandLog.
-			DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install") // Add this line
-			output, error := executeCmd(rootCommmand, "install", "--no-volta")
+				// Add missing lockfile detection expectation
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("npm")
+				// This section mistakenly calls 'install' instead of 'clean-install' in the original code.
+				// Per prompt, retaining original `executeCmd` arguments and adding corresponding ExpectJSCommandLog.
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install") // Add this line
+				output, error := executeCmd(rootCommmand, "install", "--no-volta")
 
-			assert.NoError(error)
-			assert.Empty(output)
+				assert.NoError(error)
+				assert.Empty(output)
 
-			assert.Equal("npm", mockCommandRunner.CommandCall.Name)
+				assert.Equal("npm", mockCommandRunner.CommandCall.Name)
 
-			assert.Equal([]string{"install"}, mockCommandRunner.CommandCall.Args)
-		})
+				assert.Equal([]string{"install"}, mockCommandRunner.CommandCall.Args)
+			})
 
 		})
 
@@ -2900,20 +2900,20 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("npm", func() {
-		It("should run npm ci", func() {
-			DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-			DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-			DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "ci")
-			_, err := executeCmd(rootCmd, "ci")
-			assert.NoError(err)
-			assert.True(factory.MockCommandRunner().HasCommand("npm", "ci"))
-		})
+			It("should run npm ci", func() {
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "ci")
+				_, err := executeCmd(rootCmd, "ci")
+				assert.NoError(err)
+				assert.True(factory.MockCommandRunner().HasCommand("npm", "ci"))
+			})
 		})
 
 		Context("yarn", func() {
 			var yarnRootCmd *cobra.Command
 
-				BeforeEach(func() {
+			BeforeEach(func() {
 				yarnRootCmd = factory.CreateYarnTwoAsDefault(nil)
 			})
 
@@ -2940,7 +2940,7 @@ var _ = Describe("JPD Commands", func() {
 		Context("pnpm", func() {
 			var pnpmRootCmd *cobra.Command
 
-				BeforeEach(func() {
+			BeforeEach(func() {
 				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
 			})
 
@@ -2957,7 +2957,7 @@ var _ = Describe("JPD Commands", func() {
 		Context("bun", func() {
 			var bunRootCmd *cobra.Command
 
-				BeforeEach(func() {
+			BeforeEach(func() {
 				bunRootCmd = factory.CreateBunAsDefault(nil)
 			})
 
@@ -2974,9 +2974,9 @@ var _ = Describe("JPD Commands", func() {
 		Context("deno", func() {
 			var denoRootCmd *cobra.Command
 
-				BeforeEach(func() {
-					denoRootCmd = factory.CreateDenoAsDefault(nil)
-				})
+			BeforeEach(func() {
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
+			})
 
 			It("should return error for deno", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)

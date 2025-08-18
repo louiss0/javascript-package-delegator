@@ -62,10 +62,10 @@ func (m *debugExecutorExpectationManager) ExpectJSCommandLog(pm string, args ...
 
 func (m *debugExecutorExpectationManager) ExpectJSCommandRandomLog() {
 	// Use mock.Anything multiple times to handle variable arguments (up to 25 args should be enough)
-	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue", 
+	m.DebugExecutor.On("LogJSCommandIfDebugIsTrue",
 		tmock.AnythingOfType("string"), // Package manager
-		tmock.Anything, // Command 
-		tmock.Anything, // Args...
+		tmock.Anything,                 // Command
+		tmock.Anything,                 // Args...
 		tmock.Anything,
 		tmock.Anything,
 		tmock.Anything,
@@ -100,7 +100,7 @@ func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything).Return().Maybe()
-	
+
 	// Allow any LogJSCommandIfDebugIsTrue calls
 	m.ExpectJSCommandRandomLog()
 }
@@ -358,9 +358,9 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 	deps.DetectJSPackageManager = func() (string, error) {
 		return packageManager, nil
 	}
-		deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
-		return cmd.NewRootCmd(deps)
-	}
+	deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
+	return cmd.NewRootCmd(deps)
+}
 
 // CreateWithDependencySelectUI creates a root command configured for dependency selection UI based on a
 // package manager detected via PATH.

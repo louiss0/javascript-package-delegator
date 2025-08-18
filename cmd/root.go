@@ -376,11 +376,11 @@ Available commands:
 
 			}
 
-		lockFile, err := deps.DetectLockfile()
-		if err != nil {
-			debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
+			lockFile, err := deps.DetectLockfile()
+			if err != nil {
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
 
-			pm, err := deps.DetectJSPackageManager()
+				pm, err := deps.DetectJSPackageManager()
 				if err != nil {
 
 					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")

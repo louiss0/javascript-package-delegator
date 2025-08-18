@@ -50,7 +50,6 @@ const (
 	_NO_VOLTA_FLAG   = "no-volta"
 )
 
-
 type packageMultiSelectUI struct {
 	value         []string
 	multiSelectUI *huh.MultiSelect[string]
@@ -137,7 +136,7 @@ Examples:
 				}
 
 				if len(packageInfo) == 0 {
-				return fmt.Errorf("query failed: %s", searchFlag.String())
+					return fmt.Errorf("query failed: %s", searchFlag.String())
 				}
 
 				installMultiSelect := newPackageMultiSelectUI(packageInfo)
@@ -240,11 +239,11 @@ Examples:
 			case "deno":
 
 				if len(args) == 0 {
-				return fmt.Errorf("for deno one or more packages is required")
+					return fmt.Errorf("for deno one or more packages is required")
 				}
 
 				if production, _ := cmd.Flags().GetBool("production"); production {
-				return fmt.Errorf("deno doesn't support prod")
+					return fmt.Errorf("deno doesn't support prod")
 				}
 
 				if global, _ := cmd.Flags().GetBool("global"); global {
