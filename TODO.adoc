@@ -2,29 +2,7 @@
 
 == Bugs
 
-[CAUTION]
-.CompletionSilence
-====
-
-File: cmd/completion.go
-Function: RunE in NewCompletionCmd()
-Description:
-• Missing output after completion file creation
-• No success message showing file path
-• Users don't know where completion files were created
-====
 
 == Refactors
 
 == Features
-
-[IMPORTANT]
-.CompletionVerbosity
-====
-
-File: cmd/completion.go
-Function: RunE in NewCompletionCmd()
-Description:
-• Add verbose flag for detailed completion installation process
-• Show more information about completion file installation
-====
