@@ -1831,7 +1831,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		It("should have correct aliases", func() {
-			assert.Contains(execCmd.Aliases, "x")
+			assert.Contains(execCmd.Aliases, "e")
 		})
 
 		It("should require at least one argument", func() {

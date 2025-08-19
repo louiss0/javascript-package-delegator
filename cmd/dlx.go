@@ -48,6 +48,7 @@ Examples:
   javascript-package-delegator dlx @angular/cli new my-project
   javascript-package-delegator dlx typescript --version
   javascript-package-delegator dlx prettier --check .`,
+		Aliases: []string{"x"},
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
