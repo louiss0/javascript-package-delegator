@@ -80,14 +80,10 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 		t.Fatalf("Generated completion file does not contain expected bash completion content")
 	}
 
-	// Check that the command returns the success line with the full path
+	// Check that no output was written to stdout when using --output flag
 	output := buf.String()
-	// Account for macOS adding /private prefix to TMP paths when rendering Abs paths
-	prefix := "Completion script created at: "
-	expected1 := fmt.Sprintf("%s%s", prefix, fullPath)
-	expected2 := fmt.Sprintf("%s%s%s", prefix, "/private", fullPath)
-	if !strings.Contains(output, expected1) && !strings.Contains(output, expected2) {
-		t.Fatalf("Success message missing. Expected one of: %s OR %s, Got: %s", expected1, expected2, output)
+	if output != "" {
+		t.Fatalf("Expected no output to stdout when using --output flag, but got: %s", output)
 	}
 
 	// The success condition is that the file exists at the full path and contains valid completion content
@@ -176,59 +172,57 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 	}
 }
 
-func TestCompletionCommand_DefaultFilenames(t *testing.T) {
-	// Use t.TempDir() for automatic cleanup
-	tempDir := t.TempDir()
-
-	// Set HOME environment variable to temp dir
-	t.Setenv("HOME", tempDir)
-
-	// Change to temp directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalDir) })
-
-	err = os.Chdir(tempDir)
-	if err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
-
-	// Test default filename generation (no --output flag)
+func TestCompletionCommand_DefaultStdout(t *testing.T) {
+	// Test that completion outputs to stdout by default (no --output flag)
 	testCases := []struct {
-		shell    string
-		expected string
+		shell           string
+		expectedContent string
 	}{
-		{"bash", "jpd_bash_completion.bash"},
-		{"zsh", "jpd_zsh_completion.zsh"},
-		{"fish", "jpd_fish_completion.fish"},
-		{"nushell", "jpd_nushell_completion.nu"},
-		{"powershell", "jpd_powershell_completion.ps1"},
+		{"bash", "bash completion"},
+		{"zsh", "zsh completion"},
+		{"fish", "fish completion"},
+		{"nushell", "export extern \"jpd\""},
+		{"powershell", "PowerShell completion"},
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("default_%s", tc.shell), func(t *testing.T) {
+		t.Run(fmt.Sprintf("stdout_%s", tc.shell), func(t *testing.T) {
 			// Create completion command
 			completionCmd := NewCompletionCmd()
 
-			// Set up the command without output flag (should use default filename)
+			// Set up the command without output flag (should output to stdout)
 			completionCmd.SetArgs([]string{tc.shell})
 
+			// Capture the command output
+			var buf bytes.Buffer
+			completionCmd.SetOut(&buf)
+
 			// Execute the command
-			err = completionCmd.Execute()
+			err := completionCmd.Execute()
 			if err != nil {
 				t.Fatalf("Command execution failed for %s: %v", tc.shell, err)
 			}
 
-			// Check that the file exists with default name
-			fullPath := filepath.Join(tempDir, tc.expected)
-			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-				t.Fatalf("Default output file does not exist at expected path for %s: %s", tc.shell, fullPath)
+			// Check that output was written to stdout
+			output := buf.String()
+			if output == "" {
+				t.Fatalf("Expected completion script output to stdout for %s, but got empty output", tc.shell)
 			}
 
-			// Success message with full path
-			t.Logf("SUCCESS: %s completion script generated successfully at %s with default filename", tc.shell, fullPath)
+			// For nushell, check for specific content since it uses embedded script
+			if tc.shell == "nushell" {
+				if !strings.Contains(output, tc.expectedContent) {
+					t.Fatalf("Generated %s completion does not contain expected content. Expected to contain: %s", tc.shell, tc.expectedContent)
+				}
+			} else {
+				// For other shells, just check it contains some completion-related content
+				if !strings.Contains(output, "completion") {
+					t.Fatalf("Generated %s completion does not contain 'completion' keyword", tc.shell)
+				}
+			}
+
+			// Success message
+			t.Logf("SUCCESS: %s completion script generated successfully to stdout", tc.shell)
 		})
 	}
 }

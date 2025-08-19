@@ -3,9 +3,7 @@ package cmd
 import (
 	// standard library
 	_ "embed" // Required for the embed directive
-	"fmt"
-	"os"
-	"path/filepath"
+	"fmt"     // Import io package
 	"sort"
 	"strings"
 
@@ -15,10 +13,13 @@ import (
 	// internal
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags" // Import the custom_flags package
+	"github.com/louiss0/javascript-package-delegator/internal/completion"
 )
 
 //go:embed assets/jpd-extern.nu
 var nushellCompletionScript string
+
+const WITH_SHORTHANDS = "with-shorthands"
 
 // NushellCompletionScript returns the embedded Nushell completion script content.
 func NushellCompletionScript() string {
@@ -91,83 +92,28 @@ Examples:
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			shell := args[0]
 
-			// Map shell types to file extensions
-			extensionMap := map[string]string{
-				"bash":       "bash",
-				"zsh":        "zsh",
-				"fish":       "fish",
-				"powershell": "ps1",
-				"nushell":    "nu",
-			}
+			generator := completion.NewGenerator()
 
-			// Determine the final output filename
-			// Access the string value from the FilePathFlag
-			finalOutputFile := outputFileFlag.String()
-			if finalOutputFile == "" {
-				// Get the file extension for the current shell
-				ext, ok := extensionMap[shell]
-				if !ok {
-					// Fallback if shell not in map (should be caught by switch statement later)
-					ext = ""
-				}
-				// Default filename: jpd_<shell>_completion.<extension>
-				// Example: jpd_bash_completion.bash, jpd_nushell_completion.nu
-				if ext != "" {
-					finalOutputFile = fmt.Sprintf("jpd_%s_completion.%s", shell, ext)
-				} else {
-					// If extension is unknown, still create a file, without an extension
-					finalOutputFile = fmt.Sprintf("jpd_%s_completion", shell)
-				}
-			}
+			withShorthand, err := cmd.Flags().GetBool(WITH_SHORTHANDS)
 
-			// Always create the output file
-			file, err := os.Create(finalOutputFile)
 			if err != nil {
-				return fmt.Errorf("failed to create output file '%s': %w", finalOutputFile, err)
+				return err
 			}
-			defer func() { _ = file.Close() }()
-			outputWriter := file // All output will now go to this file
 
-			// Get the absolute path for the success message
-			absPath, err := filepath.Abs(finalOutputFile)
+			err = generator.GenerateCompletion(cmd, args[0], outputFileFlag.String(), withShorthand)
+
 			if err != nil {
-				// If we can't get absolute path, use the original filename
-				absPath = finalOutputFile
+				return err
 			}
 
-			var completionErr error
-			switch shell {
-			case "bash":
-				completionErr = cmd.GenBashCompletionV2(outputWriter, false)
-			case "zsh":
-				completionErr = cmd.GenZshCompletion(outputWriter)
-			case "fish":
-				completionErr = cmd.GenFishCompletion(outputWriter, false)
-			case "powershell":
-				completionErr = cmd.GenPowerShellCompletionWithDesc(outputWriter)
-			case "nushell":
-				_, completionErr = fmt.Fprint(outputWriter, NushellCompletionScript())
-				if completionErr != nil {
-					completionErr = fmt.Errorf("failed to write Nushell completion script: %w", completionErr)
-				}
-			default:
-				completionErr = fmt.Errorf("unsupported shell: %s. Supported shells are: bash, zsh, fish, powershell, nushell", shell)
-			}
-
-			if completionErr != nil {
-				return completionErr
-			}
-
-			// Print success message with full path
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Completion script created at: %s\n", absPath)
 			return nil
 		},
 	}
 
 	// Bind the custom flag type
 	completionCmd.Flags().VarP(&outputFileFlag, "output", "o", "Write completion script to a file instead of stdout")
+	completionCmd.Flags().BoolP(WITH_SHORTHANDS, "w", false, "Generate completion script with shorthand flags")
 
 	return completionCmd
 }
