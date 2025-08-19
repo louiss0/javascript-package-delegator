@@ -19,15 +19,21 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 	"strings"
 
+	// external
 	"github.com/charmbracelet/log"
-	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/spf13/cobra"
+
+	// internal
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 func NewExecCmd() *cobra.Command {
@@ -45,16 +51,16 @@ Examples:
 		Aliases: []string{"x"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			packageName := args[0]
 			packageArgs := args[1:]
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 
 			// Build command based on package manager
@@ -101,19 +107,18 @@ Examples:
 				cmdArgs = append(cmdArgs, packageArgs...)
 
 			case "deno":
-				return fmt.Errorf("Deno doesn't have a dlx or x like the others")
+				return fmt.Errorf("deno doesn't have a dlx or x like the others")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
 			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(execCommand, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(execCommand, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
-
 			})
 
 			return cmdRunner.Run()

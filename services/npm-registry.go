@@ -1,3 +1,5 @@
+// Package services provides external service integrations for the JavaScript Package Delegator.
+// It includes functionality for interacting with package registries and searching for packages.
 package services
 
 import (
@@ -92,7 +94,7 @@ func (s *npmRegistryServiceImpl) SearchPackages(pattern string) ([]PackageInfo, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to make HTTP request to npm registry: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body) // Read body for more info on error
@@ -122,7 +124,8 @@ func (s *npmRegistryServiceImpl) SearchPackages(pattern string) ([]PackageInfo, 
 				Npm        string `json:"npm"`
 			} `json:"links"`
 		} `json:"package"`
-	}, _ int) PackageInfo {
+	}, _ int,
+	) PackageInfo {
 		p := obj.Package
 		homepage := p.Links.Homepage
 		if homepage == "" {

@@ -19,6 +19,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -34,11 +36,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
-
-type TaskUISelector interface {
-	Value() string
-	Run() error
-}
 
 type taskSelectorUI struct {
 	selectedValue string
@@ -59,7 +56,6 @@ func (t taskSelectorUI) Value() string {
 }
 
 func (t taskSelectorUI) Run() error {
-
 	return t.selectUI.Value(&t.selectedValue).Run()
 }
 
@@ -78,34 +74,32 @@ Examples:
 		Aliases: []string{"r"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
+			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			// If no script name provided, list available scripts
 
 			var selectedPackage string
 
 			if pm == "deno" {
-
 				if len(args) == 0 {
 					pkg, err := readDenoJSON()
-
 					if err != nil {
 						return err
 					}
 
 					if len(pkg.Tasks) == 0 {
-						return fmt.Errorf("No tasks found in deno.json")
+						return fmt.Errorf("no tasks found in deno.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
-
-						fmt.Fprintf(
+						_, _ = fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Tasks), ","),
 						)
-
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Tasks))
@@ -116,29 +110,23 @@ Examples:
 
 					selectedPackage = taskSelectorUI.Value()
 				}
-
 			} else {
-
 				if len(args) == 0 {
 					pkg, err := readPackageJSONAndUnmarshalScripts()
-
 					if err != nil {
 						return err
 					}
 
 					if len(pkg.Scripts) == 0 {
-
-						return fmt.Errorf("No scripts found in package.json")
+						return fmt.Errorf("no scripts found in package.json")
 					}
 
 					if goEnv.IsDevelopmentMode() {
-
-						fmt.Fprintf(
+						_, _ = fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Scripts), ","),
 						)
-
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
@@ -150,7 +138,6 @@ Examples:
 					selectedPackage = taskSelectorUI.Value()
 
 				}
-
 			}
 
 			scriptName := lo.TernaryF(
@@ -186,7 +173,6 @@ Examples:
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 			// Build command based on package manager
 			var cmdArgs []string
@@ -223,9 +209,7 @@ Examples:
 				cmdArgs = []string{"task", scriptName}
 
 				if lo.Contains(scriptArgs, "--eval") {
-
-					return fmt.Errorf("Don't pass %s here use the exec command instead", "--eval")
-
+					return fmt.Errorf("don't pass --eval here use the exec command instead")
 				}
 
 				cmdArgs = append(cmdArgs, scriptArgs...)
@@ -235,8 +219,8 @@ Examples:
 			}
 
 			// Execute the command
-			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))

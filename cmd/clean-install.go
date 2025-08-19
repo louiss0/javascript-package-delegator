@@ -19,16 +19,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 	"strings"
 
+	// external
 	"github.com/charmbracelet/log"
-	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+
+	// internal
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 func NewCleanInstallCmd(detectVolta func() bool) *cobra.Command {
@@ -45,10 +51,10 @@ Examples:
   javascript-package-delegator clean-install     # Clean install all dependencies`,
 		Aliases: []string{"ci"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			// Build command based on package manager
 			var cmdArgs []string
@@ -77,16 +83,15 @@ Examples:
 				cmdArgs = []string{"install", "--frozen-lockfile"}
 
 			case "deno":
-				return fmt.Errorf("%s doesn't support this command", "deno")
+				return fmt.Errorf("deno doesn't support this command")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
-
-			if error != nil {
-				return error
+			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
+			if err != nil {
+				return err
 			}
 
 			// shouldUseVoltaWithPackageManager is true if:
@@ -99,26 +104,24 @@ Examples:
 
 			if shouldUseVoltaWithPackageManager {
 				completeVoltaCommand := lo.Flatten([][]string{
-					detect.VOLTA_RUN_COMMNAD,
+					detect.VOLTA_RUN_COMMAND,
 					{pm},
 					cmdArgs,
 				})
 				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", completeVoltaCommand)
-
 				})
+				de.LogJSCommandIfDebugIsTrue(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
-
 				})
+				de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			}
 
 			return cmdRunner.Run()

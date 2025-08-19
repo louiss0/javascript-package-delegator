@@ -10,20 +10,16 @@ import (
 )
 
 func TestCompletionCommand_OutputFlag(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	originalHome := os.Getenv("HOME")
 	defer func() {
 		if originalHome != "" {
-			os.Setenv("HOME", originalHome)
+			_ = os.Setenv("HOME", originalHome)
 		} else {
-			os.Unsetenv("HOME")
+			_ = os.Unsetenv("HOME")
 		}
 	}()
 	t.Setenv("HOME", tempDir)
@@ -33,7 +29,7 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -86,9 +82,12 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 
 	// Check that the command returns the success line with the full path
 	output := buf.String()
-	expectedSuccessMessage := fmt.Sprintf("Completion script created at: %s", fullPath)
-	if !strings.Contains(output, expectedSuccessMessage) {
-		t.Fatalf("Success message missing. Expected: %s, Got: %s", expectedSuccessMessage, output)
+	// Account for macOS adding /private prefix to TMP paths when rendering Abs paths
+	prefix := "Completion script created at: "
+	expected1 := fmt.Sprintf("%s%s", prefix, fullPath)
+	expected2 := fmt.Sprintf("%s%s%s", prefix, "/private", fullPath)
+	if !strings.Contains(output, expected1) && !strings.Contains(output, expected2) {
+		t.Fatalf("Success message missing. Expected one of: %s OR %s, Got: %s", expected1, expected2, output)
 	}
 
 	// The success condition is that the file exists at the full path and contains valid completion content
@@ -97,12 +96,8 @@ func TestCompletionCommand_OutputFlag(t *testing.T) {
 }
 
 func TestCompletionCommand_MultipleShells(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-multi-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	t.Setenv("HOME", tempDir)
@@ -112,7 +107,7 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -182,12 +177,8 @@ func TestCompletionCommand_MultipleShells(t *testing.T) {
 }
 
 func TestCompletionCommand_DefaultFilenames(t *testing.T) {
-	// Create a temp directory
-	tempDir, err := os.MkdirTemp("", "completion-test-default-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	// Use t.TempDir() for automatic cleanup
+	tempDir := t.TempDir()
 
 	// Set HOME environment variable to temp dir
 	t.Setenv("HOME", tempDir)
@@ -197,7 +188,7 @@ func TestCompletionCommand_DefaultFilenames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	err = os.Chdir(tempDir)
 	if err != nil {

@@ -1,24 +1,4 @@
-/*
-Copyright © 2025 Shelton Louis
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
@@ -35,18 +15,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type DependencyUIMultiSelector interface {
-	Values() []string
-	Run() error
-}
-
 type dependencyMultiSelectUI struct {
 	selectedValues []string
 	selectUI       huh.MultiSelect[string]
 }
 
 func newDependencySelectorUI(options []string) DependencyUIMultiSelector {
-
 	return &dependencyMultiSelectUI{
 		selectUI: *huh.NewMultiSelect[string]().
 			Title("Select a dependency to uninstall").
@@ -60,26 +34,22 @@ func (t dependencyMultiSelectUI) Values() []string {
 }
 
 func (t dependencyMultiSelectUI) Run() error {
-
 	return t.selectUI.Value(&t.selectedValues).Run()
 }
 
 func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
-
 	type PackageJSONDependencies struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 
 	cwd, err := os.Getwd()
-
 	if err != nil {
 		return nil, err
 	}
 
 	packageJSONPath := filepath.Join(cwd, "package.json")
 	data, err := os.ReadFile(packageJSONPath)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
 	}
@@ -93,7 +63,6 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 	prodAndDevDependenciesMerged := lo.Map(
 		lo.Entries(lo.Assign(pkg.Dependencies, pkg.DevDependencies)),
 		func(item lo.Entry[string, string], index int) string {
-
 			return fmt.Sprintf("%s@%s", item.Key, item.Value)
 		},
 	)
@@ -102,20 +71,17 @@ func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 }
 
 func extractImportsFromDenoJSON() ([]string, error) {
-
 	type DenoJSONDependencies struct {
 		Imports map[string]string `json:"imports"`
 	}
 
 	cwd, err := os.Getwd()
-
 	if err != nil {
 		return nil, err
 	}
 
 	denoJSONPath := filepath.Join(cwd, "deno.json")
 	data, err := os.ReadFile(denoJSONPath)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to read deno.json: %w", err)
 	}
@@ -146,9 +112,7 @@ Examples:
   javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
 		Args: func(cmd *cobra.Command, args []string) error {
-
 			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -158,23 +122,21 @@ Examples:
 				cobra.MinimumNArgs(1)(cmd, args),
 				nil,
 			)
-
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
 			goEnv := getGoEnvFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Infof("Using %s\n", pm)
-
 			})
 
 			// Get flags
 			global, _ := cmd.Flags().GetBool("global")
 
 			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-
 			if err != nil {
 				return err
 			}
@@ -205,13 +167,12 @@ Examples:
 				}
 
 				if len(dependencies) == 0 {
-					return fmt.Errorf("No packages found for interactive uninstall.")
+					return fmt.Errorf("no packages found for interactive uninstall")
 				}
 
 				dependencySelectorUI := newDependencySelectorUI(dependencies)
 
 				if error := dependencySelectorUI.Run(); error != nil {
-
 					return error
 				}
 
@@ -258,7 +219,6 @@ Examples:
 				if global {
 					cmdArgs = []string{"uninstall"}
 				} else {
-
 					cmdArgs = []string{"remove"}
 				}
 				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
@@ -270,8 +230,8 @@ Examples:
 			// Execute the command
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			cmdRunner.Command(pm, cmdArgs...)
+			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			goEnv.ExecuteIfModeIsProduction(func() {
-
 				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
 			})
 

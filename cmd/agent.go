@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
@@ -29,14 +31,26 @@ Examples:
   jpd agent -a yarn # Explicitly show yarn's agent info (e.g., its version or help)
 `,
 		Aliases: []string{"a"},
-
+		// Allow passing through unknown flags (e.g., flags intended for the underlying package manager)
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Retrieve the detected package manager name from the command's flags.
 			// This flag is populated by the root command's PersistentPreRunE logic.
-			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
+			pm, err := cmd.Flags().GetString(AGENT_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to get agent flag: %w", err)
+			}
+
+			// Validate that the package manager was actually detected
+			if pm == "" {
+				return fmt.Errorf("no package manager detected. Please ensure you have a lock file (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, deno.json, etc.) in your project directory")
+			}
 
 			// Get the environment configuration to determine if logging should be verbose.
 			goEnv := getGoEnvFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			// Log the detected package manager in production mode.
 			goEnv.ExecuteIfModeIsProduction(func() {
@@ -45,15 +59,26 @@ Examples:
 
 			// Obtain the command runner from the context, which handles external process execution.
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+
+			// If the user passed --version to this subcommand, Cobra will consume it as a local flag
+			// and it won't appear in args. Re-add it so we pass it through to the underlying tool.
+			if v, _ := cmd.Flags().GetBool("version"); v {
+				args = append(args, "--version")
+			}
+
 			// Prepare the command to be executed. For the 'agent' command, it typically
 			// runs the package manager itself. Any additional arguments provided to 'jpd agent'
 			// are passed directly to the detected package manager.
+			de.LogJSCommandIfDebugIsTrue(pm, args...)
 			cmdRunner.Command(pm, args...)
 
 			// Execute the command and return any error.
 			return cmdRunner.Run()
 		},
 	}
+
+	// Define a local --version flag so "jpd agent --version" is accepted
+	cmd.Flags().Bool("version", false, "Show underlying package manager version")
 
 	return cmd
 }

@@ -2,3 +2,32 @@ dist/
 local-env.nu
 goreleaser_ed25519*
 forks/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+jpd
+
+# Test artifacts
+*.tmp
+*.log
+*.testartifact
+coverage.txt
+coverage.html
+
+# JavaScript/Node.js artifacts
+node_modules/
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+.pnpm-store/
+.yarn/
+.npm/

@@ -19,19 +19,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// Package cmd provides command-line interface implementations for the JavaScript package delegator.
 package cmd
 
 import (
+	// standard library
 	"fmt"
 
+	// external
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
+
+	// internal
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/services"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 )
 
 // Add flags
@@ -44,11 +50,6 @@ const (
 	_NO_VOLTA_FLAG   = "no-volta"
 )
 
-type MultiUISelecter interface {
-	Values() []string
-	Run() error
-}
-
 type packageMultiSelectUI struct {
 	value         []string
 	multiSelectUI *huh.MultiSelect[string]
@@ -56,14 +57,12 @@ type packageMultiSelectUI struct {
 
 func newPackageMultiSelectUI(packageInfo []services.PackageInfo) MultiUISelecter {
 	return &packageMultiSelectUI{
-
 		multiSelectUI: huh.NewMultiSelect[string]().
 			Title("What packages do you want to install?").
 			Options(
 				lo.Map(
 					packageInfo,
 					func(packageInfo services.PackageInfo, index int) huh.Option[string] {
-
 						return huh.NewOption(
 							packageInfo.Name,
 							fmt.Sprintf(
@@ -71,7 +70,6 @@ func newPackageMultiSelectUI(packageInfo []services.PackageInfo) MultiUISelecter
 								packageInfo.Name, packageInfo.Version,
 							),
 						)
-
 					})...,
 			),
 	}
@@ -82,9 +80,7 @@ func (p packageMultiSelectUI) Values() []string {
 }
 
 func (p *packageMultiSelectUI) Run() error {
-
 	return p.multiSelectUI.Value(&p.value).Run()
-
 }
 
 // NewInstallCmd creates a new Cobra command for the "install" functionality.
@@ -92,8 +88,7 @@ func (p *packageMultiSelectUI) Run() error {
 // to install project dependencies or specific packages.
 // It also includes optional Volta integration to ensure consistent toolchain usage.
 func NewInstallCmd(detectVolta func() bool, newPackageMultiSelectUI func([]services.PackageInfo) MultiUISelecter) *cobra.Command {
-
-	var searchFlag = custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
+	searchFlag := custom_flags.NewEmptyStringFlag(_SEARCH_FLAG)
 
 	cmd := &cobra.Command{
 		Use:   "install [packages...]",
@@ -110,7 +105,6 @@ Examples:
 `,
 		Aliases: []string{"i", "add"},
 		Args: func(cmd *cobra.Command, args []string) error {
-
 			return lo.Ternary(
 				searchFlag.String() != "" && len(args) > 0,
 				custom_errors.CreateInvalidArgumentErrorWithMessage(
@@ -118,12 +112,12 @@ Examples:
 				),
 				nil,
 			)
-
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
+			de := getDebugExecutorFromCommandContext(cmd)
 
 			// Build command based on package manager and flags
 			var cmdArgs []string
@@ -133,23 +127,19 @@ Examples:
 
 				npmRegistryService := services.NewNpmRegistryService()
 
-				packageInfo, error := npmRegistryService.SearchPackages(searchFlag.String())
-
-				if error != nil {
-
-					return error
+				packageInfo, err := npmRegistryService.SearchPackages(searchFlag.String())
+				if err != nil {
+					return err
 				}
 
 				if len(packageInfo) == 0 {
-
-					return fmt.Errorf("Your query has failed %s", searchFlag.String())
+					return fmt.Errorf("query failed: %s", searchFlag.String())
 				}
 
 				installMultiSelect := newPackageMultiSelectUI(packageInfo)
 
-				if error := installMultiSelect.Run(); error != nil {
-
-					return error
+				if err := installMultiSelect.Run(); err != nil {
+					return err
 				}
 
 				selectedPackages = installMultiSelect.Values()
@@ -204,7 +194,6 @@ Examples:
 			case "pnpm":
 				if len(args) == 0 {
 					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
-
 				} else {
 					cmdArgs = lo.Flatten([][]string{
 						{"add"},
@@ -228,7 +217,6 @@ Examples:
 			case "bun":
 				if len(args) == 0 {
 					cmdArgs = lo.Flatten([][]string{{"install"}, selectedPackages})
-
 				} else {
 					cmdArgs = lo.Flatten([][]string{
 						{"add"},
@@ -248,15 +236,11 @@ Examples:
 			case "deno":
 
 				if len(args) == 0 {
-
-					return fmt.Errorf("For deno one or more packages is required")
+					return fmt.Errorf("for deno one or more packages is required")
 				}
 
 				if production, _ := cmd.Flags().GetBool("production"); production {
-					return custom_errors.CreateInvalidFlagErrorWithMessage(
-						custom_errors.FlagName("production"),
-						"Deno doesn't support prod!",
-					)
+					return fmt.Errorf("deno doesn't support prod")
 				}
 
 				if global, _ := cmd.Flags().GetBool("global"); global {
@@ -275,11 +259,9 @@ Examples:
 				return fmt.Errorf("unsupported package manager: %s", pm)
 			}
 
-			noVolta, error := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
-
-			if error != nil {
-				return error
-
+			noVolta, err := cmd.Flags().GetBool(_NO_VOLTA_FLAG)
+			if err != nil {
+				return err
 			}
 
 			// shouldUseVoltaWithPackageManager is true if:
@@ -293,26 +275,24 @@ Examples:
 			if shouldUseVoltaWithPackageManager {
 
 				completeVoltaCommand := lo.Flatten([][]string{
-					detect.VOLTA_RUN_COMMNAD,
+					detect.VOLTA_RUN_COMMAND,
 					{pm},
 					cmdArgs,
 				})
 				cmdRunner.Command(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", completeVoltaCommand)
-
 				})
+				de.LogJSCommandIfDebugIsTrue(completeVoltaCommand[0], completeVoltaCommand[1:]...)
 			} else {
 
 				cmdRunner.Command(pm, cmdArgs...)
 
 				goEnv.ExecuteIfModeIsProduction(func() {
-
 					log.Info("Executing this ", "command", append([]string{pm}, cmdArgs...))
-
 				})
+				de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			}
 
 			// Execute the command
