@@ -8,6 +8,7 @@ import (
 	_ "embed" // Required for the embed directive
 	"fmt"
 	"io"
+	"os"
 
 	// external
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ var nushellCompletionScript string
 type Generator interface {
 	// GenerateCompletion generates completion script for the specified shell and writes it to the output writer.
 	// If withShorthand is true, shorthand alias functions are appended to the completion output.
-	GenerateCompletion(cmd *cobra.Command, shell string, outputWriter io.Writer, withShorthand bool) error
+	GenerateCompletion(cmd *cobra.Command, shell string, filename string, withShorthand bool) error
 
 	// GetSupportedShells returns a list of supported shell names.
 	GetSupportedShells() []string
@@ -71,7 +72,33 @@ func (g *generator) GetDefaultAliasMapping() map[string][]string {
 }
 
 // GenerateCompletion generates completion script for the specified shell.
-func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, outputWriter io.Writer, withShorthand bool) error {
+func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filename string, withShorthand bool) error {
+	var outputWriter io.Writer
+	var file *os.File // To hold the *os.File if we create one
+
+	// Determine output destination based on filename
+	if filename == "" {
+		outputWriter = cmd.OutOrStdout()
+	} else {
+		// Create or open the specified file for writing
+		f, err := os.Create(filename)
+		if err != nil {
+			return fmt.Errorf("failed to create output file %s: %w", filename, err)
+		}
+		outputWriter = f
+		file = f // Store the file handle to defer closing
+	}
+
+	// Ensure the file is closed if it was opened
+	if file != nil {
+		defer func() {
+			if cerr := file.Close(); cerr != nil {
+				// Log the close error to stderr, as we might already be returning another error.
+				fmt.Fprintf(os.Stderr, "warning: failed to close completion file %s: %v\n", filename, cerr)
+			}
+		}()
+	}
+
 	// Generate base completion script for the shell
 	var completionErr error
 	switch shell {
@@ -143,7 +170,7 @@ func GetNushellCompletionScript() string {
 // GenerateCarapaceBridge generates a carapace completion bridge script.
 func GenerateCarapaceBridge() string {
 	return `# carapace completion bridge for jpd
-# 
+#
 # This script provides instructions for integrating jpd with carapace.
 # Carapace is a multi-shell completion framework that can bridge completions
 # across different shells.
