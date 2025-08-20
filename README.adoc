@@ -209,6 +209,9 @@ The project follows a modular structure to ensure maintainability and testabilit
 ├── internal/integrations // Generators for Warp workflows and Carapace spec
 ├── jpd-test            // Test utilities and helpers
 ├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
+├── scripts             // Development and CI scripts for testing and cleanup
+│   ├── check-coverage.sh // Coverage threshold checking with auto-cleanup
+│   └── cleanup.sh       // Clean up test artifacts and accidentally generated binaries
 ├── LICENSE
 ├── README.adoc         // This documentation file
 ├── cmd_test.go         // Tests for commands in `cmd` package
