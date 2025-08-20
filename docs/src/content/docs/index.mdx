@@ -20,7 +20,7 @@ hero:
 import { Card, CardGrid, Badge } from '@astrojs/starlight/components';
 
 <div style="text-align: center; margin-bottom: 2rem;">
-  <Badge text="Documentation for jpd v1.1.0" variant="note" />
+  <Badge text="Documentation for jpd (main)" variant="note" />
 </div>
 
 ## What is jpd?
@@ -60,6 +60,10 @@ Inspired by [@antfu/ni](https://github.com/antfu/ni), jpd automatically detects 
   <Card title="Debug Mode" icon="information">
     Built-in debugging with `--debug` flag shows exactly what commands are being executed behind the scenes.
   </Card>
+  
+  <Card title="External Integrations" icon="puzzle">
+    Generate Warp terminal workflows and Carapace completion specs with one command.
+  </Card>
 </CardGrid>
 
 ## Supported Package Managers
@@ -88,6 +92,12 @@ jpd install
 
 # Run a script interactively
 jpd run
+
+# Generate and view Carapace spec (no install)
+jpd integrate carapace --stdout
+
+# Generate Warp workflows to a folder
+jpd integrate warp --output-dir ./workflows/
 ```
 
 ## Mental Model
