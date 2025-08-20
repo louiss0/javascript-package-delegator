@@ -185,7 +185,7 @@ func (f *RootCommandFactory) CreateRootCmdWithLockfileDetected(pm string, lockfi
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
 		// This function should not be called if lockfile detection succeeded
-		return "", fmt.Errorf("DetectJSPackageManager should not be called in lockfile detection scenario")
+		return "", fmt.Errorf("detectJSPackageManager should not be called in lockfile detection scenario")
 	}
 	deps.DetectVolta = func() bool {
 		return volta
@@ -206,7 +206,7 @@ func (f *RootCommandFactory) CreateRootCmdWithPathDetected(pm string, pmDetectio
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
 		// This function should not be called if lockfile detection failed
-		return "", fmt.Errorf("DetectJSPackageManagerBasedOnLockFile should not be called when lockfile detection fails")
+		return "", fmt.Errorf("detectJSPackageManagerBasedOnLockFile should not be called when lockfile detection fails")
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
 		return pm, pmDetectionErr // PM detected globally via PATH
@@ -253,7 +253,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
 		// This function should not be called if lockfile detection succeeded
-		return "", fmt.Errorf("DetectJSPackageManager should not be called in lockfile detection scenario")
+		return "", fmt.Errorf("detectJSPackageManager should not be called in lockfile detection scenario")
 	}
 	deps.DetectVolta = func() bool {
 		return false // Default to no Volta detected
@@ -273,7 +273,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
 		// This function should not be called if lockfile detection failed
-		return "", fmt.Errorf("DetectJSPackageManagerBasedOnLockFile should not be called when lockfile detection fails")
+		return "", fmt.Errorf("detectJSPackageManagerBasedOnLockFile should not be called when lockfile detection fails")
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
 		return "yarn", err // PM detected globally via PATH, for yarn

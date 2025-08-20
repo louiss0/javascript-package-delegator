@@ -133,7 +133,7 @@ Examples:
 				}
 
 				if len(packageInfo) == 0 {
-					return fmt.Errorf("query failed: %s", searchFlag.String())
+				return fmt.Errorf("search failed for %q", searchFlag.String())
 				}
 
 				installMultiSelect := newPackageMultiSelectUI(packageInfo)
