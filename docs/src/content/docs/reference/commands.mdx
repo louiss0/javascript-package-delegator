@@ -536,8 +536,10 @@ Display the detected package manager for the current project.
 ### Usage
 
 ```bash
-jpd agent
+jpd agent [args...] [flags]
 ```
+
+**Note**: Unknown flags are passed through to the detected package manager. Additional arguments after `agent` are forwarded to the underlying tool (npm, yarn, pnpm, bun, or deno).
 
 ### Output Examples
 
@@ -550,12 +552,17 @@ yarn
 
 $ jpd agent
 pnpm
+
+# Pass --version flag through to the detected package manager
+$ jpd agent --version
+npm 9.8.1
 ```
 
 This command is useful for:
 - Debugging package manager detection
 - Scripting and automation
 - Understanding which package manager jpd will use
+- Checking the version of the detected package manager
 
 ---
 
@@ -723,8 +730,127 @@ jpd install --cwd ./my-app/  # ✅ OK always
 
 ---
 
+## integrate <Badge text="Subcommands: warp, carapace" variant="note" />
+
+Generate integration files for external tools.
+
+### Usage
+
+```bash
+jpd integrate <target> [flags]
+```
+
+### Targets
+
+- **warp**: Generate Warp terminal workflow files (.yaml)
+- **carapace**: Generate Carapace YAML spec for carapace-bin
+
+### Global Flags (for integrate)
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--output-dir` | | Output directory for Warp workflow files (root or warp subcommand) |
+| `--output` | `-o` | Output file for Carapace spec |
+| `--stdout` | | Print Carapace spec to stdout instead of installing |
+
+<Aside type="note" title="Carapace mode precedence">
+  When using the carapace target, flags are applied in this order:
+  1) --output (write to file)
+  2) --stdout (print to stdout)
+  3) Default (install to global Carapace specs directory)
+</Aside>
+
+---
+
+### integrate warp
+
+Generate Warp terminal workflow files for JPD commands.
+
+#### Usage
+
+```bash
+# Long flag (works on root and subcommand)
+jpd integrate warp --output-dir ./workflows/
+
+# Shorthand -o is available only on the warp subcommand form:
+jpd integrate warp -o ./workflows/
+```
+
+#### Behavior
+
+- **With --output-dir**: writes individual .yaml workflow files into the directory
+- **Without --output-dir (or empty)**: prints all workflows as a multi-document YAML to stdout
+
+#### Examples
+
+```bash
+# Generate files
+jpd integrate warp --output-dir ./workflows/
+
+# Print multi-doc YAML to stdout
+jpd integrate warp
+```
+
+---
+
+### integrate carapace
+
+Generate a Carapace completion spec in YAML.
+
+#### Usage
+
+```bash
+# Install to global Carapace specs directory (default)
+jpd integrate carapace
+
+# Print to stdout
+jpd integrate carapace --stdout
+
+# Write to a custom file
+jpd integrate carapace --output ./jpd.yaml
+```
+
+#### Global installation locations
+
+<Tabs>
+  <TabItem label="Linux/macOS">
+    ```text
+    ~/.local/share/carapace/specs/javascript-package-delegator.yaml
+    ```
+    <Aside type="note">
+      On Unix systems, you can set XDG_DATA_HOME to override the default base directory.
+    </Aside>
+  </TabItem>
+  <TabItem label="Windows">
+    ```text
+    %APPDATA%\carapace\specs\javascript-package-delegator.yaml
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution" title="Overwriting files">
+  If the target file already exists (custom or global), it will be replaced. Consider backing it up first.
+</Aside>
+
+#### Examples
+
+```bash
+# Default install
+jpd integrate carapace
+
+# To file
+jpd integrate carapace --output ./jpd.yaml
+
+# To stdout (useful for pipelines)
+jpd integrate carapace --stdout
+```
+
+---
+
 ## See Also
 
+- **[completion](#completion)** — shell completion scripts
+- **[agent](#agent)** — inspect detected package manager
 - **[Getting Started Tutorial](/tutorial/getting-started/)** - Learn jpd basics
 - **[Interactive Workflows](/how-to/interactive/)** - Master search and selection features
 - **[Mental Model](/explanation/mental-model/)** - Learn the Why/What/How design philosophy
