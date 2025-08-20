@@ -103,7 +103,8 @@ jobs:
       - name: Run unit tests with CI build flags
         run: |
           set -euo pipefail
-          go test ./... -race -covermode=atomic -coverprofile=coverage.out -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"
+          # Exclude build_info, mock, and testutil packages from coverage
+          go test $(go list ./... | grep -v -E '/(build_info|mock|testutil)$') -race -covermode=atomic -coverprofile=coverage.out -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"
 
       - name: Coverage summary
         run: |
@@ -111,6 +112,17 @@ jobs:
           total=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}')
           echo "### Test Coverage" >> $GITHUB_STEP_SUMMARY
           echo "Total: ${total}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Coverage threshold check
+        run: |
+          set -euo pipefail
+          coverage_percent=$(go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 80) exit 1 }')
+          if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 80) exit 1 }'; then
+            echo "❌ Coverage is below 80% threshold"
+            go tool cover -func=coverage.out | tail -n 1
+            exit 1
+          fi
+          echo "✅ Coverage meets 80% threshold"
 
       - name: Generate HTML coverage report
         run: go tool cover -html=coverage.out -o coverage.html
