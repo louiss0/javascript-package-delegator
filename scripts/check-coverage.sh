@@ -10,6 +10,9 @@ COVERAGE_FILE=${2:-coverage.out}
 
 echo "Checking test coverage against ${THRESHOLD}% threshold..."
 
+# Ensure cleanup runs on exit
+trap 'echo "Cleaning up..."; "$(dirname "$0")/cleanup.sh"' EXIT
+
 # Run tests with coverage, excluding infrastructure packages
 go test $(go list ./... | grep -v -E '/(build_info|mock|testutil)$') -coverprofile="${COVERAGE_FILE}"
 

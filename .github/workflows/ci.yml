@@ -135,6 +135,9 @@ jobs:
             coverage.out
             coverage.html
 
+      - name: Cleanup test artifacts
+        run: ./scripts/cleanup.sh
+
   build:
     name: Cross-compile smoke builds
     runs-on: ubuntu-latest
