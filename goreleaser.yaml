@@ -40,52 +40,56 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+changelog:
+  # Filter out commits that match these patterns from the release changelog
+  filters:
+    exclude:
+      # Exclude maintenance and documentation commits
+      - '^docs(\(.*\))?:'
+      - '^chore(\(.*\))?:'
+      - '^style(\(.*\))?:'
+      - '^refactor(\(.*\))?:'
+      # Also exclude merge commits and dependency updates
+      - '^Merge'
+      - '^(build|ci)\(deps'
+      - '^(build|ci)\(.*\): bump'
+  # Group commits by type in the release notes
+  groups:
+    - title: 'Features'
+      regexp: '^feat(\(.*\))?:'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix(\(.*\))?:'
+      order: 1
+    - title: 'Tests'
+      regexp: '^test(\(.*\))?:'
+      order: 2
+    - title: 'Performance'
+      regexp: '^perf(\(.*\))?:'
+      order: 3
+    - title: 'CI/Build'
+      regexp: '^(build|ci)(\(.*\))?:'
+      order: 4
+    - title: 'Others'
+      order: 999
+  # Sort commits within groups
+  sort: asc
+
 release:
   github:
     owner: louiss0
     name: javascript-package-delegator
 
 winget:
-  - # Name of the recipe
-
-    name: javascript-package-delegator
-
-    # Publisher name.
-    #
-    # Templates: allowed.
-    # Required
+  - name: javascript-package-delegator
     publisher: the-code-fixer-23
-
-    # Your app's description.
-    #
-    # Templates: allowed.
-    # Required
-    # Default: inferred from global metadata.manifests/t/the-code-fixer23/{{.ProjectName}}
-    short_description: "A tool to delegate package installation to JavaScript package managers."
+    short_description: "A CLI for executing JavaScript package manager commands based on lock files. Supports npm, yarn, pnpm, bun, and deno."
 
     homepage: "https://github.com/louiss0/javascript-package-delegator"
-
-    # Default: 'manifests/<lowercased first char of publisher>/<publisher>/<name>/<version>'.
     path: "manifests/t/the-code-fixer-23/javascript-package-delegator/{{ .Version }}"
-
-    # License name.
-    #
-    # Templates: allowed.
-    # Required
     license: MIT
-
-    # Publisher URL.
-    #
-    # Templates: allowed.
     publisher_url: https://github.com/louiss0
-
-    # Publisher support URL.
-    #
-    # Templates: allowed.
     publisher_support_url: "https://github.com/louiss0/javascript-package-delegator/issues/new"
-
-    # Package Identifier
-    #
     package_identifier: the-code-fixer-23.javascript-package-delegator
 
     # Product code to be used.
@@ -152,22 +156,7 @@ winget:
         private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 homebrew_casks:
-  - # Name of the cask
-    #
-    # Default: the project name.
-    # Templates: allowed.
-    name: javascript-package-delegator
-
-    # Alternative names for the current cask.
-    #
-    # Useful if you want to publish a versioned cask as well, so users can
-    # more easily downgrade.
-    #
-
-    # Binary name inside the cask
-    #
-    # Default: the cask name.
-    # Templates: allowed.
+  - name: javascript-package-delegator
     binary: jpd
 
     # Completions for different shells
@@ -200,10 +189,7 @@ homebrew_casks:
 
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
-    # Your app's description.
-    #
-    # Templates: allowed.
-    description: "A tool to delegate package installation to JavaScript package managers."
+    description: "A CLI for executing JavaScript package manager commands based on lock files. Supports npm, yarn, pnpm, bun, and deno."
     # Repository to push the generated files to.
     repository:
       # Repository owner.
@@ -224,8 +210,7 @@ homebrew_casks:
         private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 scoops:
-  - # Name of the recipe
-    name: javascript-package-delegator
+  - name: javascript-package-delegator
 
     commit_author:
       name: louiss0
@@ -256,11 +241,7 @@ scoops:
 
     license: MIT
 
-    # Your app's description.
-    #
-    # Templates: allowed.
-    # Default: inferred from global metadata.
-    description: "A CLI for executing Javascript Package Manager Commands based on lock files. Supported's deno,bun, and all node package managers"
+    description: "A CLI for executing JavaScript package manager commands based on lock files. Supports npm, yarn, pnpm, bun, and deno."
 
     # Repository to push the generated files to.
     repository:
@@ -284,12 +265,7 @@ scoops:
         private_key: "{{ .Env.GORELEASER_DEPLOY_KEY }}"
 
 nix:
-  - #
-    # Name of the recipe
-    #
-    # Default: the project name.
-    # Templates: allowed.
-    name: javascript-package-delegator
+  - name: javascript-package-delegator
 
     # GOAMD64 to specify which amd64 version to use if there are multiple
     # versions from the build section.
@@ -320,11 +296,7 @@ nix:
     # Default: inferred from global metadata.
     homepage: "https://github.com/louiss0/javascript-package-delegator"
 
-    # Your app's description.
-    #
-    # Templates: allowed.
-    # Default: inferred from global metadata.
-    description: "A CLI for executing Javascript Package Manager Commands based on lock files. Supported's deno,bun, and all node package managers"
+    description: "A CLI for executing JavaScript package manager commands based on lock files. Supports npm, yarn, pnpm, bun, and deno."
 
     # License name.
     #
