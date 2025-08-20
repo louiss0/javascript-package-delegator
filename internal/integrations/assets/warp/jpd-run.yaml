@@ -1,0 +1,13 @@
+name: JPD Run
+command: jpd run {{script}}
+tags:
+    - jpd
+    - javascript
+    - package-manager
+description: Run package.json scripts using JPD
+arguments:
+    - name: script
+      description: Script name to run
+author: the-code-fixer-23
+author_url: ""
+shells: []

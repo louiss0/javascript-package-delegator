@@ -1,0 +1,13 @@
+name: JPD Install
+command: jpd install {{package}}
+tags:
+    - jpd
+    - javascript
+    - package-manager
+description: Install packages using JPD (JavaScript Package Delegator)
+arguments:
+    - name: package
+      description: Package name to install
+author: the-code-fixer-23
+author_url: ""
+shells: []

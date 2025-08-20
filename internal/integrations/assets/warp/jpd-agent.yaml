@@ -1,0 +1,10 @@
+name: JPD Agent
+command: jpd agent
+tags:
+    - jpd
+    - javascript
+    - package-manager
+description: Show detected package manager using JPD
+author: the-code-fixer-23
+author_url: ""
+shells: []
