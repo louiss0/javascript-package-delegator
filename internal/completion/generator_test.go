@@ -179,7 +179,6 @@ var _ = Describe("CompletionGenerator", func() {
 				{name: "fish", shell: "fish", substrings: []string{"function jpe", "function jpx", "jpd exec $argv"}},
 				{name: "nushell", shell: "nushell", substrings: []string{"export def jpe", "export def jpx"}},
 				{name: "powershell", shell: "powershell", substrings: []string{"function jpe {", "function jpx {", "jpd exec @args", "Register-ArgumentCompleter"}},
-				// Note: carapace and warp don't support shorthand aliases (--with-shorthand is ignored)
 			}
 
 			for _, tc := range shellTestCases {

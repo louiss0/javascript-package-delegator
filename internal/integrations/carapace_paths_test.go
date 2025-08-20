@@ -19,7 +19,7 @@ func TestResolveCarapaceSpecsDirFor(t *testing.T) {
 			goos: "linux",
 			getenv: func(key string) string {
 				if key == "XDG_DATA_HOME" {
-					return "/custom/xdg/data"
+				return "/custom/xdg/data"
 				}
 				return ""
 			},

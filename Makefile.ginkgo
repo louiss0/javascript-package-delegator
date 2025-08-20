@@ -1,0 +1,209 @@
+# Ginkgo Testing Makefile
+# This demonstrates all the key Ginkgo CLI features and patterns
+
+# Dynamic package list excluding build_info 
+PKGS := $(shell go list ./... | grep -v '/build_info$$')
+COVERPKG := $(shell echo $(PKGS) | tr ' ' ',')
+
+.PHONY: help
+help:
+	@echo "=== Ginkgo Testing Makefile ==="
+	@echo ""
+	@echo "Basic Commands:"
+	@echo "  test          - Run all tests recursively"
+	@echo "  test-go       - Run with standard go test (includes both Go and Ginkgo tests)"
+	@echo "  test-focused  - Run focused tests only (executor tests)"
+	@echo ""
+	@echo "Coverage Commands:"
+	@echo "  cover         - Generate coverage report (excluding build_info)"
+	@echo "  cover-html    - Generate HTML coverage report"
+	@echo "  cover-all     - Generate coverage including all packages"
+	@echo ""
+	@echo "Filtering Commands:"
+	@echo "  focus F=<pattern>   - Focus on tests matching pattern"
+	@echo "  skip S=<pattern>    - Skip tests matching pattern" 
+	@echo "  labels L=<filter>   - Run tests matching label filter"
+	@echo ""
+	@echo "Debugging Commands:"
+	@echo "  dry-run       - Show what tests would run without executing"
+	@echo "  debug         - Run with full stack traces"
+	@echo "  verbose       - Run with verbose output"
+	@echo "  repeat        - Run tests repeatedly to catch flakes"
+	@echo ""
+	@echo "Advanced Commands:"
+	@echo "  parallel      - Run tests in parallel"
+	@echo "  randomized    - Run suites in random order"
+	@echo "  ci            - CI-ready run with reports"
+	@echo ""
+	@echo "Maintenance Commands:"
+	@echo "  unfocus       - Remove all focused specs"
+	@echo "  bootstrap     - Bootstrap new test suite in current dir"
+	@echo "  clean         - Remove generated files"
+
+# Basic test commands
+.PHONY: test
+test:
+	ginkgo run -r ./...
+
+.PHONY: test-go
+test-go:
+	go test -v ./...
+
+.PHONY: test-focused
+test-focused:
+	ginkgo run -r --focus='executor' ./...
+
+# Coverage commands
+.PHONY: cover
+cover:
+	ginkgo run -r --cover --covermode=count --coverpkg="$(COVERPKG)" --coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out | tail -n1
+
+.PHONY: cover-html
+cover-html: cover
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+.PHONY: cover-all
+cover-all:
+	ginkgo run -r --cover --covermode=count --coverpkg=./... --coverprofile=coverage-all.out ./...
+	@go tool cover -func=coverage-all.out | tail -n1
+
+# Filtering commands
+.PHONY: focus
+focus:
+	@if [ -z "$(F)" ]; then echo "Usage: make focus F='pattern'"; exit 1; fi
+	ginkgo run -r --focus="$(F)" ./...
+
+.PHONY: skip
+skip:
+	@if [ -z "$(S)" ]; then echo "Usage: make skip S='pattern'"; exit 1; fi
+	ginkgo run -r --skip="$(S)" ./...
+
+.PHONY: labels
+labels:
+	@if [ -z "$(L)" ]; then echo "Usage: make labels L='expression'"; exit 1; fi
+	ginkgo run -r --label-filter="$(L)" ./...
+
+# File/line focusing
+.PHONY: focus-file
+focus-file:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make focus-file FILE='path:line' or FILE='path:start-end'"; exit 1; fi
+	ginkgo run --focus-file "$(FILE)" ./...
+
+# Debugging commands
+.PHONY: dry-run
+dry-run:
+	ginkgo run -r --dry-run -v ./...
+
+.PHONY: debug
+debug:
+	ginkgo run -r --trace ./...
+
+.PHONY: verbose
+verbose:
+	ginkgo run -r -v ./...
+
+.PHONY: very-verbose
+very-verbose:
+	ginkgo run -r -vv ./...
+
+.PHONY: repeat
+repeat:
+	ginkgo run -r --repeat=10 ./...
+
+.PHONY: until-fail
+until-fail:
+	ginkgo run -r --until-it-fails ./...
+
+# Advanced execution
+.PHONY: parallel
+parallel:
+	ginkgo run -r -p --procs=4 ./...
+
+.PHONY: randomized
+randomized:
+	ginkgo run -r --randomize-suites --seed=12345 ./...
+
+.PHONY: keep-going
+keep-going:
+	ginkgo run -r --keep-going ./...
+
+# CI-ready command
+.PHONY: ci
+ci:
+	ginkgo run -r --randomize-suites --keep-going --junit-report=junit.xml \
+		--cover --covermode=atomic --coverpkg="$(COVERPKG)" --coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out | tail -n1
+
+# Coverage with parallel execution (use atomic mode)
+.PHONY: cover-parallel
+cover-parallel:
+	ginkgo run -r -p --procs=2 --cover --covermode=atomic --coverpkg="$(COVERPKG)" --coverprofile=coverage-parallel.out ./...
+	@go tool cover -func=coverage-parallel.out | tail -n1
+
+# Maintenance commands
+.PHONY: unfocus
+unfocus:
+	ginkgo unfocus ./...
+
+.PHONY: bootstrap
+bootstrap:
+	ginkgo bootstrap
+
+.PHONY: generate
+generate:
+	@if [ -z "$(NAME)" ]; then echo "Usage: make generate NAME='filename'"; exit 1; fi
+	ginkgo generate "$(NAME)"
+
+.PHONY: clean
+clean:
+	rm -f coverage*.out coverage*.html junit.xml
+
+# Package info
+.PHONY: list-packages
+list-packages:
+	@echo "All packages:"
+	@go list ./...
+	@echo ""
+	@echo "Filtered packages (excluding build_info):"
+	@echo $(PKGS) | tr ',' '\n'
+
+# Quick examples for common patterns
+.PHONY: examples
+examples:
+	@echo "=== Common Ginkgo CLI Patterns ==="
+	@echo ""
+	@echo "1. Basic test run:"
+	@echo "   ginkgo run -r ./..."
+	@echo ""
+	@echo "2. Focus on specific tests:"
+	@echo "   ginkgo run --focus='executor' ./cmd"
+	@echo ""
+	@echo "3. Skip problematic tests:"
+	@echo "   ginkgo run --skip='carapace' ./cmd"
+	@echo ""
+	@echo "4. Coverage with exclusions:"
+	@echo "   PKGS=\$$(go list ./... | grep -v '/build_info\$$' | tr '\\n' ',' | sed 's/,\$$//')"
+	@echo "   ginkgo run -r --cover --coverpkg=\"\$$PKGS\" --coverprofile=coverage.out ./..."
+	@echo ""
+	@echo "5. File/line focusing:"
+	@echo "   ginkgo run --focus-file cmd/completion_ginkgo_test.go:80-120 ./cmd"
+	@echo ""
+	@echo "6. Parallel execution with coverage:"
+	@echo "   ginkgo run -r -p --cover --covermode=atomic ./..."
+	@echo ""
+	@echo "7. Debug failing tests:"
+	@echo "   ginkgo run --trace --focus='failing-test' ./..."
+	@echo ""
+	@echo "8. CI-ready command:"
+	@echo "   ginkgo run -r --randomize-suites --junit-report=junit.xml --cover ./..."
+
+# Test the Makefile itself
+.PHONY: test-makefile
+test-makefile:
+	@echo "Testing Makefile targets..."
+	$(MAKE) dry-run
+	@echo "✅ Dry run successful"
+	$(MAKE) list-packages
+	@echo "✅ Package listing successful"

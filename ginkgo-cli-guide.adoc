@@ -1,0 +1,687 @@
+= Ginkgo CLI Complete Guide
+:toc: left
+:toclevels: 3
+
+== Overview
+
+This guide demonstrates all major features of the Ginkgo CLI v2 through practical examples. Ginkgo is a powerful BDD testing framework for Go that provides rich CLI features for running, organizing, and debugging tests.
+
+== Installation & Setup
+
+=== Installation Options
+
+**Preferred: Nix Package Manager**
+[source,bash]
+----
+nix search nixpkgs ginkgo
+nix profile install nixpkgs#ginkgo
+ginkgo version
+----
+
+**Alternative: Go Install**
+[source,bash]
+----
+go install github.com/onsi/ginkgo/v2/ginkgo@latest
+ginkgo version
+----
+
+**Module Dependencies**
+[source,bash]
+----
+go get github.com/onsi/ginkgo/v2@latest
+go get github.com/onsi/gomega@latest
+go mod tidy
+----
+
+== Core CLI Commands
+
+=== Main Commands
+
+[cols="1,3"]
+|===
+| Command | Purpose
+
+| `ginkgo run` (or `ginkgo`)
+| Run tests in specified packages
+
+| `ginkgo bootstrap`
+| Create test suite boilerplate (`*_suite_test.go`)
+
+| `ginkgo generate <name>`
+| Generate test files (`<name>_test.go`)
+
+| `ginkgo watch`
+| Watch files and auto-run tests on changes
+
+| `ginkgo unfocus`
+| Remove focused specs recursively
+
+| `ginkgo labels`
+| List available labels in test suites
+
+| `ginkgo version`
+| Display Ginkgo version information
+|===
+
+== Coverage Analysis
+
+=== Basic Coverage
+
+**Enable coverage with count mode (recommended)**
+[source,bash]
+----
+ginkgo run -r --cover --covermode=count --coverprofile=coverage.out ./...
+----
+
+**Generate HTML report**
+[source,bash]
+----
+go tool cover -html=coverage.out -o coverage.html
+----
+
+**View coverage summary**
+[source,bash]
+----
+go tool cover -func=coverage.out | tail -n1
+----
+
+=== Coverage Modes
+
+[cols="1,3"]
+|===
+| Mode | Description
+
+| `set`
+| Fastest mode; marks if a line was hit at least once
+
+| `count`
+| **Recommended default**; counts hits per line
+
+| `atomic`
+| Use atomic counters; required with `-p`/parallel execution or race conditions
+|===
+
+=== Coverage Scope Control
+
+**Instrument all packages**
+[source,bash]
+----
+ginkgo run -r --cover --coverpkg=./... --coverprofile=coverage.out ./...
+----
+
+**Exclude specific packages (e.g., build_info)**
+[source,bash]
+----
+PKGS=$(go list ./... | grep -v '/build_info$' | tr '\n' ',' | sed 's/,$//')
+ginkgo run -r --cover --coverpkg="$PKGS" --coverprofile=coverage.out ./...
+----
+
+**Post-process filtering**
+[source,bash]
+----
+# Generate full coverage, then filter out unwanted files
+ginkgo run -r --cover --coverpkg=./... --coverprofile=coverage.out ./...
+grep -v "/build_info" coverage.out > coverage.filtered.out
+mv coverage.filtered.out coverage.out
+go tool cover -func=coverage.out | tail -n1
+----
+
+== Test Focusing & Filtering
+
+=== Focus by Description (Regex)
+
+**Focus on specific test descriptions**
+[source,bash]
+----
+# Focus on tests containing "Completion Command"
+ginkgo run -r --focus='Completion Command' ./cmd
+
+# Focus on a specific context
+ginkgo run -r --focus='Output Flag Behavior' ./cmd
+----
+
+=== Focus by File/Line
+
+**Focus on specific lines**
+[source,bash]
+----
+# Run spec(s) around line 45
+ginkgo run --focus-file cmd/completion_ginkgo_test.go:45
+
+# Run specs in line range 80-120
+ginkgo run --focus-file cmd/completion_ginkgo_test.go:80-120
+
+# Multiple file focuses
+ginkgo run --focus-file file1.go:10-20 --focus-file file2.go:30
+----
+
+=== Label-Based Filtering
+
+**Add labels in code**
+[source,go]
+----
+var _ = Describe("API Tests", Label("integration", "slow"), func() {
+    // Test specs...
+})
+
+var _ = Describe("Unit Tests", Label("unit", "fast"), func() {
+    // Test specs...
+})
+----
+
+**Filter by labels**
+[source,bash]
+----
+# Run only fast unit tests
+ginkgo run -r --label-filter='unit && fast' ./...
+
+# Exclude slow tests
+ginkgo run -r --label-filter='!slow' ./...
+
+# Complex expressions
+ginkgo run -r --label-filter='(unit || integration) && !slow' ./...
+----
+
+=== Code-Level Focusing
+
+**Temporary focusing in code**
+[source,go]
+----
+// Focus specific container
+FDescribe("Focused tests", func() {
+    // Only these tests will run
+})
+
+// Focus specific test
+FIt("focused test", func() {
+    // Only this test will run
+})
+----
+
+**Clean up focused specs**
+[source,bash]
+----
+# Remove all focused specs before committing
+ginkgo unfocus ./...
+
+# Verify no focused specs remain (for CI)
+ginkgo unfocus ./... && git diff --exit-code
+----
+
+== Test Skipping
+
+=== Skip by Pattern
+
+[source,bash]
+----
+# Skip tests matching regex
+ginkgo run -r --skip='carapace' ./cmd
+
+# Skip entire files
+ginkgo run --skip-file cmd/completion_ginkgo_test.go
+
+# Skip packages
+ginkgo run -r --skip-package='integration|e2e' ./...
+----
+
+=== Programmatic Skipping
+
+[source,go]
+----
+It("might be flaky", func() {
+    Skip("temporarily disabled while investigating flake")
+    // Test code...
+})
+----
+
+== Test Suite Management
+
+=== Creating Test Suites
+
+**Bootstrap a new test suite**
+[source,bash]
+----
+cd my-package
+ginkgo bootstrap
+# Creates: my_package_suite_test.go
+----
+
+**Generated suite file structure**
+[source,go]
+----
+func TestMyPackage(t *testing.T) {
+    RegisterFailHandler(Fail)
+    RunSpecs(t, "My Package Suite")
+}
+----
+
+**Generate test files**
+[source,bash]
+----
+# Generate user_test.go
+ginkgo generate user
+
+# Generate multiple files
+ginkgo generate user account order
+----
+
+=== Suite Anatomy
+
+**Basic structure**
+[source,go]
+----
+var _ = Describe("Component", func() {
+    var (
+        // Shared variables
+        user User
+    )
+    
+    BeforeEach(func() {
+        // Setup before each test
+        user = NewUser()
+    })
+    
+    AfterEach(func() {
+        // Cleanup after each test
+        user.Cleanup()
+    })
+    
+    Describe("when active", func() {
+        Context("with valid data", func() {
+            It("should process successfully", func() {
+                // Test assertions
+                Expect(user.Process()).To(Succeed())
+            })
+        })
+    })
+})
+----
+
+== Advanced Execution
+
+=== Parallel Execution
+
+[source,bash]
+----
+# Auto-detect processor count
+ginkgo run -r -p ./...
+
+# Specify process count
+ginkgo run -r --procs=4 ./...
+
+# Use atomic coverage mode with parallelism
+ginkgo run -r -p --cover --covermode=atomic ./...
+----
+
+=== Randomization
+
+[source,bash]
+----
+# Randomize suite order
+ginkgo run -r --randomize-suites ./...
+
+# Use specific seed for reproducible runs
+ginkgo run -r --randomize-suites --seed=12345 ./...
+
+# Randomize all specs (not just top-level containers)
+ginkgo run -r --randomize-all ./...
+----
+
+=== Compilation Control
+
+[source,bash]
+----
+# Compile multiple packages concurrently
+ginkgo run -r --compilers=4 ./...
+
+# Continue running even after failures
+ginkgo run -r --keep-going ./...
+----
+
+== Debugging & Diagnostics
+
+=== Dry Run
+
+[source,bash]
+----
+# See what tests would run without executing
+ginkgo run -r --dry-run -v ./...
+
+# Combine with focusing to verify selection
+ginkgo run --dry-run --focus='executor' ./cmd
+----
+
+=== Verbose Output
+
+[source,bash]
+----
+# Verbose output (includes GinkgoWriter contents)
+ginkgo run -r -v ./...
+
+# Maximum verbosity (includes skipped/pending tests)
+ginkgo run -r -vv ./...
+----
+
+=== Stack Traces & Debugging
+
+[source,bash]
+----
+# Full stack traces on failures
+ginkgo run -r --trace ./...
+
+# Monitor long-running tests
+ginkgo run -r --poll-progress-after=30s --poll-progress-interval=10s ./...
+----
+
+=== Flake Detection
+
+[source,bash]
+----
+# Repeat tests to catch intermittent failures
+ginkgo run -r --repeat=50 ./cmd
+
+# Keep running until failure occurs
+ginkgo run -r --until-it-fails ./cmd
+
+# Set flake attempts (retry failed specs)
+ginkgo run -r --flake-attempts=3 ./...
+----
+
+== Go Integration
+
+=== Standard Testing Compatibility
+
+[source,bash]
+----
+# Run both Go tests and Ginkgo tests
+go test -v ./...
+
+# Prefer Ginkgo for richer output
+ginkgo run -r ./...
+----
+
+=== Build Integration
+
+[source,bash]
+----
+# Respect build tags
+ginkgo run -r --tags=integration ./...
+
+# Pass flags through to go test
+ginkgo run -r -- -race -v
+
+# Use with go modules
+go mod tidy
+ginkgo run -r ./...
+----
+
+== CI/CD Integration
+
+=== CI-Ready Commands
+
+[source,bash]
+----
+# Complete CI run with reports
+ginkgo run -r --randomize-suites --keep-going \
+  --junit-report=junit.xml \
+  --cover --covermode=atomic \
+  --coverpkg="$PACKAGES" \
+  --coverprofile=coverage.out ./...
+
+# Generate reports
+go tool cover -func=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+----
+
+=== Guardrails
+
+[source,bash]
+----
+# Fail build if focused specs exist
+ginkgo unfocus ./... && git diff --exit-code
+
+# Require test suites to exist
+ginkgo run -r --require-suite ./...
+
+# Fail on pending tests
+ginkgo run -r --fail-on-pending ./...
+----
+
+== Makefile Integration
+
+=== Basic Makefile Structure
+
+[source,makefile]
+----
+PKGS := $(shell go list ./... | grep -v '/build_info$$')
+COVERPKG := $(shell echo $(PKGS) | tr ' ' ',')
+
+.PHONY: test
+test:
+	ginkgo run -r ./...
+
+.PHONY: cover
+cover:
+	ginkgo run -r --cover --covermode=count --coverpkg="$(COVERPKG)" --coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out | tail -n1
+
+.PHONY: focus
+focus:
+	ginkgo run -r --focus="$(F)" ./...
+
+.PHONY: ci
+ci:
+	ginkgo run -r --randomize-suites --keep-going --junit-report=junit.xml \
+		--cover --covermode=atomic --coverpkg="$(COVERPKG)" --coverprofile=coverage.out ./...
+----
+
+=== Usage Examples
+
+[source,bash]
+----
+# Run all tests
+make test
+
+# Generate coverage
+make cover
+
+# Focus on specific tests
+make focus F="executor"
+
+# CI run
+make ci
+----
+
+== Real-World Examples
+
+=== Development Workflow
+
+[source,bash]
+----
+# 1. Create new feature test
+ginkgo generate user-service
+
+# 2. Run focused during development
+ginkgo run --focus="user service" ./...
+
+# 3. Check coverage regularly
+ginkgo run --cover --covermode=count ./...
+
+# 4. Before committing
+ginkgo unfocus ./...
+ginkgo run -r ./...
+----
+
+=== Debugging Failing Tests
+
+[source,bash]
+----
+# 1. Isolate the failure
+ginkgo run --focus="failing test name" --trace ./...
+
+# 2. Check for flakes
+ginkgo run --repeat=10 --focus="failing test" ./...
+
+# 3. Run with full verbosity
+ginkgo run -vv --focus="failing test" ./...
+----
+
+=== Team Best Practices
+
+**1. Coverage Requirements**
+[source,bash]
+----
+# Maintain 80%+ coverage
+ginkgo run -r --cover --coverpkg=./... ./... | grep "total:" | awk '{print $NF}'
+----
+
+**2. Pre-commit Hooks**
+[source,bash]
+----
+#!/bin/bash
+# Remove focused specs
+ginkgo unfocus ./...
+
+# Verify no focused specs remain
+if ! git diff --exit-code; then
+    echo "ERROR: Focused specs detected"
+    exit 1
+fi
+
+# Run full test suite
+ginkgo run -r ./...
+----
+
+**3. CI Pipeline**
+[source,yaml]
+----
+# GitHub Actions example
+- name: Run Tests
+  run: |
+    ginkgo run -r --randomize-suites --keep-going \
+      --junit-report=junit.xml \
+      --cover --covermode=atomic \
+      --coverprofile=coverage.out ./...
+    
+- name: Upload Coverage
+  uses: actions/upload-artifact@v3
+  with:
+    name: coverage
+    path: coverage.out
+----
+
+== Troubleshooting
+
+=== Common Issues
+
+**Tests not found**
+[source,bash]
+----
+# Ensure proper suite files exist
+find . -name "*_suite_test.go"
+
+# Bootstrap missing suites
+ginkgo bootstrap
+----
+
+**Coverage issues**
+[source,bash]
+----
+# Verify package instrumentation
+ginkgo run --cover --coverpkg=./... -v ./...
+
+# Check for build constraints
+go list -f '{{.ImportPath}}: {{.GoFiles}}' ./...
+----
+
+**Parallel execution problems**
+[source,bash]
+----
+# Use atomic coverage mode
+ginkgo run -p --cover --covermode=atomic ./...
+
+# Check for shared state issues
+ginkgo run --procs=1 ./...  # vs --procs=4
+----
+
+== Quick Reference
+
+=== Essential Commands
+[source,bash]
+----
+# Basic test run
+ginkgo run -r ./...
+
+# Coverage with HTML report
+ginkgo run -r --cover --covermode=count --coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# Focus on specific tests
+ginkgo run --focus="test pattern" ./...
+
+# Skip problematic tests
+ginkgo run --skip="problem tests" ./...
+
+# Parallel execution
+ginkgo run -r -p ./...
+
+# Debug failing tests
+ginkgo run --trace --focus="failing test" ./...
+
+# CI-ready run
+ginkgo run -r --randomize-suites --keep-going --junit-report=junit.xml ./...
+----
+
+=== Key Flags Summary
+
+[cols="2,1,3"]
+|===
+| Flag | Type | Purpose
+
+| `-r`
+| Boolean
+| Recursive execution
+
+| `--cover`
+| Boolean
+| Enable coverage analysis
+
+| `--focus`
+| String
+| Focus tests by regex pattern
+
+| `--skip`
+| String
+| Skip tests by regex pattern
+
+| `--dry-run`
+| Boolean
+| Show what would run without executing
+
+| `--trace`
+| Boolean
+| Full stack traces on failures
+
+| `-p`/`--procs`
+| Integer
+| Parallel execution
+
+| `--randomize-suites`
+| Boolean
+| Randomize suite execution order
+
+| `-v`/`-vv`
+| Boolean
+| Verbose output levels
+
+| `--keep-going`
+| Boolean
+| Continue after failures
+|===
+
+== Resources
+
+* **Official Documentation**: https://onsi.github.io/ginkgo/
+* **GitHub Repository**: https://github.com/onsi/ginkgo
+* **Gomega Matchers**: https://onsi.github.io/gomega/
+* **Community Examples**: https://github.com/onsi/ginkgo/tree/master/integration/_fixtures
