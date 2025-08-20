@@ -488,6 +488,7 @@ Available commands:
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewAgentCmd())
 	cmd.AddCommand(NewCompletionCmd())
+	cmd.AddCommand(NewIntegrateCmd())
 
 	cmd.PersistentFlags().BoolP(_DEBUG_FLAG, "d", false, "Make commands run in debug mode")
 
