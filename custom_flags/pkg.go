@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
-	"github.com/samber/lo"
 )
 
 // filePathFlag represents a flag that must contain a valid POSIX/UNIX file path

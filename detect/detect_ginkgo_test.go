@@ -6,9 +6,10 @@ import (
 	"path/filepath" // Import filepath for joining paths in mocks
 	"time"          // Added for MockFileInfo
 
-	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 // MockPathLookup is a mock implementation of PathLookup for testing.

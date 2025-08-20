@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+	tmock "github.com/stretchr/testify/mock"
+
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/mock"
 	"github.com/louiss0/javascript-package-delegator/services"
-	"github.com/spf13/cobra"
-	tmock "github.com/stretchr/testify/mock"
 )
 
 type debugExecutorExpectationManager struct {

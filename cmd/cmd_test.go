@@ -11,16 +11,17 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
 	"github.com/louiss0/javascript-package-delegator/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 )
 
 // This function executes a cobra command with the given arguments and returns the output and error.
@@ -58,11 +59,9 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-
 func TestJavascriptPackageDelegator(t *testing.T) {
 	RunSpecs(t, "Cmd Suite")
 }
-
 
 // It ensures that each command has access to the package manager name and CommandRunner
 
@@ -3338,7 +3337,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-		assert.Equal(9, userCommands)
+			assert.Equal(9, userCommands)
 		})
 	})
 

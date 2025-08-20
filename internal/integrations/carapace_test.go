@@ -1,10 +1,11 @@
 package integrations
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-	"strings"
 )
 
 var _ = Describe("Carapace Spec Generator", func() {

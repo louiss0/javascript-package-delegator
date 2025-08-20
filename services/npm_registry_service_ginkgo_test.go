@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/louiss0/javascript-package-delegator/services"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/louiss0/javascript-package-delegator/services"
 )
 
 // This mockRoundTripper is a helper function to create a custom http.RoundTripper for mocking HTTP responses.

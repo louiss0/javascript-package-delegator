@@ -10,9 +10,10 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
-	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 type dependencyMultiSelectUI struct {

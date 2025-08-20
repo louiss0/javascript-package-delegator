@@ -1,11 +1,12 @@
 package integrations
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 var _ = Describe("Warp Workflow Generator", func() {
