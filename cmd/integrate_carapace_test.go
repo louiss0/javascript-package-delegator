@@ -62,13 +62,13 @@ func TestRunCarapaceIntegration_OutputFileMode(t *testing.T) {
 	t.Run("writes spec to custom output file", func(t *testing.T) {
 		makeTempDir(t, func(tempDir string) {
 			outputFile := filepath.Join(tempDir, "custom-spec.yaml")
-			
+
 			// Create a minimal root command for spec generation
 			rootCmd := &cobra.Command{
 				Use:   "jpd",
 				Short: "Test command",
 			}
-			
+
 			cmd := &cobra.Command{}
 			rootCmd.AddCommand(cmd)
 			cmd.Flags().String("output", outputFile, "output file")
@@ -80,7 +80,7 @@ func TestRunCarapaceIntegration_OutputFileMode(t *testing.T) {
 			os.Stdout = w
 
 			go func() {
-				defer w.Close()
+				defer func() { _ = w.Close() }()
 				err := runCarapaceIntegration(cmd)
 				assert.NoError(t, err)
 			}()
@@ -89,7 +89,7 @@ func TestRunCarapaceIntegration_OutputFileMode(t *testing.T) {
 			buf := make([]byte, 1024)
 			n, _ := r.Read(buf)
 			output.Write(buf[:n])
-			r.Close()
+			_ = r.Close()
 			os.Stdout = originalStdout
 
 			// Verify file was created
@@ -114,7 +114,7 @@ func TestRunCarapaceIntegration_StdoutMode(t *testing.T) {
 			Use:   "jpd",
 			Short: "Test command",
 		}
-		
+
 		cmd := &cobra.Command{}
 		rootCmd.AddCommand(cmd)
 		cmd.Flags().Bool("stdout", true, "output to stdout")
@@ -140,9 +140,9 @@ func TestRunCarapaceIntegration_DefaultGlobalMode(t *testing.T) {
 					Use:   "jpd",
 					Short: "Test command",
 				}
-				
-			cmd := &cobra.Command{}
-			rootCmd.AddCommand(cmd)
+
+				cmd := &cobra.Command{}
+				rootCmd.AddCommand(cmd)
 				// No flags set, should trigger default global install
 
 				// Capture stdout to verify success message
@@ -152,7 +152,7 @@ func TestRunCarapaceIntegration_DefaultGlobalMode(t *testing.T) {
 				os.Stdout = w
 
 				go func() {
-					defer w.Close()
+					defer func() { _ = w.Close() }()
 					err := runCarapaceIntegration(cmd)
 					assert.NoError(t, err)
 				}()
@@ -161,7 +161,7 @@ func TestRunCarapaceIntegration_DefaultGlobalMode(t *testing.T) {
 				buf := make([]byte, 1024)
 				n, _ := r.Read(buf)
 				output.Write(buf[:n])
-				r.Close()
+				_ = r.Close()
 				os.Stdout = originalStdout
 
 				// Verify the spec file was created in the expected location
@@ -202,13 +202,13 @@ func TestNewIntegrateCarapaceCmd(t *testing.T) {
 
 	t.Run("help runs without error", func(t *testing.T) {
 		cmd := NewIntegrateCarapaceCmd()
-		
+
 		// Set help flag and execute
 		cmd.SetArgs([]string{"--help"})
-		
+
 		var buf bytes.Buffer
 		cmd.SetOut(&buf)
-		
+
 		_ = cmd.Execute()
 		// Help should exit with error (this is normal cobra behavior)
 		// but the output should contain help text

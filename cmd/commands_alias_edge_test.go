@@ -45,7 +45,7 @@ var _ = Describe("Commands Alias and Edge Test Coverage", func() {
 
 			It("should execute with yarn when detected", func() {
 				rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
-				
+
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
 				DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN)
@@ -57,7 +57,7 @@ var _ = Describe("Commands Alias and Edge Test Coverage", func() {
 
 			It("should execute with pnpm when detected", func() {
 				rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
-				
+
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM)

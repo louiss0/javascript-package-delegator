@@ -45,10 +45,10 @@ func TestNpmRegistryService_SearchPackages_HappyPath(t *testing.T) {
 				}
 			]
 		}`
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(response))
+		_, _ = w.Write([]byte(response))
 	}))
 	defer server.Close()
 
@@ -57,16 +57,16 @@ func TestNpmRegistryService_SearchPackages_HappyPath(t *testing.T) {
 
 	// Test the search
 	packages, err := service.SearchPackages("react")
-	
+
 	assert.NoError(t, err)
 	assert.Len(t, packages, 2)
-	
+
 	// Verify first package
 	assert.Equal(t, "react", packages[0].Name)
 	assert.Equal(t, "18.2.0", packages[0].Version)
 	assert.Equal(t, "React is a JavaScript library for building user interfaces.", packages[0].Description)
 	assert.Equal(t, "https://reactjs.org/", packages[0].Homepage)
-	
+
 	// Verify second package (homepage fallback logic)
 	assert.Equal(t, "react-dom", packages[1].Name)
 	assert.Equal(t, "18.2.0", packages[1].Version)
@@ -78,17 +78,17 @@ func TestNpmRegistryService_SearchPackages_EmptyResults(t *testing.T) {
 	// Create a mock server that returns empty results
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := `{"objects": []}`
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(response))
+		_, _ = w.Write([]byte(response))
 	}))
 	defer server.Close()
 
 	service := NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/search")
 
 	packages, err := service.SearchPackages("nonexistentpackage123456")
-	
+
 	assert.NoError(t, err)
 	assert.Len(t, packages, 0)
 }
@@ -98,14 +98,14 @@ func TestNpmRegistryService_SearchPackages_MalformedJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"objects": [invalid json`))
+		_, _ = w.Write([]byte(`{"objects": [invalid json`))
 	}))
 	defer server.Close()
 
 	service := NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/search")
 
 	packages, err := service.SearchPackages("test")
-	
+
 	assert.Error(t, err)
 	assert.Nil(t, packages)
 	assert.Contains(t, err.Error(), "failed to parse npm registry response")
@@ -115,14 +115,14 @@ func TestNpmRegistryService_SearchPackages_HTTPError(t *testing.T) {
 	// Create a mock server that returns HTTP 500
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal Server Error"))
+		_, _ = w.Write([]byte("Internal Server Error"))
 	}))
 	defer server.Close()
 
 	service := NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/search")
 
 	packages, err := service.SearchPackages("test")
-	
+
 	assert.Error(t, err)
 	assert.Nil(t, packages)
 	assert.Contains(t, err.Error(), "npm registry returned status 500")
@@ -133,7 +133,7 @@ func TestNpmRegistryService_SearchPackages_EmptyPattern(t *testing.T) {
 	service := NewNpmRegistryService()
 
 	packages, err := service.SearchPackages("")
-	
+
 	assert.Error(t, err)
 	assert.Nil(t, packages)
 	assert.Contains(t, err.Error(), "search pattern cannot be empty")
@@ -144,7 +144,7 @@ func TestNpmRegistryService_SearchPackages_NetworkError(t *testing.T) {
 	service := NewNpmRegistryServiceWithClient(http.DefaultClient, "http://invalid-url-that-should-not-exist.local/search")
 
 	packages, err := service.SearchPackages("test")
-	
+
 	assert.Error(t, err)
 	assert.Nil(t, packages)
 	assert.Contains(t, err.Error(), "failed to make HTTP request to npm registry")
@@ -193,33 +193,33 @@ func TestNpmRegistryService_SearchPackages_HomepageFallbackLogic(t *testing.T) {
 				}
 			]
 		}`
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(response))
+		_, _ = w.Write([]byte(response))
 	}))
 	defer server.Close()
 
 	service := NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/search")
 
 	packages, err := service.SearchPackages("test")
-	
+
 	assert.NoError(t, err)
 	assert.Len(t, packages, 3)
-	
+
 	// First package should use homepage
 	assert.Equal(t, "https://example.com", packages[0].Homepage)
-	
+
 	// Second package should fallback to repository
 	assert.Equal(t, "https://github.com/user/repo2", packages[1].Homepage)
-	
+
 	// Third package should fallback to npm
 	assert.Equal(t, "https://www.npmjs.com/package/test3", packages[2].Homepage)
 }
 
 func TestNewNpmRegistryService(t *testing.T) {
 	service := NewNpmRegistryService()
-	
+
 	// Type assert to access private fields for testing
 	impl, ok := service.(*npmRegistryServiceImpl)
 	assert.True(t, ok, "Service should be of type *npmRegistryServiceImpl")
@@ -230,9 +230,9 @@ func TestNewNpmRegistryService(t *testing.T) {
 func TestNewNpmRegistryServiceWithClient(t *testing.T) {
 	customClient := &http.Client{}
 	customURL := "https://custom-registry.example.com/search"
-	
+
 	service := NewNpmRegistryServiceWithClient(customClient, customURL)
-	
+
 	// Type assert to access private fields for testing
 	impl, ok := service.(*npmRegistryServiceImpl)
 	assert.True(t, ok, "Service should be of type *npmRegistryServiceImpl")

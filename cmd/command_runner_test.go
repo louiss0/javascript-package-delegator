@@ -30,7 +30,7 @@ func TestCommandRunner_Command(t *testing.T) {
 
 		makeTempDir(t, func(tempDir string) {
 			runner := newCommandRunner(stubExec)
-			
+
 			// Set target directory first
 			err := runner.SetTargetDir(tempDir)
 			assert.NoError(t, err)

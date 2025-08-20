@@ -117,7 +117,7 @@ func TestNewDebugExecutor(t *testing.T) {
 		executor := newDebugExecutor(false)
 
 		assert.NotNil(t, executor)
-		
+
 		// Verify the debug flag is set correctly by testing behavior
 		counter := 0
 		executor.ExecuteIfDebugIsTrue(func() { counter++ })
@@ -128,7 +128,7 @@ func TestNewDebugExecutor(t *testing.T) {
 		executor := newDebugExecutor(true)
 
 		assert.NotNil(t, executor)
-		
+
 		// Verify the debug flag is set correctly by testing behavior
 		counter := 0
 		executor.ExecuteIfDebugIsTrue(func() { counter++ })

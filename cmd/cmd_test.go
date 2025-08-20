@@ -779,7 +779,7 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(rootCmd, "install", "--search", "89ispsnsnis")
 
 				assert.Error(err)
-			assert.ErrorContains(err, "search failed for \"89ispsnsnis\"")
+				assert.ErrorContains(err, "search failed for \"89ispsnsnis\"")
 
 			})
 
@@ -1948,7 +1948,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				_, err := executeCmd(denoRootCmd, "exec", "some-package")
 				assert.Error(err)
-			assert.Contains(err.Error(), "deno does not have a dlx/x equivalent")
+				assert.Contains(err.Error(), "deno does not have a dlx/x equivalent")
 			})
 		})
 
@@ -3000,7 +3000,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				_, err := executeCmd(denoRootCmd, "clean-install")
 				assert.Error(err)
-			assert.Contains(err.Error(), "deno does not support this command")
+				assert.Contains(err.Error(), "deno does not support this command")
 			})
 		})
 

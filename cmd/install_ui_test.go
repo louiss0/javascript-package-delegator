@@ -19,7 +19,7 @@ func TestNewPackageMultiSelectUI(t *testing.T) {
 		result := newPackageMultiSelectUI(packageInfo)
 
 		assert.NotNil(t, result, "newPackageMultiSelectUI should return non-nil")
-		
+
 		// Type assert to verify it's the correct type
 		ui, ok := result.(*packageMultiSelectUI)
 		assert.True(t, ok, "Result should be type *packageMultiSelectUI")
@@ -32,7 +32,7 @@ func TestNewPackageMultiSelectUI(t *testing.T) {
 		result := newPackageMultiSelectUI(packageInfo)
 
 		assert.NotNil(t, result, "newPackageMultiSelectUI should return non-nil even with empty input")
-		
+
 		ui, ok := result.(*packageMultiSelectUI)
 		assert.True(t, ok, "Result should be type *packageMultiSelectUI")
 		assert.NotNil(t, ui.multiSelectUI, "Internal multiSelectUI should be initialized")

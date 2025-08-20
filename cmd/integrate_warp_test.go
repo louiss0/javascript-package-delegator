@@ -15,7 +15,7 @@ func TestRunWarpIntegration_StdoutMode(t *testing.T) {
 	t.Run("outputs to stdout when no output-dir flag", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		// Don't define the flag, which will trigger the first branch (flag not set)
-		
+
 		output := captureStdout(t, func() {
 			err := runWarpIntegration(cmd)
 			assert.NoError(t, err)
@@ -29,7 +29,7 @@ func TestRunWarpIntegration_StdoutMode(t *testing.T) {
 	t.Run("outputs to stdout when output-dir flag is empty", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		cmd.Flags().String("output-dir", "", "output directory")
-		
+
 		output := captureStdout(t, func() {
 			err := runWarpIntegration(cmd)
 			assert.NoError(t, err)
@@ -53,7 +53,7 @@ func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
 			os.Stdout = w
 
 			go func() {
-				defer w.Close()
+				defer func() { _ = w.Close() }()
 				err := runWarpIntegration(cmd)
 				assert.NoError(t, err)
 			}()
@@ -62,7 +62,7 @@ func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
 			buf := make([]byte, 1024)
 			n, _ := r.Read(buf)
 			output.Write(buf[:n])
-			r.Close()
+			_ = r.Close()
 			os.Stdout = originalStdout
 
 			// Check that files were created
@@ -118,13 +118,13 @@ func TestNewIntegrateWarpCmd(t *testing.T) {
 
 	t.Run("help runs without error", func(t *testing.T) {
 		cmd := NewIntegrateWarpCmd()
-		
+
 		// Set help flag and execute
 		cmd.SetArgs([]string{"--help"})
-		
+
 		var buf bytes.Buffer
 		cmd.SetOut(&buf)
-		
+
 		_ = cmd.Execute()
 		// Help should exit with error (this is normal cobra behavior)
 		// but the output should contain help text

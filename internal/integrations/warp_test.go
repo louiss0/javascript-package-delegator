@@ -26,9 +26,9 @@ var _ = Describe("Warp Workflow Generator", func() {
 
 	AfterEach(func() {
 		if tempDir != "" {
-		if removeErr := os.RemoveAll(tempDir); removeErr != nil {
-			GinkgoWriter.Printf("Warning: Failed to clean up temp directory: %v\n", removeErr)
-		}
+			if removeErr := os.RemoveAll(tempDir); removeErr != nil {
+				GinkgoWriter.Printf("Warning: Failed to clean up temp directory: %v\n", removeErr)
+			}
 		}
 	})
 

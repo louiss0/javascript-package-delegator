@@ -34,7 +34,7 @@ func TestValidInstallCommandStringRegex(t *testing.T) {
 
 		for _, command := range validCommands {
 			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command), 
+				assert.True(t, regex.MatchString(command),
 					"Command '%s' should match the regex", command)
 			})
 		}
@@ -42,20 +42,20 @@ func TestValidInstallCommandStringRegex(t *testing.T) {
 
 	t.Run("rejects commands with insufficient words", func(t *testing.T) {
 		invalidCommands := []string{
-			"npm install",     // only two words
-			"install yarn",    // only two words
-			"deno",           // single word
-			"nix profile",    // only two words
-			"yarn",           // single word
-			"pnpm",           // single word
-			"brew install",   // only two words
-			"sudo apt-get",   // only two words
-			"",               // empty string
+			"npm install",  // only two words
+			"install yarn", // only two words
+			"deno",         // single word
+			"nix profile",  // only two words
+			"yarn",         // single word
+			"pnpm",         // single word
+			"brew install", // only two words
+			"sudo apt-get", // only two words
+			"",             // empty string
 		}
 
 		for _, command := range invalidCommands {
 			t.Run(command, func(t *testing.T) {
-				assert.False(t, regex.MatchString(command), 
+				assert.False(t, regex.MatchString(command),
 					"Command '%s' should not match the regex", command)
 			})
 		}
@@ -75,7 +75,7 @@ func TestValidInstallCommandStringRegex(t *testing.T) {
 
 		for _, command := range complexCommands {
 			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command), 
+				assert.True(t, regex.MatchString(command),
 					"Complex command '%s' should match the regex", command)
 			})
 		}
@@ -97,7 +97,7 @@ func TestValidInstallCommandStringRegex(t *testing.T) {
 		for _, testCase := range testCases {
 			t.Run(testCase.command, func(t *testing.T) {
 				result := regex.MatchString(testCase.command)
-				assert.Equal(t, testCase.expected, result, 
+				assert.Equal(t, testCase.expected, result,
 					"Command '%s' %s", testCase.command, testCase.reason)
 			})
 		}
