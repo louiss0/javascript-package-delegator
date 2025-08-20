@@ -5,4 +5,6 @@
 
 == Refactors
 
+- Increase seams for service base URL injection to simplify HTTP mocking (tests-only need)
+
 == Features
