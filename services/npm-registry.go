@@ -37,7 +37,7 @@ type npmRegistryServiceImpl struct {
 
 // NewNpmRegistryService creates a new instance of NpmRegistryService
 // with a default HTTP client suitable for production use.
-func NewNpmRegistryService() *npmRegistryServiceImpl {
+func NewNpmRegistryService() NpmRegistryService {
 	return &npmRegistryServiceImpl{
 		client: &http.Client{
 			Timeout: 10 * time.Second, // Set a reasonable timeout for HTTP requests
