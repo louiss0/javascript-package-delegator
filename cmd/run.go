@@ -165,7 +165,7 @@ Examples:
 				}
 				if _, exists := pkg.Scripts[scriptName]; !exists {
 					goEnv.ExecuteIfModeIsProduction(func() {
-						fmt.Printf("Script '%s' not found, skipping\n", scriptName)
+	fmt.Printf("script '%s' not found, skipping\n", scriptName)
 					})
 					return nil
 				}

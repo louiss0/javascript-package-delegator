@@ -107,18 +107,18 @@ func init() {
 	}
 }
 
-// GetVersion returns the application's CLI version.
-func GetVersion() string {
+// Version returns the application's CLI version.
+func Version() string {
 	return CLI_VERSION.String()
 }
 
-// GetGoMode returns the application's Go environment mode.
-func GetGoMode() string {
+// GoMode returns the application's Go environment mode.
+func GoMode() string {
 	return GO_MODE.String()
 }
 
-// GetBuildDate returns the build date.
-func GetBuildDate() string {
+// BuildDate returns the build date.
+func BuildDate() string {
 	return BUILD_DATE.String()
 }
 

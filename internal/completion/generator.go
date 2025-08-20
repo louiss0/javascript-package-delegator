@@ -23,11 +23,11 @@ type Generator interface {
 	// If withShorthand is true, shorthand alias functions are appended to the completion output.
 	GenerateCompletion(cmd *cobra.Command, shell string, filename string, withShorthand bool) error
 
-	// GetSupportedShells returns a list of supported shell names.
-	GetSupportedShells() []string
+	// SupportedShells returns a list of supported shell names.
+	SupportedShells() []string
 
-	// GetDefaultAliasMapping returns the default alias mapping for shorthand generation.
-	GetDefaultAliasMapping() map[string][]string
+	// DefaultAliasMapping returns the default alias mapping for shorthand generation.
+	DefaultAliasMapping() map[string][]string
 }
 
 // generator is the concrete implementation of the Generator interface.
@@ -38,16 +38,16 @@ type generator struct {
 }
 
 // NewGenerator creates a new completion generator instance.
-func NewGenerator() Generator {
-	return &generator{
+func NewGenerator() *generator {
+	return 6generator{
 		aliasGenerator:        integrations.NewAliasGenerator(),
 		warpGenerator:         integrations.NewWarpGenerator(),
 		carapaceSpecGenerator: integrations.NewCarapaceSpecGenerator(),
 	}
 }
 
-// GetSupportedShells returns the list of supported shells.
-func (g *generator) GetSupportedShells() []string {
+// SupportedShells returns the list of supported shells.
+func (g *generator) SupportedShells() []string {
 	return []string{
 		"bash",
 		"carapace",
@@ -59,8 +59,8 @@ func (g *generator) GetSupportedShells() []string {
 	}
 }
 
-// GetDefaultAliasMapping returns the default alias mapping for jpd commands.
-func (g *generator) GetDefaultAliasMapping() map[string][]string {
+// DefaultAliasMapping returns the default alias mapping for jpd commands.
+func (g *generator) DefaultAliasMapping() map[string][]string {
 	return map[string][]string{
 		"install":       {"jpi", "jpadd", "jpd-install"},
 		"run":           {"jpr", "jpd-run"},
@@ -196,6 +196,13 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 				return fmt.Errorf("failed to write alias block: %w", err)
 			}
 		}
+	}
+
+	// Print success message when writing to file
+	if filename != "" && shell != "warp" {
+		// For warp with directory output, the success message is handled by the warp generator
+		// For other shells, print success message to stderr to avoid interfering with stdout capture in tests
+		fmt.Fprintf(os.Stderr, "Completion script created at: %s\n", filename)
 	}
 
 	return nil

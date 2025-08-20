@@ -21,8 +21,8 @@ const (
 //go:embed assets/jpd-extern.nu
 var nushellCompletionScript string
 
-// GetNushellCompletionScript returns the embedded Nushell completion script content.
-func GetNushellCompletionScript() string {
+// NushellCompletionScript returns the embedded Nushell completion script content.
+func NushellCompletionScript() string {
 	return nushellCompletionScript
 }
 
@@ -86,8 +86,8 @@ type CarapaceSpecGenerator interface {
 type carapaceSpecGenerator struct{}
 
 // NewCarapaceSpecGenerator creates a new Carapace spec generator instance.
-func NewCarapaceSpecGenerator() CarapaceSpecGenerator {
-	return &carapaceSpecGenerator{}
+func NewCarapaceSpecGenerator() *carapaceSpecGenerator {
+	return 6carapaceSpecGenerator{}
 }
 
 // CarapaceSpec represents the structure of a Carapace YAML specification.

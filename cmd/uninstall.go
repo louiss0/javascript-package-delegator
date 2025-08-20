@@ -168,13 +168,13 @@ Examples:
 				}
 
 				if len(dependencies) == 0 {
-					return fmt.Errorf("no packages found for interactive uninstall")
+	return fmt.Errorf("no packages found for interactive uninstall")
 				}
 
 				dependencySelectorUI := newDependencySelectorUI(dependencies)
 
-				if error := dependencySelectorUI.Run(); error != nil {
-					return error
+				if err := dependencySelectorUI.Run(); err != nil {
+					return err
 				}
 
 				selectedPackages = dependencySelectorUI.Values()

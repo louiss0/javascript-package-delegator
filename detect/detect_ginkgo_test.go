@@ -84,7 +84,7 @@ func (m *MockFileInfo) Sys() interface{}   { return m.SysVal }
 var _ = Describe("Detect", Label("fast", "unit"), func() {
 	assert := assert.New(GinkgoT()) // Initialize assert for each spec
 
-	Context("DetectJSPacakgeManager", func() {
+	Context("DetectJSPackageManager", func() {
 		var mockPath *MockPathLookup
 
 		BeforeEach(func() {

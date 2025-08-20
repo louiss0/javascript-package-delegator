@@ -80,7 +80,7 @@ var lockFiles = [9]string{
 	PACKAGE_LOCK_JSON,
 }
 
-func DetectLockfile(fs FileSystem) (lockfile string, error error) {
+func DetectLockfile(fs FileSystem) (lockfile string, err error) {
 	cwd, err := fs.Getwd() // Use the injected FileSystem
 	if err != nil {
 		return "", err
@@ -127,7 +127,7 @@ var LockFileToPackageManagerMap = map[string]string{
 	YARN_LOCK_JSON:    YARN,
 }
 
-func DetectJSPackageManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, error error) {
+func DetectJSPackageManagerBasedOnLockFile(detectedLockFile string, pathLookup PathLookup) (packageManager string, err error) {
 	if !lo.Contains(lockFiles[:], detectedLockFile) {
 		return "", fmt.Errorf("unsupported lockfile %s it must be one of these %v", detectedLockFile, lockFiles)
 	}
@@ -161,7 +161,7 @@ func NewRealYarnCommandVersionRunner() RealYarnCommandVersionRunner {
 }
 
 func (r RealYarnCommandVersionRunner) Output() (string, error) {
-	output, error := r.cmd.Output()
+output, err := r.cmd.Output()
 
 	if error != nil {
 		return "", error
@@ -171,7 +171,7 @@ func (r RealYarnCommandVersionRunner) Output() (string, error) {
 }
 
 func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, error) {
-	result, error := yarnVersionRunner.Output()
+result, err := yarnVersionRunner.Output()
 
 	if error != nil {
 		return "", error

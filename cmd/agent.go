@@ -45,7 +45,7 @@ Examples:
 
 			// Validate that the package manager was actually detected
 			if pm == "" {
-			return fmt.Errorf("no package manager detected; please ensure you have a lock file (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, deno.json, etc.) in your project directory")
+				return fmt.Errorf("no package manager detected; please ensure you have a lock file (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, deno.json, etc.) in your project directory")
 			}
 
 			// Get the environment configuration to determine if logging should be verbose.

@@ -16,7 +16,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/internal/completion"
 )
 
-const WITH_SHORTHANDS = "with-shorthands"
+const WITH_SHORTHAND = "with-shorthand"
 
 // NewCompletionCmd creates the parent 'completion' command and its subcommands
 func NewCompletionCmd() *cobra.Command {
@@ -67,7 +67,7 @@ Examples:
 		jpd completion warp --output ./workflows/    # Generate Warp workflow files
 		jpd completion warp                          # Print Warp workflows as multi-doc YAML
 
-Note: --with-shorthands flag is ignored for carapace and warp targets.
+Note: --with-shorthand flag is ignored for carapace and warp targets.
 `,
 		DisableFlagsInUseLine: true, // Don't show global flags for completion command itself
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -100,7 +100,7 @@ Note: --with-shorthands flag is ignored for carapace and warp targets.
 
 			generator := completion.NewGenerator()
 
-			withShorthand, err := cmd.Flags().GetBool(WITH_SHORTHANDS)
+			withShorthand, err := cmd.Flags().GetBool(WITH_SHORTHAND)
 
 			if err != nil {
 				return err
@@ -118,7 +118,7 @@ Note: --with-shorthands flag is ignored for carapace and warp targets.
 
 	// Bind the custom flag type
 	completionCmd.Flags().VarP(&outputFileFlag, "output", "o", "Write completion script to a file instead of stdout")
-	completionCmd.Flags().BoolP(WITH_SHORTHANDS, "w", false, "Generate completion script with shorthand flags")
+	completionCmd.Flags().BoolP(WITH_SHORTHAND, "w", false, "Generate completion script with shorthand flags")
 
 	return completionCmd
 }

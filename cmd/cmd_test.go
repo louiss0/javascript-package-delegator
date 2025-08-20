@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -57,10 +56,6 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	}
 
 	return buf.String(), err
-}
-
-func TestJavascriptPackageDelegator(t *testing.T) {
-	RunSpecs(t, "Cmd Suite")
 }
 
 // It ensures that each command has access to the package manager name and CommandRunner
@@ -427,7 +422,7 @@ var _ = Describe("JPD Commands", func() {
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
 						},
-						DetectLockfile: func() (lockfile string, error error) {
+						DetectLockfile: func() (lockfile string, err error) {
 							return "", nil
 						},
 						NewDebugExecutor: func(bool) cmd.DebugExecutor {
@@ -489,9 +484,9 @@ var _ = Describe("JPD Commands", func() {
 					splitCommandString := re.Split(commandString, -1)
 					DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
 
-					error := currentCommand.PersistentPreRunE(currentCommand, []string{})
+					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
 
-					assert.NoError(error)
+					assert.NoError(err)
 
 					assert.True(mockCommandRunner.HasBeenCalled)
 					assert.Equal(mockCommandRunner.CommandCall.Name, splitCommandString[0])
@@ -551,7 +546,7 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, error error) {
+					DetectLockfile: func() (lockfile string, err error) {
 						return "", nil
 					},
 					NewDebugExecutor: func(bool) cmd.DebugExecutor {
@@ -597,8 +592,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				// Now, the context of currentRootCmd should have the value set by PersistentPreRunE
-				pm, error := currentRootCmd.Flags().GetString(cmd.AGENT_FLAG)
-				assert.NoError(error, "The package name was not found in context")
+				pm, err := currentRootCmd.Flags().GetString(cmd.AGENT_FLAG)
+				assert.NoError(err, "The package name was not found in context")
 				assert.Equal(expected, pm)
 
 				// Verify that no commands were executed by the mock runner because JPD_AGENT was set
@@ -867,7 +862,7 @@ var _ = Describe("JPD Commands", func() {
 					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					DebugExecutorExpectationManager.ExpectJSCommandLog("volta", "run", packageManager, "install") // REMOVED
-					output, error := executeCmd(rootCommmand, "install")
+output, err := executeCmd(rootCommmand, "install")
 
 					assert.NoError(error)
 					assert.Empty(output)
@@ -949,7 +944,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("npm")
 				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install")
-				output, error := executeCmd(rootCommmand, "install", "--no-volta")
+output, err := executeCmd(rootCommmand, "install", "--no-volta")
 
 				assert.NoError(error)
 				assert.Empty(output)
@@ -2491,7 +2486,7 @@ var _ = Describe("JPD Commands", func() {
 								NewDebugExecutor: func(bool) cmd.DebugExecutor {
 									return factory.DebugExecutor()
 								},
-								DetectLockfile: func() (lockfile string, error error) {
+								DetectLockfile: func() (lockfile string, err error) {
 									return "", os.ErrNotExist
 								},
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("should not be called") },
@@ -2563,7 +2558,7 @@ var _ = Describe("JPD Commands", func() {
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
-								DetectLockfile: func() (lockfile string, error error) {
+								DetectLockfile: func() (lockfile string, err error) {
 									return detect.DENO_JSON, nil
 								},
 								NewDebugExecutor: func(bool) cmd.DebugExecutor {
@@ -3139,7 +3134,7 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, error error) {
+					DetectLockfile: func() (lockfile string, err error) {
 						// Found package-lock.json
 						return detect.PACKAGE_LOCK_JSON, nil
 					},
@@ -3185,7 +3180,7 @@ var _ = Describe("JPD Commands", func() {
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return mockCommandRunner
 						},
-						DetectLockfile: func() (lockfile string, error error) {
+						DetectLockfile: func() (lockfile string, err error) {
 							return detect.YARN_LOCK, nil
 						},
 
@@ -3229,7 +3224,7 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, error error) {
+					DetectLockfile: func() (lockfile string, err error) {
 						return detect.DENO_JSON, nil
 					},
 

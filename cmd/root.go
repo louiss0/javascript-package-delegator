@@ -152,10 +152,10 @@ type DependencyUIMultiSelector interface {
 
 type Dependencies struct {
 	CommandRunnerGetter                   func() CommandRunner
-	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, error error)
+	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, err error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
-	DetectLockfile                        func() (lockfile string, error error)
+	DetectLockfile                        func() (lockfile string, err error)
 	DetectJSPackageManager                func() (string, error)
 	DetectVolta                           func() bool
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
@@ -187,17 +187,17 @@ func newCommandTextUI(lockfile string) CommandUITexter {
 				lo.Ternary(
 					lockfile != "",
 					fmt.Sprintf(
-						"We dectcted a lock file but there is no %s",
+						"We detected a lock file but there is no %s",
 						detect.LockFileToPackageManagerMap[lockfile],
 					),
 					"The command you want to use to install your js package manager",
 				),
 			).
 			Validate(func(s string) error {
-				match, error := regexp.MatchString(VALID_INSTALL_COMMAND_STRING_RE, s)
+				match, err := regexp.MatchString(VALID_INSTALL_COMMAND_STRING_RE, s)
 
-				if error != nil {
-					return error
+				if err != nil {
+					return err
 				}
 
 				if lockfile != "" && !strings.Contains(s, detect.LockFileToPackageManagerMap[lockfile]) {
@@ -514,7 +514,7 @@ func init() {
 			CommandRunnerGetter: func() CommandRunner {
 				return newCommandRunner(exec.Command)
 			}, // Use the newExecutor constructor
-			DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, error error) {
+			DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (packageManager string, err error) {
 				return detect.DetectJSPackageManagerBasedOnLockFile(detectedLockFile, detect.RealPathLookup{})
 			},
 			YarnCommandVersionOutputter: detect.NewRealYarnCommandVersionRunner(),
@@ -522,7 +522,7 @@ func init() {
 			DetectVolta: func() bool {
 				return detect.DetectVolta(detect.RealPathLookup{})
 			},
-			DetectLockfile: func() (lockfile string, error error) {
+			DetectLockfile: func() (lockfile string, err error) {
 				return detect.DetectLockfile(detect.RealFileSystem{})
 			},
 			DetectJSPackageManager: func() (string, error) {

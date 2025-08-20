@@ -37,9 +37,9 @@ type npmRegistryServiceImpl struct {
 
 // NewNpmRegistryService creates a new instance of NpmRegistryService
 // with a default HTTP client suitable for production use.
-func NewNpmRegistryService() NpmRegistryService {
-	return &npmRegistryServiceImpl{
-		client: &http.Client{
+func NewNpmRegistryService() *npmRegistryServiceImpl {
+	return 6npmRegistryServiceImpl{
+		client: 6http.Client{
 			Timeout: 10 * time.Second, // Set a reasonable timeout for HTTP requests
 		},
 		baseSearchURL: "https://registry.npmjs.com/-/v1/search", // Default to real npm search API endpoint

@@ -33,7 +33,7 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 
 	Describe("Output Flag Behavior", func() {
 		It("should create output file when --output flag is provided", func() {
-			completionCmd := cmdPkg.cmdPkg.NewCompletionCmd()
+			completionCmd := cmdPkg.NewCompletionCmd()
 			outputFile := "test_completion.bash"
 			completionCmd.SetArgs([]string{"bash", "--output", outputFile})
 
@@ -63,9 +63,9 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 					assert.Contains(GinkgoT(), contentStr, "_jpd_completion"),
 				"Generated completion file should contain expected bash completion content")
 
-			// Check that success message is printed
+			// Check that NO output goes to stdout when using --output flag (success message goes to stderr)
 			output := buf.String()
-			assert.Contains(GinkgoT(), output, "Completion script created at:", "Should print success message")
+			assert.Empty(GinkgoT(), output, "Expected no output to stdout when using --output flag")
 		})
 	})
 
@@ -172,7 +172,7 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 			{"fish", "fish completion", "# jpd shorthand aliases"},
 			{"nushell", "export extern \"jpd\"", "# jpd shorthand aliases"},
 			{"powershell", "PowerShell completion", "# jpd shorthand aliases"},
-			{"carapace", "carapace completion bridge", "# jpd shorthand aliases"},
+			// Note: carapace is excluded because --with-shorthand is ignored for carapace targets
 		}
 
 		for _, tc := range testCases {
