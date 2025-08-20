@@ -37,6 +37,7 @@ This eliminates the need to remember different commands or continuously switch b
 *   **Flexible Agent Selection:** Override automatic detection using the `--agent` (`-a`) flag or the `JPD_AGENT` environment variable to explicitly specify your preferred package manager for a command or session.
 *   **Change Directory Execution:** Use the `--cwd` (`-C`) flag to execute any `jpd` command within a specified directory without changing your current shell's working directory. This is particularly useful for running commands in sub-projects or remote locations without manually navigating. Note: paths provided to `--cwd` must end with a trailing `/` (e.g., `/path/to/project/`) unless the path is the root `/`. In CI builds that set the CI build flag via `-ldflags`, the trailing slash requirement is relaxed and both `path` and `path/` are accepted.
 *   **Comprehensive Shell Completion:** `jpd` provides scripts to enable tab-completion for its commands and flags in popular shells, including Bash, Zsh, Fish, PowerShell, and Nushell.
+*   **External Integrations:** Generate Warp terminal workflows and Carapace completion specs with the `integrate` command. See link:#integrations[Integrations] section.
 *   **Volta Integration:** Automatically uses Volta to run Node.js package manager commands if Volta is detected on your system, ensuring the correct Node.js version (as defined by Volta) is used.
 *   **Debugging Capabilities:** Enable a debug mode (`--debug` or `-d`) to view verbose logging, aiding in troubleshooting and understanding command execution.
 *   **Go-based Performance:** Written in Go, `jpd` is compiled into a single static binary, offering fast execution and easy distribution without runtime dependencies.
@@ -109,165 +110,50 @@ For command-specific help:
 jpd <command> --help
 ----
 
-=== Examples
+=== Commands at a Glance
 
-Here are some common use cases for `jpd`:
+A compact overview of `jpd` commands. For detailed usage, flags, and examples, see the complete https://louiss0.github.io/javascript-package-delegator/reference/commands/[command reference].
 
-.Install all dependencies:
-[TIP]
-====
+.Install and run basics:
+* `jpd install` - Install dependencies
+* `jpd run dev` - Run script/task
+
+.Package execution:
+* `jpd exec create-react-app my-app` - Execute packages
+
+.Maintenance:
+* `jpd update` - Update packages
+* `jpd uninstall lodash` - Remove packages  
+* `jpd clean-install` - Clean install (CI/CD)
+
+.Agent:
+* `jpd agent` - Show detected package manager
+
+.Integrations (see docs for full details):
+* `jpd integrate warp --output-dir ./workflows/` - Generate Warp workflow files
+* `jpd integrate warp` - Print workflows as multi-doc YAML
+* `jpd integrate carapace` - Install Carapace spec globally
+* `jpd integrate carapace --stdout` - Print spec to stdout
+* `jpd integrate carapace --output ./jpd.yaml` - Write spec to file
+
+[[integrations]]
+=== Integrations
+
+Generate external tool integrations with the `integrate` command:
+
 [source,bash]
 ----
-jpd install
-# Equivalent to: npm install, yarn install, pnpm install, bun install
-----
-====
+# Warp workflows
+jpd integrate warp --output-dir ./workflows/
+jpd integrate warp  # print multi-doc YAML to stdout
 
-.Add a new package:
-[TIP]
-====
-[source,bash]
+# Carapace spec
+jpd integrate carapace            # install globally (default)
+jpd integrate carapace --stdout   # print to stdout
+jpd integrate carapace --output ./jpd.yaml
 ----
-jpd install lodash
-# Equivalent to: npm install lodash, yarn add lodash, pnpm add lodash, bun add lodash
-----
-====
 
-.Add a development dependency:
-[TIP]
-====
-[source,bash]
-----
-jpd install -D vitest
-# Equivalent to: npm install --save-dev vitest, yarn add --dev vitest, pnpm add --save-dev vitest, bun add --development vitest
-----
-====
-
-.Run a script:
-[TIP]
-====
-[source,bash]
-----
-jpd run dev
-# Equivalent to: npm run dev, yarn run dev, pnpm run dev, bun run dev
-# For Deno: deno task dev
-----
-====
-
-.List all available scripts/tasks interactively:
-[TIP]
-====
-[source,bash]
-----
-jpd run
-----
-====
-
-.Execute a binary from node_modules or a remote package:
-[TIP]
-====
-[source,bash]
-----
-jpd exec create-react-app my-app
-# Equivalent to: npx create-react-app my-app, yarn dlx create-react-app my-app, pnpm dlx create-react-app my-app, bunx create-react-app my-app
-----
-====
-
-.Update all packages:
-[TIP]
-====
-[source,bash]
-----
-jpd update
-# Equivalent to: npm update, yarn upgrade, pnpm update, bun update, deno outdated
-----
-====
-
-.Uninstall a package:
-[TIP]
-====
-[source,bash]
-----
-jpd uninstall lodash
-# Equivalent to: npm uninstall lodash, yarn remove lodash, pnpm remove lodash, bun remove lodash
-----
-====
-
-.Interactively uninstall packages:
-[TIP]
-====
-[source,bash]
-----
-jpd uninstall -i
-# Prompts an interactive selection of installed dependencies to remove
-----
-====
-
-.Perform a clean install (for CI/CD):
-[TIP]
-====
-[source,bash]
-----
-jpd clean-install
-# Equivalent to: npm ci, yarn install --frozen-lockfile/--immutable, pnpm install --frozen-lockfile, bun install --frozen-lockfile
-----
-====
-
-.Check the detected package manager:
-[TIP]
-====
-[source,bash]
-----
-jpd agent
-----
-====
-
-.Force a specific package manager (e.g., Yarn) for a command:
-[TIP]
-====
-[source,bash]
-----
-jpd install --agent yarn
-----
-====
-
-.Enable debug mode:
-[TIP]
-====
-[source,bash]
-----
-jpd install --debug
-----
-====
-
-.Run command in a specific directory:
-[TIP]
-====
-[source,bash]
-----
-jpd install --cwd ./my-frontend-app/
-# Equivalent to running 'npm install' or 'yarn install' inside './my-frontend-app/'
-----
-====
-
-.Generate shell completion script for Bash:
-[TIP]
-====
-[source,bash]
-----
-jpd completion bash > /etc/bash_completion.d/jpd
-----
-====
-
-.Generate shell completion for Nushell and save to file:
-[TIP]
-====
-[source,bash]
-----
-jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
-# Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
-----
-====
+For flags, precedence rules, and OS paths, see the https://louiss0.github.io/javascript-package-delegator/reference/commands/#integrate[Integrate command reference].
 
 == Configuring automatic installation of JavaScript package managers
 
@@ -305,6 +191,7 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   ├── completion.go   // 'completion' command logic, including all shell completions
 │   ├── exec.go         // 'exec' command logic
 │   ├── install.go      // 'install' command logic
+│   ├── integrate.go    // 'integrate' command logic (warp, carapace)
 │   ├── root.go         // Main Cobra root command setup and persistent logic
 │   ├── run.go          // 'run' command logic
 │   ├── uninstall.go    // 'uninstall' command logic
@@ -319,6 +206,7 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   └── root.go
 ├── env                 // Environment-related utilities (e.g., Go environment checks)
 │   └── root.go
+├── internal/integrations // Generators for Warp workflows and Carapace spec
 ├── jpd-test            // Test utilities and helpers
 ├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
 ├── LICENSE
