@@ -60,7 +60,7 @@ func TestCompletionGenerator(t *testing.T) {
 }
 
 // Define the Ginkgo BDD test suite
-var _ = Describe("CompletionGenerator", func() {
+var _ = Describe("CompletionGenerator", Label("fast", "unit"), func() {
 	// Common setup variables accessible to all It blocks within this Describe
 	var generator completion.Generator
 	var cmd *cobra.Command

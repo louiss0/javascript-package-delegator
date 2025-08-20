@@ -6,7 +6,8 @@ import (
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // FakeExecCommand is a mock implementation that doesn't actually execute commands
@@ -66,24 +67,26 @@ func (m *MockExecutor) Run() error {
 	return nil
 }
 
-var _ = Describe("executor SetTargetDir and Command interplay", func() {
+var _ = Describe("executor SetTargetDir and Command interplay", Label("fast", "unit"), func() {
 	It("stores dir when cmd is nil and applies it when Command() is called later", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 		tmpDir := GinkgoT().TempDir()
 
 		// Act
 		err := e.SetTargetDir(tmpDir)
-		Expect(err).NotTo(HaveOccurred())
+		assertions.NoError(err)
 		e.Command("bash", "-c", "echo ok")
 
 		// Assert
-		Expect(e.cmd).NotTo(BeNil())
-		Expect(e.cmd.Dir).To(Equal(tmpDir))
+		assertions.NotNil(e.cmd)
+		assertions.Equal(tmpDir, e.cmd.Dir)
 	})
 
 	It("sets cmd.Dir immediately when a command already exists", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 		e.Command("bash", "-c", "echo ok")
 		tmpDir := GinkgoT().TempDir()
@@ -92,26 +95,29 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 		err := e.SetTargetDir(tmpDir)
 
 		// Assert
-		Expect(err).NotTo(HaveOccurred())
-		Expect(e.cmd).NotTo(BeNil())
-		Expect(e.cmd.Dir).To(Equal(tmpDir))
+		assertions.NoError(err)
+		assertions.NotNil(e.cmd)
+		assertions.Equal(tmpDir, e.cmd.Dir)
 	})
 
 	It("rejects non-existent paths", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 
 		// Act
 		err := e.SetTargetDir("/path/that/does/not/exist")
 
 		// Assert
-		Expect(err).To(HaveOccurred())
+		assertions.Error(err)
 	})
 
 	It("rejects regular files", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
+		requires := require.New(GinkgoT())
 		f, err := os.CreateTemp("", "executor-file-*")
-		Expect(err).NotTo(HaveOccurred())
+		requires.NoError(err)
 		defer func() { _ = os.Remove(f.Name()) }()
 		_ = f.Close()
 		e := NewMockExecutor(false)
@@ -120,71 +126,75 @@ var _ = Describe("executor SetTargetDir and Command interplay", func() {
 		err = e.SetTargetDir(f.Name())
 
 		// Assert
-		Expect(err).To(HaveOccurred())
+		assertions.Error(err)
 	})
 
 	It("Run returns error if Command() was never called", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 
 		// Act
 		err := e.Run()
 
 		// Assert
-		Expect(err).To(HaveOccurred())
+		assertions.Error(err)
 	})
 
 	It("IsDebug returns the debug flag set at construction time", func() {
 		// Arrange
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(true)
 
 		// Assert
-		Expect(e.IsDebug()).To(BeTrue())
+		assertions.True(e.IsDebug())
 	})
 
 	It("applies the last SetTargetDir() call and persists across subsequent Command() calls", func() {
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 		tmpDir1 := GinkgoT().TempDir()
 		tmpDir2 := GinkgoT().TempDir()
 
 		// First set and command
-		Expect(e.SetTargetDir(tmpDir1)).To(Succeed())
+		assertions.NoError(e.SetTargetDir(tmpDir1))
 		e.Command("bash", "-c", "echo ok")
-		Expect(e.cmd.Dir).To(Equal(tmpDir1))
+		assertions.Equal(tmpDir1, e.cmd.Dir)
 
 		// Second set should override
-		Expect(e.SetTargetDir(tmpDir2)).To(Succeed())
-		Expect(e.cmd.Dir).To(Equal(tmpDir2))
+		assertions.NoError(e.SetTargetDir(tmpDir2))
+		assertions.Equal(tmpDir2, e.cmd.Dir)
 
 		// New command should inherit the latest dir
 		e.Command("bash", "-c", "echo again")
-		Expect(e.cmd.Dir).To(Equal(tmpDir2))
+		assertions.Equal(tmpDir2, e.cmd.Dir)
 	})
 
 	It("accepts relative and absolute paths for SetTargetDir", func() {
+		assertions := assert.New(GinkgoT())
 		e := NewMockExecutor(false)
 
 		// Save and switch CWD to a temp dir to make relative path deterministic
 		orig, err := os.Getwd()
-		Expect(err).NotTo(HaveOccurred())
+		assertions.NoError(err)
 		defer func() { _ = os.Chdir(orig) }()
 
 		base := GinkgoT().TempDir()
-		Expect(os.Chdir(base)).To(Succeed())
+		assertions.NoError(os.Chdir(base))
 
 		// Create a relative subfolder
 		rel := "relwork"
-		Expect(os.Mkdir(rel, 0o755)).To(Succeed())
+		assertions.NoError(os.Mkdir(rel, 0o755))
 
 		// Relative
-		Expect(e.SetTargetDir(rel)).To(Succeed())
+		assertions.NoError(e.SetTargetDir(rel))
 		e.Command("bash", "-c", "echo ok")
-		Expect(e.cmd.Dir).To(Equal(rel))
+		assertions.Equal(rel, e.cmd.Dir)
 
 		// Absolute
 		abs := base
-		Expect(e.SetTargetDir(abs)).To(Succeed())
+		assertions.NoError(e.SetTargetDir(abs))
 		e.Command("bash", "-c", "echo ok")
-		Expect(e.cmd.Dir).To(Equal(abs))
+		assertions.Equal(abs, e.cmd.Dir)
 	})
 })

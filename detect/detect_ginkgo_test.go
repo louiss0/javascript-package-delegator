@@ -1,4 +1,4 @@
-package main
+package detect_test
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"path/filepath" // Import filepath for joining paths in mocks
 	"time"          // Added for MockFileInfo
 
-	"github.com/louiss0/javascript-package-delegator/detect" // Correct import path for your package
+	"github.com/louiss0/javascript-package-delegator/detect"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -80,7 +80,7 @@ func (m *MockFileInfo) ModTime() time.Time { return m.ModTimeVal }
 func (m *MockFileInfo) IsDir() bool        { return m.IsDirVal }
 func (m *MockFileInfo) Sys() interface{}   { return m.SysVal }
 
-var _ = Describe("Detect", func() {
+var _ = Describe("Detect", Label("fast", "unit"), func() {
 	assert := assert.New(GinkgoT()) // Initialize assert for each spec
 
 	Context("DetectJSPacakgeManager", func() {

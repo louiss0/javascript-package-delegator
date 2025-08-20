@@ -1,13 +1,13 @@
-package main // Corrected package name to match the directory structure (services_test for services package tests)
+package services_test
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/louiss0/javascript-package-delegator/services" // Import the services package
-	. "github.com/onsi/ginkgo/v2"                              // Ginkgo BDD framework
-	"github.com/stretchr/testify/assert"                       // testify/assert for assertions
+	"github.com/louiss0/javascript-package-delegator/services"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 // This mockRoundTripper is a helper function to create a custom http.RoundTripper for mocking HTTP responses.
@@ -17,7 +17,7 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m(req)
 }
 
-var _ = Describe("NpmRegistryService", func() {
+var _ = Describe("NpmRegistryService", Label("slow", "integration"), func() {
 	var (
 		service    services.NpmRegistryService // Use interface type for service
 		mockServer *httptest.Server

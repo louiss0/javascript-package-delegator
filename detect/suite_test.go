@@ -1,4 +1,4 @@
-package cmd_test
+package detect_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func TestCmd(t *testing.T) {
+func TestDetect(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cmd Suite")
+	RunSpecs(t, "Detect Suite")
 }

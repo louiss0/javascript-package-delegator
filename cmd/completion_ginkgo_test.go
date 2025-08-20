@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"bytes"
@@ -7,9 +7,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
+
+	cmdPkg "github.com/louiss0/javascript-package-delegator/cmd"
 )
 
-var _ = Describe("Completion Command", func() {
+var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 	var (
 		tempDir     string
 		originalDir string
@@ -31,7 +33,7 @@ var _ = Describe("Completion Command", func() {
 
 	Describe("Output Flag Behavior", func() {
 		It("should create output file when --output flag is provided", func() {
-			completionCmd := NewCompletionCmd()
+			completionCmd := cmdPkg.cmdPkg.NewCompletionCmd()
 			outputFile := "test_completion.bash"
 			completionCmd.SetArgs([]string{"bash", "--output", outputFile})
 
@@ -84,7 +86,7 @@ var _ = Describe("Completion Command", func() {
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
 			It("should generate completion for "+tc.shell, func() {
-				completionCmd := NewCompletionCmd()
+				completionCmd := cmdPkg.NewCompletionCmd()
 				completionCmd.SetArgs([]string{tc.shell, "--output", tc.outputFile})
 
 				err := completionCmd.Execute()
@@ -127,7 +129,7 @@ var _ = Describe("Completion Command", func() {
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
 			It("should output to stdout for "+tc.shell+" when no output file specified", func() {
-				completionCmd := NewCompletionCmd()
+				completionCmd := cmdPkg.NewCompletionCmd()
 				completionCmd.SetArgs([]string{tc.shell})
 
 				var buf bytes.Buffer
@@ -176,7 +178,7 @@ var _ = Describe("Completion Command", func() {
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
 			It("should include alias block when --with-shorthand is used for "+tc.shell, func() {
-				completionCmd := NewCompletionCmd()
+				completionCmd := cmdPkg.NewCompletionCmd()
 
 				// Test shorthand version for bash, long version for others
 				if tc.shell == "bash" {
@@ -250,7 +252,7 @@ var _ = Describe("Completion Command", func() {
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
 			It("should NOT include alias block when --with-shorthand is NOT used for "+tc.shell, func() {
-				completionCmd := NewCompletionCmd()
+				completionCmd := cmdPkg.NewCompletionCmd()
 				completionCmd.SetArgs([]string{tc.shell})
 
 				var buf bytes.Buffer
