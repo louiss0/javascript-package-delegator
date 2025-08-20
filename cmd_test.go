@@ -3320,6 +3320,7 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(commandNames, "uninstall")
 			assert.Contains(commandNames, "clean-install")
 			assert.Contains(commandNames, "agent")
+			assert.Contains(commandNames, "integrate")
 		})
 
 		It("should maintain command count", func() {
@@ -3330,7 +3331,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(8, userCommands)
+		assert.Equal(9, userCommands)
 		})
 	})
 

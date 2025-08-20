@@ -77,10 +77,10 @@ var _ = Describe("CompletionGenerator", func() {
 			asserts := assert.New(GinkgoT())
 			shells := generator.GetSupportedShells()
 
-			asserts.Len(shells, 6)
+			asserts.Len(shells, 7)
 			// Use ElementsMatch for content regardless of order, then Equal for exact order
-			asserts.ElementsMatch([]string{"bash", "carapace", "fish", "nushell", "powershell", "zsh"}, shells)
-			asserts.Equal([]string{"bash", "carapace", "fish", "nushell", "powershell", "zsh"}, shells)
+			asserts.ElementsMatch([]string{"bash", "carapace", "fish", "nushell", "powershell", "warp", "zsh"}, shells)
+			asserts.Equal([]string{"bash", "carapace", "fish", "nushell", "powershell", "warp", "zsh"}, shells)
 		})
 	})
 
@@ -121,7 +121,8 @@ var _ = Describe("CompletionGenerator", func() {
 				{name: "fish", shell: "fish", substrings: []string{"fish completion"}},
 				{name: "nushell", shell: "nushell", nonEmptyOnly: true},
 				{name: "powershell", shell: "powershell", substrings: []string{"PowerShell"}},
-				{name: "carapace", shell: "carapace", substrings: []string{"carapace completion bridge", "https://github.com/rsteube/carapace-bin"}},
+				{name: "carapace", shell: "carapace", substrings: []string{"# Carapace completion spec for jpd", "name: jpd"}},
+				{name: "warp", shell: "warp", nonEmptyOnly: true},
 			}
 
 			for _, tc := range shellTestCases {
@@ -144,6 +145,13 @@ var _ = Describe("CompletionGenerator", func() {
 
 				It(fmt.Sprintf("should generate %s completion script to a file when filename is provided", tc.name), func() {
 					asserts := assert.New(GinkgoT())
+
+					// Skip warp since it requires directory not file
+					if tc.shell == "warp" {
+						asserts.True(true, "warp requires directory output, not file - skipping file test")
+						return
+					}
+
 					output, err := withTempFile(GinkgoT(), func(filename string) error {
 						return generator.GenerateCompletion(cmd, tc.shell, filename, false)
 					})
@@ -171,7 +179,7 @@ var _ = Describe("CompletionGenerator", func() {
 				{name: "fish", shell: "fish", substrings: []string{"function jpe", "function jpx", "jpd exec $argv"}},
 				{name: "nushell", shell: "nushell", substrings: []string{"export def jpe", "export def jpx"}},
 				{name: "powershell", shell: "powershell", substrings: []string{"function jpe {", "function jpx {", "jpd exec @args", "Register-ArgumentCompleter"}},
-				{name: "carapace", shell: "carapace", substrings: []string{"function jpe()", "function jpx()"}},
+				// Note: carapace and warp don't support shorthand aliases (--with-shorthand is ignored)
 			}
 
 			for _, tc := range shellTestCases {
@@ -224,24 +232,6 @@ var _ = Describe("CompletionGenerator", func() {
 		})
 	})
 
-	Context("GetNushellCompletionScript", func() {
-		It("should return non-empty Nushell completion script content", func() {
-			asserts := assert.New(GinkgoT())
-			s := completion.GetNushellCompletionScript()
-			asserts.NotEmpty(s)
-		})
-	})
-
-	Context("GenerateCarapaceBridge", func() {
-		It("should return the correct Carapace bridge script content", func() {
-			asserts := assert.New(GinkgoT())
-			b := completion.GenerateCarapaceBridge()
-			asserts.Contains(b, "carapace completion bridge")
-			asserts.Contains(b, "Setup Instructions")
-			asserts.Contains(b, "Bash/Zsh")
-			asserts.Contains(b, "Fish")
-			asserts.Contains(b, "Nushell")
-			asserts.Contains(b, "https://rsteube.github.io/carapace/")
-		})
-	})
+	// Note: GetNushellCompletionScript and GenerateCarapaceBridge tests have been moved to integrations package
+	// since the functions have been refactored into the AliasGenerator interface
 })

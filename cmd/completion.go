@@ -16,15 +16,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/internal/completion"
 )
 
-//go:embed assets/jpd-extern.nu
-var nushellCompletionScript string
-
 const WITH_SHORTHANDS = "with-shorthands"
-
-// NushellCompletionScript returns the embedded Nushell completion script content.
-func NushellCompletionScript() string {
-	return nushellCompletionScript
-}
 
 // NewCompletionCmd creates the parent 'completion' command and its subcommands
 func NewCompletionCmd() *cobra.Command {
@@ -32,9 +24,14 @@ func NewCompletionCmd() *cobra.Command {
 	outputFileFlag := custom_flags.NewFilePathFlag("output")
 
 	completionCmd := &cobra.Command{
-		Use:   "completion <shell>",
-		Short: "Generate shell completion scripts",
-		Long: `Generate shell completion scripts for jpd.
+		Use:   "completion <target>",
+		Short: "Generate shell completions, Carapace specs, and Warp workflows",
+		Long: `Generate shell completion scripts, Carapace specs, and Warp workflows for jpd.
+
+Supported targets:
+  bash, zsh, fish, powershell, nushell - Standard shell completions
+  carapace                             - YAML spec for carapace-bin
+  warp                                - Workflow YAML files for Warp terminal
 
 To install completion for your shell, run:
 
@@ -56,38 +53,46 @@ Nushell:
 		$ jpd completion nushell > ~/.config/nushell/completions/jpd_completions.nu
 		# Then add 'source ~/.config/nushell/completions/jpd_completions.nu' to your env.nu or config.nu
 
+Carapace:
+		$ jpd completion carapace > jpd.yaml
+		# Place in your carapace specs directory
+
+Warp:
+		$ jpd completion warp --output ./workflows/  # Generate individual workflow files
+		$ jpd completion warp                        # Print multi-doc YAML to stdout
+
 Examples:
-		jpd completion bash                     # Print Bash completion to stdout
-		jpd completion nushell                  # Print Nushell completion to stdout
-		jpd completion nushell --output jpd_completions.nu # Save Nushell completion to a file
+		jpd completion bash                          # Print Bash completion to stdout
+		jpd completion carapace                      # Print Carapace YAML spec
+		jpd completion warp --output ./workflows/    # Generate Warp workflow files
+		jpd completion warp                          # Print Warp workflows as multi-doc YAML
+
+Note: --with-shorthands flag is ignored for carapace and warp targets.
 `,
 		DisableFlagsInUseLine: true, // Don't show global flags for completion command itself
 		Args: func(cmd *cobra.Command, args []string) error {
-			// Define supported shells as a sorted slice for consistent output and efficient lookup.
-			supportedShells := []string{
-				"bash",
-				"fish",
-				"nushell",
-				"powershell",
-				"zsh",
-			}
+			// Get supported shells from the generator for consistency
+			generator := completion.NewGenerator()
+			supportedShells := generator.GetSupportedShells()
+
+			// Sort for consistent output and efficient lookup
+			sort.Strings(supportedShells)
 
 			// Generate a comma-separated list of supported shells using strings.Join
 			supportedShellList := strings.Join(supportedShells, ", ")
 
 			if len(args) != 1 {
 				return custom_errors.CreateInvalidArgumentErrorWithMessage(
-					fmt.Sprintf("requires exactly one argument representing the shell. Supported shells are: %s", supportedShellList))
+					fmt.Sprintf("requires exactly one argument representing the target. Supported targets are: %s", supportedShellList))
 			}
 
-			shell := args[0]
+			target := args[0]
 
-			// Check if the shell is supported using binary search (declarative and efficient)
-			// This requires importing the "sort" and "strings" packages.
-			idx := sort.SearchStrings(supportedShells, shell)
-			if idx >= len(supportedShells) || supportedShells[idx] != shell {
+			// Check if the target is supported using binary search (declarative and efficient)
+			idx := sort.SearchStrings(supportedShells, target)
+			if idx >= len(supportedShells) || supportedShells[idx] != target {
 				return custom_errors.CreateInvalidArgumentErrorWithMessage(
-					fmt.Sprintf("unsupported shell: '%s'. Supported shells are: %s", shell, supportedShellList))
+					fmt.Sprintf("unsupported target: '%s'. Supported targets are: %s", target, supportedShellList))
 			}
 			return nil
 		},

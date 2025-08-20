@@ -5,20 +5,17 @@ package completion
 
 import (
 	// standard library
-	_ "embed" // Required for the embed directive
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	// external
 	"github.com/spf13/cobra"
 
 	// internal
-	"github.com/louiss0/javascript-package-delegator/shell_alias"
+	"github.com/louiss0/javascript-package-delegator/internal/integrations"
 )
-
-//go:embed assets/jpd-extern.nu
-var nushellCompletionScript string
 
 // Generator provides methods for generating shell completions with optional shorthand aliases.
 type Generator interface {
@@ -35,13 +32,17 @@ type Generator interface {
 
 // generator is the concrete implementation of the Generator interface.
 type generator struct {
-	aliasGenerator shell_alias.Generator
+	aliasGenerator        integrations.AliasGenerator
+	warpGenerator         integrations.WarpGenerator
+	carapaceSpecGenerator integrations.CarapaceSpecGenerator
 }
 
 // NewGenerator creates a new completion generator instance.
 func NewGenerator() Generator {
 	return &generator{
-		aliasGenerator: shell_alias.NewGenerator(),
+		aliasGenerator:        integrations.NewAliasGenerator(),
+		warpGenerator:         integrations.NewWarpGenerator(),
+		carapaceSpecGenerator: integrations.NewCarapaceSpecGenerator(),
 	}
 }
 
@@ -53,6 +54,7 @@ func (g *generator) GetSupportedShells() []string {
 		"fish",
 		"nushell",
 		"powershell",
+		"warp",
 		"zsh",
 	}
 }
@@ -111,14 +113,53 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 	case "powershell":
 		completionErr = cmd.GenPowerShellCompletionWithDesc(outputWriter)
 	case "nushell":
-		_, completionErr = fmt.Fprint(outputWriter, GetNushellCompletionScript())
+		_, completionErr = fmt.Fprint(outputWriter, integrations.GetNushellCompletionScript())
 		if completionErr != nil {
 			completionErr = fmt.Errorf("failed to write Nushell completion script: %w", completionErr)
 		}
 	case "carapace":
-		_, completionErr = fmt.Fprint(outputWriter, GenerateCarapaceBridge())
-		if completionErr != nil {
-			completionErr = fmt.Errorf("failed to write carapace completion bridge: %w", completionErr)
+		spec, err := g.carapaceSpecGenerator.GenerateYAMLSpec(cmd)
+		if err != nil {
+			completionErr = fmt.Errorf("failed to generate Carapace YAML spec: %w", err)
+		} else {
+			_, completionErr = fmt.Fprint(outputWriter, spec)
+			if completionErr != nil {
+				completionErr = fmt.Errorf("failed to write Carapace YAML spec: %w", completionErr)
+			}
+		}
+	case "warp":
+		// Handle warp workflow generation
+		if filename == "" {
+			// Output multi-doc YAML to stdout
+			multiDoc, err := g.warpGenerator.RenderJPDWorkflowsMultiDoc()
+			if err != nil {
+				completionErr = fmt.Errorf("failed to generate Warp workflows multi-doc: %w", err)
+			} else {
+				_, completionErr = fmt.Fprint(outputWriter, multiDoc)
+				if completionErr != nil {
+					completionErr = fmt.Errorf("failed to write Warp workflows multi-doc: %w", completionErr)
+				}
+			}
+		} else {
+			// Check if filename is a directory or ends with /
+			fileInfo, err := os.Stat(filename)
+			isDir := err == nil && fileInfo.IsDir()
+			endsWithSlash := strings.HasSuffix(filename, "/")
+
+			if isDir || endsWithSlash {
+				// Generate individual workflow files in directory
+				if file != nil {
+					file.Close() // Close the single file since we're writing multiple files
+					file = nil
+				}
+				completionErr = g.warpGenerator.GenerateJPDWorkflows(filename)
+				if completionErr != nil {
+					completionErr = fmt.Errorf("failed to generate Warp workflow files: %w", completionErr)
+				}
+			} else {
+				// Error: filename looks like a file, not a directory
+				completionErr = fmt.Errorf("warp target requires a directory (not a file) when using --filename; use a directory path ending with '/' or omit --filename for stdout output")
+			}
 		}
 	default:
 		return fmt.Errorf("unsupported shell: %s", shell)
@@ -129,7 +170,8 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 	}
 
 	// If --with-shorthand flag is set, append alias functions
-	if withShorthand {
+	// Note: --with-shorthand is ignored for carapace and warp targets
+	if withShorthand && shell != "carapace" && shell != "warp" {
 		aliasMap := g.GetDefaultAliasMapping()
 
 		// Generate alias block based on shell type
@@ -145,9 +187,6 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 			aliasBlock = g.aliasGenerator.GenerateNushell(aliasMap)
 		case "powershell":
 			aliasBlock = g.aliasGenerator.GeneratePowerShell(aliasMap)
-		case "carapace":
-			// Carapace can use bash-style aliases for now
-			aliasBlock = g.aliasGenerator.GenerateBash(aliasMap)
 		}
 
 		// Append alias block to the output
@@ -160,46 +199,4 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 	}
 
 	return nil
-}
-
-// GetNushellCompletionScript returns the embedded Nushell completion script content.
-func GetNushellCompletionScript() string {
-	return nushellCompletionScript
-}
-
-// GenerateCarapaceBridge generates a carapace completion bridge script.
-func GenerateCarapaceBridge() string {
-	return `# carapace completion bridge for jpd
-#
-# This script provides instructions for integrating jpd with carapace.
-# Carapace is a multi-shell completion framework that can bridge completions
-# across different shells.
-#
-# Requirements:
-# - Install carapace-bin: https://github.com/rsteube/carapace-bin
-#
-# Setup Instructions:
-#
-# For Bash/Zsh:
-# Add this to your shell rc file (~/.bashrc or ~/.zshrc):
-#   source <(carapace _carapace)
-#   eval "$(jpd completion carapace)"
-#
-# For Fish:
-# Add this to your Fish config (~/.config/fish/config.fish):
-#   carapace _carapace | source
-#   jpd completion carapace | source
-#
-# For Nushell:
-# Add this to your Nushell config:
-#   $env.config.completions.external.enable = true
-#   carapace _carapace nushell | save ~/.carapace/init.nu
-#   source ~/.carapace/init.nu
-#
-# The carapace completion system will then provide intelligent completions
-# for jpd commands across all supported shells.
-#
-# For more information about carapace, visit:
-# https://rsteube.github.io/carapace/
-`
 }
