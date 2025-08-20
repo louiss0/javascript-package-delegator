@@ -168,7 +168,7 @@ Examples:
 				}
 
 				if len(dependencies) == 0 {
-	return fmt.Errorf("no packages found for interactive uninstall")
+					return fmt.Errorf("no packages found for interactive uninstall")
 				}
 
 				dependencySelectorUI := newDependencySelectorUI(dependencies)

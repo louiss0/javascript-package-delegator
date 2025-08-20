@@ -107,7 +107,7 @@ Examples:
 				cmdArgs = append(cmdArgs, packageArgs...)
 
 			case "deno":
-	return fmt.Errorf("deno does not have a dlx/x equivalent")
+				return fmt.Errorf("deno does not have a dlx/x equivalent")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)

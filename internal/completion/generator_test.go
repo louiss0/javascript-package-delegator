@@ -75,7 +75,7 @@ var _ = Describe("CompletionGenerator", Label("fast", "unit"), func() {
 		It("should return the correct list of supported shells", func() {
 			// Use testify/assert with GinkgoT() for assertions
 			asserts := assert.New(GinkgoT())
-			shells := generator.GetSupportedShells()
+			shells := generator.SupportedShells()
 
 			asserts.Len(shells, 7)
 			// Use ElementsMatch for content regardless of order, then Equal for exact order
@@ -87,7 +87,7 @@ var _ = Describe("CompletionGenerator", Label("fast", "unit"), func() {
 	Context("GetDefaultAliasMapping", func() {
 		It("should return the correct default alias mapping", func() {
 			asserts := assert.New(GinkgoT())
-			aliasMap := generator.GetDefaultAliasMapping()
+			aliasMap := generator.DefaultAliasMapping()
 
 			asserts.Contains(aliasMap, "install")
 			asserts.Contains(aliasMap, "run")

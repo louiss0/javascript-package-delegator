@@ -83,7 +83,7 @@ Examples:
 				cmdArgs = []string{"install", "--frozen-lockfile"}
 
 			case "deno":
-	return fmt.Errorf("deno does not support this command")
+				return fmt.Errorf("deno does not support this command")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)

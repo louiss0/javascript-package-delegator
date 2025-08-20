@@ -160,10 +160,10 @@ type mockYarnCommandVersionOutputer struct {
 }
 
 func (my mockYarnCommandVersionOutputer) Output() (string, error) {
-match, err := regexp.MatchString(`\d\.\d\.\d`, my.version)
+	match, err := regexp.MatchString(`\d+\.\d+\.\d+`, my.version)
 
-	if error != nil {
-		return "", error
+	if err != nil {
+		return "", err
 	}
 
 	if !match {
@@ -196,10 +196,10 @@ func NewMockCommandTextUI(string) cmd.CommandUITexter {
 }
 
 func (ui *MockCommandTextUI) Run() error {
-match, err := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, ui.Value())
+	match, err := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, ui.Value())
 
-	if error != nil {
-		return error
+	if err != nil {
+		return err
 	}
 
 	if match {

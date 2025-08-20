@@ -39,7 +39,7 @@ type generator struct {
 
 // NewGenerator creates a new completion generator instance.
 func NewGenerator() *generator {
-	return 6generator{
+	return &generator{
 		aliasGenerator:        integrations.NewAliasGenerator(),
 		warpGenerator:         integrations.NewWarpGenerator(),
 		carapaceSpecGenerator: integrations.NewCarapaceSpecGenerator(),
@@ -113,7 +113,8 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 	case "powershell":
 		completionErr = cmd.GenPowerShellCompletionWithDesc(outputWriter)
 	case "nushell":
-		_, completionErr = fmt.Fprint(outputWriter, integrations.GetNushellCompletionScript())
+		nushellScript := integrations.NushellCompletionScript()
+		_, completionErr = fmt.Fprint(outputWriter, nushellScript)
 		if completionErr != nil {
 			completionErr = fmt.Errorf("failed to write Nushell completion script: %w", completionErr)
 		}
@@ -149,7 +150,9 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 			if isDir || endsWithSlash {
 				// Generate individual workflow files in directory
 				if file != nil {
-					file.Close() // Close the single file since we're writing multiple files
+					if closeErr := file.Close(); closeErr != nil {
+						return fmt.Errorf("failed to close file: %w", closeErr)
+					} // Close the single file since we're writing multiple files
 					file = nil
 				}
 				completionErr = g.warpGenerator.GenerateJPDWorkflows(filename)
@@ -172,7 +175,7 @@ func (g *generator) GenerateCompletion(cmd *cobra.Command, shell string, filenam
 	// If --with-shorthand flag is set, append alias functions
 	// Note: --with-shorthand is ignored for carapace and warp targets
 	if withShorthand && shell != "carapace" && shell != "warp" {
-		aliasMap := g.GetDefaultAliasMapping()
+		aliasMap := g.DefaultAliasMapping()
 
 		// Generate alias block based on shell type
 		var aliasBlock string

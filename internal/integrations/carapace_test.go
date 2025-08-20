@@ -128,9 +128,9 @@ var _ = Describe("Carapace Spec Generator", func() {
 		})
 	})
 
-	Describe("GetNushellCompletionScript", func() {
+	Describe("NushellCompletionScript", func() {
 		It("should return embedded nushell completion script", func() {
-			result := GetNushellCompletionScript()
+			result := NushellCompletionScript()
 
 			assert.NotEmpty(GinkgoT(), result, "Expected non-empty nushell completion script")
 			// The embedded file should contain nushell extern declarations

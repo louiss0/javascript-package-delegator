@@ -779,7 +779,7 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(rootCmd, "install", "--search", "89ispsnsnis")
 
 				assert.Error(err)
-				assert.ErrorContains(err, "query failed: 89ispsnsnis")
+			assert.ErrorContains(err, "search failed for \"89ispsnsnis\"")
 
 			})
 
@@ -862,9 +862,9 @@ var _ = Describe("JPD Commands", func() {
 					rootCommmand := factory.GenerateWithPackageManagerDetectedAndVolta(packageManager)
 
 					DebugExecutorExpectationManager.ExpectJSCommandLog("volta", "run", packageManager, "install") // REMOVED
-output, err := executeCmd(rootCommmand, "install")
+					output, err := executeCmd(rootCommmand, "install")
 
-					assert.NoError(error)
+					assert.NoError(err)
 					assert.Empty(output)
 
 					assert.Equal("volta", mockCommandRunner.CommandCall.Name)
@@ -944,9 +944,9 @@ output, err := executeCmd(rootCommmand, "install")
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("npm")
 				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "install")
-output, err := executeCmd(rootCommmand, "install", "--no-volta")
+				output, err := executeCmd(rootCommmand, "install", "--no-volta")
 
-				assert.NoError(error)
+				assert.NoError(err)
 				assert.Empty(output)
 
 				assert.Equal("npm", mockCommandRunner.CommandCall.Name)
@@ -1948,7 +1948,7 @@ output, err := executeCmd(rootCommmand, "install", "--no-volta")
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				_, err := executeCmd(denoRootCmd, "exec", "some-package")
 				assert.Error(err)
-				assert.Contains(err.Error(), "deno doesn't have a dlx or x like the others")
+			assert.Contains(err.Error(), "deno does not have a dlx/x equivalent")
 			})
 		})
 
@@ -3000,7 +3000,7 @@ output, err := executeCmd(rootCommmand, "install", "--no-volta")
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
 				_, err := executeCmd(denoRootCmd, "clean-install")
 				assert.Error(err)
-				assert.Contains(err.Error(), "deno doesn't support this command")
+			assert.Contains(err.Error(), "deno does not support this command")
 			})
 		})
 

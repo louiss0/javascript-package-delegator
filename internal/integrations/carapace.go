@@ -87,7 +87,7 @@ type carapaceSpecGenerator struct{}
 
 // NewCarapaceSpecGenerator creates a new Carapace spec generator instance.
 func NewCarapaceSpecGenerator() *carapaceSpecGenerator {
-	return 6carapaceSpecGenerator{}
+	return &carapaceSpecGenerator{}
 }
 
 // CarapaceSpec represents the structure of a Carapace YAML specification.

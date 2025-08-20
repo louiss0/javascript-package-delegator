@@ -134,7 +134,7 @@ func DetectJSPackageManagerBasedOnLockFile(detectedLockFile string, pathLookup P
 
 	packageManagerToFind := LockFileToPackageManagerMap[detectedLockFile]
 	// Use the injected pathLookup here
-	_, err := pathLookup.LookPath(packageManagerToFind)
+	_, err = pathLookup.LookPath(packageManagerToFind)
 	if err != nil {
 		// If LookPath returns os.ErrNotExist, return our specific error
 		if errors.Is(err, os.ErrNotExist) {
@@ -161,20 +161,20 @@ func NewRealYarnCommandVersionRunner() RealYarnCommandVersionRunner {
 }
 
 func (r RealYarnCommandVersionRunner) Output() (string, error) {
-output, err := r.cmd.Output()
+	output, err := r.cmd.Output()
 
-	if error != nil {
-		return "", error
+	if err != nil {
+		return "", err
 	}
 
 	return string(output), nil
 }
 
 func DetectYarnVersion(yarnVersionRunner YarnCommandVersionOutputter) (string, error) {
-result, err := yarnVersionRunner.Output()
+	result, err := yarnVersionRunner.Output()
 
-	if error != nil {
-		return "", error
+	if err != nil {
+		return "", err
 	}
 
 	return result, nil

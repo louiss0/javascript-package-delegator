@@ -73,7 +73,7 @@ Note: --with-shorthand flag is ignored for carapace and warp targets.
 		Args: func(cmd *cobra.Command, args []string) error {
 			// Get supported shells from the generator for consistency
 			generator := completion.NewGenerator()
-			supportedShells := generator.GetSupportedShells()
+			supportedShells := generator.SupportedShells()
 
 			// Sort for consistent output and efficient lookup
 			sort.Strings(supportedShells)
