@@ -350,7 +350,7 @@ func TestCompletionCommand_ErrorCases(t *testing.T) {
 		var errBuf bytes.Buffer
 		completionCmd.SetErr(&errBuf)
 		completionCmd.SetOut(&errBuf)
-		
+
 		// Execute the command
 		err := completionCmd.Execute()
 		if err != nil {

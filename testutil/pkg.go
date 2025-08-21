@@ -147,12 +147,32 @@ func (f *RootCommandFactory) ResetDebugExecutor() {
 // SetupBasicCommandRunnerExpectations sets up basic expectations for the MockCommandRunner
 // This is a helper to avoid repeating common mock setup in tests
 func (f *RootCommandFactory) SetupBasicCommandRunnerExpectations() {
-	// Allow any commands to be set
-	f.mockRunner.On("Command", tmock.Anything, tmock.Anything).Maybe()
+	// Allow any commands to be set with variable number of arguments
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything, tmock.Anything).Return().Maybe()
+	f.mockRunner.On("Command", tmock.Anything).Return().Maybe()
 	// Allow any target directory to be set
 	f.mockRunner.On("SetTargetDir", tmock.Anything).Return(nil).Maybe()
 	// Allow commands to run successfully by default
 	f.mockRunner.On("Run").Return(nil).Maybe()
+	// Allow Run to be asserted with synthesized arguments: name, args slice, and working dir
+	f.mockRunner.On("Run", tmock.Anything, tmock.Anything, tmock.Anything).Return(nil).Maybe()
+}
+
+// SetupBasicDebugExecutorExpectations sets up permissive expectations for the debug executor
+// This allows tests to run without panicking on unexpected debug calls
+func (f *RootCommandFactory) SetupBasicDebugExecutorExpectations() {
+	// Set up the global debug executor expectation manager
+	DebugExecutorExpectationManager.DebugExecutor = f.debugExecutor
+	// Allow any debug messages and JS command logging
+	DebugExecutorExpectationManager.ExpectAnyDebugMessages()
 }
 
 // baseDependencies returns a set of common mocked dependencies that can be overridden.

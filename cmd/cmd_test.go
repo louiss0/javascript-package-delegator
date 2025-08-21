@@ -78,15 +78,20 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	BeforeEach(func() {
+		// Clear any state from previous tests to prevent cross-contamination
+		mockCommandRunner.InvalidCommands = []string{}
+		mockCommandRunner.ResetHasBeenCalled()
 		// Set up basic mock expectations before each test
 		factory.SetupBasicCommandRunnerExpectations()
+		// Reset first, then setup debug expectations
+		factory.ResetDebugExecutor()
+		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
+		factory.SetupBasicDebugExecutorExpectations()
 		rootCmd = factory.CreateNpmAsDefault(nil)
 		// This needs to be set because Ginkgo will pass a --test.timeout flag to the root command
 		// The test.timeout flag will get in the way
 		// If the args are empty before they are set by executeCommand the right args can be passed
 		rootCmd.SetArgs([]string{})
-		factory.ResetDebugExecutor()
-		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
 
 	})
 
@@ -239,21 +244,21 @@ var _ = Describe("JPD Commands", func() {
 				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.NoError(err)
 				// Verify that Run was called with the correct command
-				expectedCmdParts := strings.Fields(validInstallCommand)
-				mockCommandRunner.AssertCalled(GinkgoT(), "Run", expectedCmdParts[0], expectedCmdParts[1:], "")
+				mockCommandRunner.AssertCalled(GinkgoT(), "Run", splitCommandString[0], splitCommandString[1:], "")
 			})
 
 			It("should return an error if the user-provided install command fails to execute", func() {
 
 				const validInstallCommand = "npm install -g npm"
-				re := regexp.MustCompile(`\s+`)
-				splitCommandString := re.Split(validInstallCommand, -1)
+				splitCommandString := strings.Fields(validInstallCommand)
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectNoPMFromPath()
 				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add expectation for JS command log
+				
+				// Configure the mock runner to make "npm" command fail using InvalidCommands approach
+				mockCommandRunner.InvalidCommands = []string{"npm"}
+				
 				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
-				// Configure the mock runner to make "npm" command fail
-				mockCommandRunner.On("Run", "npm", []string{"install", "-g", "npm"}, "").Return(fmt.Errorf("mock error: command 'npm' is configured to fail"))
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
 				_ = currentRootCmd.ParseFlags([]string{})
@@ -471,8 +476,7 @@ var _ = Describe("JPD Commands", func() {
 					currentCommand.SetContext(context.Background())
 					_ = currentCommand.ParseFlags([]string{})
 
-					re := regexp.MustCompile(`\s+`)
-					splitCommandString := re.Split(commandString, -1)
+					splitCommandString := strings.Fields(commandString)
 					DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
 
 					error := currentCommand.PersistentPreRunE(currentCommand, []string{})

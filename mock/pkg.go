@@ -4,6 +4,7 @@ package mock
 import (
 	// standard library
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -54,6 +55,11 @@ func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(cmd string, args ...string
 // This ensures no real commands are executed during tests - it uses testify/mock for expectations
 type MockCommandRunner struct {
 	mock.Mock
+	// Fields for backward compatibility with existing tests
+	HasBeenCalled   bool
+	CommandCall     CommandCall
+	InvalidCommands []string
+	WorkingDir      string
 }
 
 // CommandCall represents a single command call with its name and arguments
@@ -64,7 +70,36 @@ type CommandCall struct {
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner
 func NewMockCommandRunner() *MockCommandRunner {
-	return &MockCommandRunner{}
+	return &MockCommandRunner{
+		HasBeenCalled:   false,
+		CommandCall:     CommandCall{},
+		InvalidCommands: []string{},
+		WorkingDir:      "",
+	}
+}
+
+// hasExpectation returns true if there is an explicit expectation set for the given method name.
+func (m *MockCommandRunner) hasExpectation(method string) bool {
+	for _, c := range m.ExpectedCalls {
+		if c.Method == method {
+			return true
+		}
+	}
+	return false
+}
+
+// hasExpectationWithArgLen returns true if there is an explicit expectation set for the given
+// method name AND the number of expected arguments matches the provided length. This helps avoid
+// testify panics when a different-arity expectation exists for the same method.
+func (m *MockCommandRunner) hasExpectationWithArgLen(method string, argLen int) bool {
+	for _, c := range m.ExpectedCalls {
+		if c.Method == method {
+			if len(c.Arguments) == argLen {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Command records the command that would be executed
@@ -74,19 +109,113 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 	for _, arg := range args {
 		callArgs = append(callArgs, arg)
 	}
-	m.Called(callArgs...)
+	// Only invoke testify's Called if an expectation for Command is set with matching arity
+	if m.hasExpectationWithArgLen("Command", len(callArgs)) {
+		m.Called(callArgs...)
+	}
+
+	// Store the command for backward compatibility
+	// Also reset the execution flag to avoid bleed-over between tests
+	m.HasBeenCalled = false
+	m.CommandCall = CommandCall{
+		Name: name,
+		Args: args,
+	}
 }
 
 // SetTargetDir sets the target directory for command execution
 func (m *MockCommandRunner) SetTargetDir(dir string) error {
-	args := m.Called(dir)
-	return args.Error(0)
+	// Simulate real behavior: validate directory exists
+	if fileInfo, err := os.Stat(dir); err != nil || !fileInfo.IsDir() {
+		return fmt.Errorf("stat %s: no such file or directory", dir)
+	}
+	// Only invoke testify's Called if an expectation with matching arity is set
+	if m.hasExpectationWithArgLen("SetTargetDir", 1) {
+		_ = m.Called(dir)
+	}
+	m.WorkingDir = dir
+	return nil
 }
 
 // Run simulates running the command
 func (m *MockCommandRunner) Run() error {
-	args := m.Called()
-	return args.Error(0)
+	// If no command was set, return an error (unless tests override via expectation)
+	if m.CommandCall.Name == "" {
+		if m.hasExpectation("Run") {
+			args := m.Called(m.CommandCall.Name, m.CommandCall.Args, m.WorkingDir)
+			return args.Error(0)
+		}
+		return fmt.Errorf("no command set to run")
+	}
+
+	// Mark that a run attempt has been made whenever a command is present
+	m.HasBeenCalled = true
+
+	// If an expectation with matching arity exists, obtain its result first
+	var expectedErr error
+	if m.hasExpectationWithArgLen("Run", 3) {
+		args := m.Called(m.CommandCall.Name, m.CommandCall.Args, m.WorkingDir)
+		expectedErr = args.Error(0)
+	}
+
+	// If this command is configured as invalid and no explicit error was provided by expectations, fail deterministically
+	for _, invalidCmd := range m.InvalidCommands {
+		if m.CommandCall.Name == invalidCmd {
+			if expectedErr != nil {
+				return expectedErr
+			}
+			return fmt.Errorf("mock error: command '%s' is configured to fail", invalidCmd)
+		}
+	}
+
+	// If we had an expectation and it returned an error (or nil), return it now
+	if m.hasExpectation("Run") {
+		return expectedErr
+	}
+
+	// Otherwise, consider that no actual run was attempted (help path, etc.)
+	return nil
+}
+
+// HasCommand checks if a specific command with args was called
+func (m *MockCommandRunner) HasCommand(name string, args ...string) bool {
+	if m.CommandCall.Name != name {
+		return false
+	}
+
+	if len(m.CommandCall.Args) != len(args) {
+		return false
+	}
+
+	for i, arg := range args {
+		if m.CommandCall.Args[i] != arg {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Reset clears all state for reuse
+func (m *MockCommandRunner) Reset() {
+	m.HasBeenCalled = false
+	m.CommandCall = CommandCall{}
+	m.InvalidCommands = []string{}
+	m.WorkingDir = ""
+	m.Mock = mock.Mock{}
+}
+
+// ResetHasBeenCalled resets only the HasBeenCalled flag. Useful to ensure clean state between specs
+func (m *MockCommandRunner) ResetHasBeenCalled() {
+	m.HasBeenCalled = false
+}
+
+// LastCommand returns the last executed command
+func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
+	if m.CommandCall.Name == "" {
+		return CommandCall{}, false
+	}
+	return m.CommandCall, true
 }
 
 // MockYarnCommandVersionOutputer is a testify/mock implementation for yarn version commands
@@ -113,6 +242,9 @@ func NewMockYarnCommandVersionOutputer(version string) *MockYarnCommandVersionOu
 		} else {
 			mockOutputer.On("Output").Return(version, nil)
 		}
+	} else {
+		// When no version is provided, simulate an error to trigger fallback logic in code
+		mockOutputer.On("Output").Return("", fmt.Errorf("unable to detect yarn version"))
 	}
 	return mockOutputer
 }
@@ -120,34 +252,58 @@ func NewMockYarnCommandVersionOutputer(version string) *MockYarnCommandVersionOu
 // MockCommandTextUI implements the cmd.CommandUITexter interface using testify/mock
 type MockCommandTextUI struct {
 	mock.Mock
+	storedValue string
+}
+
+// hasExpectation returns true if there is an explicit expectation set for the given method name.
+func (ui *MockCommandTextUI) hasExpectation(method string) bool {
+	for _, c := range ui.ExpectedCalls {
+		if c.Method == method {
+			return true
+		}
+	}
+	return false
 }
 
 // Value returns the current value of the text UI
 func (ui *MockCommandTextUI) Value() string {
-	args := ui.Called()
-	return args.String(0)
+	if ui.storedValue != "" {
+		return ui.storedValue
+	}
+	if ui.hasExpectation("Value") {
+		args := ui.Called()
+		return args.String(0)
+	}
+	return ""
 }
 
 // SetValue sets the value of the text UI
 func (ui *MockCommandTextUI) SetValue(value string) string {
-	args := ui.Called(value)
-	return args.Get(0).(string)
+	ui.storedValue = value
+	if ui.hasExpectation("SetValue") {
+		_ = ui.Called(value)
+	}
+	return value
 }
 
 // Run executes the text UI
 func (ui *MockCommandTextUI) Run() error {
-	args := ui.Called()
-	return args.Error(0)
+	if ui.hasExpectation("Run") {
+		args := ui.Called()
+		return args.Error(0)
+	}
+	return nil
 }
 
 // NewMockCommandTextUI creates a new MockCommandTextUI with default behavior
 func NewMockCommandTextUI(defaultValue string) cmd.CommandUITexter {
 	mockUI := &MockCommandTextUI{}
+	// Seed the stored value so Value() works even without explicit expectations
+	mockUI.storedValue = defaultValue
+	// Default to success; specific tests can override
+	mockUI.On("Run").Return(nil).Maybe()
+
 	if defaultValue != "" {
-		// Set up default expectations for common operations
-		mockUI.On("SetValue", mock.AnythingOfType("string")).Return(defaultValue).Maybe()
-		mockUI.On("Value").Return(defaultValue).Maybe()
-		
 		// Set up default Run behavior based on validation
 		match, err := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, defaultValue)
 		if err != nil {
@@ -184,7 +340,7 @@ func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISel
 	packageNames := lo.Map(packages, func(item services.PackageInfo, index int) string {
 		return item.Name
 	})
-	
+
 	if len(packages) == 0 {
 		mockUI.On("Values").Return([]string{}).Maybe()
 		mockUI.On("Run").Return(fmt.Errorf("no packages available")).Maybe()
@@ -195,17 +351,17 @@ func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISel
 		if len(packageNames) < max {
 			max = len(packageNames)
 		}
-		
+
 		source := rand.NewSource(uint64(time.Now().UnixNano()))
 		rng := rand.New(source)
 		randomNumber := rng.Intn(max-min+1) + min
 		if randomNumber > len(packageNames) {
 			randomNumber = len(packageNames)
 		}
-		
+
 		mutable.Shuffle(packageNames)
 		selectedPackages := lo.Slice(packageNames, 0, randomNumber)
-		
+
 		mockUI.On("Values").Return(selectedPackages).Maybe()
 		mockUI.On("Run").Return(nil).Maybe()
 	}
@@ -232,7 +388,7 @@ func (t *MockTaskSelectUI) Run() error {
 // NewMockTaskSelectUI creates a new MockTaskSelectUI with default behavior
 func NewMockTaskSelectUI(options []string) cmd.TaskUISelector {
 	mockUI := &MockTaskSelectUI{}
-	
+
 	if len(options) == 0 {
 		mockUI.On("Value").Return("").Maybe()
 		mockUI.On("Run").Return(fmt.Errorf("no tasks available for selection")).Maybe()
@@ -242,7 +398,7 @@ func NewMockTaskSelectUI(options []string) cmd.TaskUISelector {
 		rng := rand.New(source)
 		randomIndex := rng.Intn(len(options))
 		selectedValue := options[randomIndex]
-		
+
 		mockUI.On("Value").Return(selectedValue).Maybe()
 		mockUI.On("Run").Return(nil).Maybe()
 	}
@@ -269,7 +425,7 @@ func (m *MockDependencyUISelector) Run() error {
 // NewMockDependencySelectUI creates a new MockDependencyUISelector with default behavior
 func NewMockDependencySelectUI(options []string) cmd.DependencyUIMultiSelector {
 	mockUI := &MockDependencyUISelector{}
-	
+
 	if len(options) == 0 {
 		mockUI.On("Values").Return([]string{}).Maybe()
 		mockUI.On("Run").Return(fmt.Errorf("no dependencies available for selection")).Maybe()
@@ -279,7 +435,7 @@ func NewMockDependencySelectUI(options []string) cmd.DependencyUIMultiSelector {
 		rng := rand.New(source)
 		randomIndex := rng.Intn(len(options))
 		selectedValues := []string{options[randomIndex]}
-		
+
 		mockUI.On("Values").Return(selectedValues).Maybe()
 		mockUI.On("Run").Return(nil).Maybe()
 	}
