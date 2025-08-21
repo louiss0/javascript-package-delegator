@@ -45,6 +45,9 @@ jpd is distributed as a single binary and can be installed via popular package m
 
   <TabItem label="Nix">
     ```bash
+    # Install via Nix profile (recommended)
+    nix profile install github:nix-community/nur#repos.the-code-fixer-23-nur.jpd
+
     # Build via default.nix and install locally
     nix-build default.nix -A jpd
     # Symlink into your PATH (example)
