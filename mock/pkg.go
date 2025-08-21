@@ -4,7 +4,6 @@ package mock
 import (
 	// standard library
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -52,15 +51,9 @@ func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(cmd string, args ...string
 }
 
 // MockCommandRunner implements the cmd.CommandRunner interface for testing purposes
-// This ensures no real commands are executed during tests - it only records what would be run
+// This ensures no real commands are executed during tests - it uses testify/mock for expectations
 type MockCommandRunner struct {
-	// CommandCall stores the single command that has been called
-	CommandCall CommandCall
-	// InvalidCommands is a list of commands that should return an error when Run() is called
-	InvalidCommands []string
-	// HasBeenCalled indicates if a command has been set for this run
-	HasBeenCalled bool
-	WorkingDir    string
+	mock.Mock
 }
 
 // CommandCall represents a single command call with its name and arguments
@@ -71,239 +64,224 @@ type CommandCall struct {
 
 // NewMockCommandRunner creates a new instance of MockCommandRunner
 func NewMockCommandRunner() *MockCommandRunner {
-	return &MockCommandRunner{
-		CommandCall:     CommandCall{},
-		InvalidCommands: []string{},
-		HasBeenCalled:   false,
-	}
+	return &MockCommandRunner{}
 }
 
 // Command records the command that would be executed
 func (m *MockCommandRunner) Command(name string, args ...string) {
-	m.CommandCall = CommandCall{
-		Name: name,
-		Args: args,
+	// Build arguments for mock call
+	callArgs := []interface{}{name}
+	for _, arg := range args {
+		callArgs = append(callArgs, arg)
 	}
-	m.HasBeenCalled = true
+	m.Called(callArgs...)
 }
 
+// SetTargetDir sets the target directory for command execution
 func (m *MockCommandRunner) SetTargetDir(dir string) error {
-	fileInfo, err := os.Stat(dir) // Get file information
-	if err != nil {
-		return err
-	}
-
-	// Check if it's a directory
-	if !fileInfo.IsDir() {
-		return fmt.Errorf("target directory %s is not a directory", dir)
-	}
-
-	m.WorkingDir = dir
-	return nil
+	args := m.Called(dir)
+	return args.Error(0)
 }
 
-// Run simulates running the command and records it.
-// Returns an error if the command is in the InvalidCommands list.
+// Run simulates running the command
 func (m *MockCommandRunner) Run() error {
-	if !m.HasBeenCalled {
-		return fmt.Errorf("no command set to run")
-	}
+	args := m.Called()
+	return args.Error(0)
+}
 
-	// Check if this command should fail
-	for _, invalidCmd := range m.InvalidCommands {
-		if m.CommandCall.Name == invalidCmd {
-			return fmt.Errorf("mock error: command '%s' is configured to fail", m.CommandCall.Name)
+// MockYarnCommandVersionOutputer is a testify/mock implementation for yarn version commands
+type MockYarnCommandVersionOutputer struct {
+	mock.Mock
+}
+
+// Output executes the yarn version output with mock expectations
+func (my *MockYarnCommandVersionOutputer) Output() (string, error) {
+	args := my.Called()
+	return args.String(0), args.Error(1)
+}
+
+// NewMockYarnCommandVersionOutputer creates a new MockYarnCommandVersionOutputer
+func NewMockYarnCommandVersionOutputer(version string) *MockYarnCommandVersionOutputer {
+	mockOutputer := &MockYarnCommandVersionOutputer{}
+	if version != "" {
+		// Pre-configure the mock with the expected version if provided
+		match, err := regexp.MatchString(`\d\.\d\.\d`, version)
+		if err != nil {
+			mockOutputer.On("Output").Return("", err)
+		} else if !match {
+			mockOutputer.On("Output").Return("", fmt.Errorf("invalid version format you must use semver versioning"))
+		} else {
+			mockOutputer.On("Output").Return(version, nil)
 		}
 	}
-
-	return nil
+	return mockOutputer
 }
 
-// Reset clears the recorded command and invalid commands
-func (m *MockCommandRunner) Reset() {
-	m.CommandCall = CommandCall{}
-	m.InvalidCommands = []string{}
-	m.WorkingDir = ""
-	m.HasBeenCalled = false
-}
-
-// HasCommand checks if the current command matches the given name and args
-func (m *MockCommandRunner) HasCommand(name string, args ...string) bool {
-	if !m.HasBeenCalled || m.CommandCall.Name != name {
-		return false
-	}
-
-	if len(m.CommandCall.Args) != len(args) {
-		return false
-	}
-
-	for i, arg := range args {
-		if m.CommandCall.Args[i] != arg {
-			return false
-		}
-	}
-
-	return true
-}
-
-// LastCommand returns the most recently executed command
-func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
-	if !m.HasBeenCalled {
-		return CommandCall{}, false
-	}
-	return m.CommandCall, true
-}
-
-// MockYarnCommandVersionOutputer is a fake implementation that doesn't execute real yarn commands
-type mockYarnCommandVersionOutputer struct {
-	version string
-}
-
-func (my mockYarnCommandVersionOutputer) Output() (string, error) {
-	match, error := regexp.MatchString(`\d\.\d\.\d`, my.version)
-
-	if error != nil {
-		return "", error
-	}
-
-	if !match {
-		return "", fmt.Errorf("invalid version format you must use semver versioning")
-	}
-
-	return my.version, nil
-}
-
-// NewMockYarnCommandVersionOutputer creates a fake yarn version outputer for tests
-func NewMockYarnCommandVersionOutputer(version string) mockYarnCommandVersionOutputer {
-	return mockYarnCommandVersionOutputer{version: version}
-}
-
+// MockCommandTextUI implements the cmd.CommandUITexter interface using testify/mock
 type MockCommandTextUI struct {
-	value string
+	mock.Mock
 }
 
-func (ui MockCommandTextUI) Value() string {
-	return ui.value
+// Value returns the current value of the text UI
+func (ui *MockCommandTextUI) Value() string {
+	args := ui.Called()
+	return args.String(0)
 }
 
+// SetValue sets the value of the text UI
 func (ui *MockCommandTextUI) SetValue(value string) string {
-	ui.value = value
-	return ui.value
+	args := ui.Called(value)
+	return args.Get(0).(string)
 }
 
-func NewMockCommandTextUI(string) cmd.CommandUITexter {
-	return &MockCommandTextUI{}
-}
-
+// Run executes the text UI
 func (ui *MockCommandTextUI) Run() error {
-	match, error := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, ui.Value())
-
-	if error != nil {
-		return error
-	}
-
-	if match {
-		return nil
-	}
-
-	return fmt.Errorf(strings.Join(cmd.INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), ui.value)
+	args := ui.Called()
+	return args.Error(0)
 }
 
+// NewMockCommandTextUI creates a new MockCommandTextUI with default behavior
+func NewMockCommandTextUI(defaultValue string) cmd.CommandUITexter {
+	mockUI := &MockCommandTextUI{}
+	if defaultValue != "" {
+		// Set up default expectations for common operations
+		mockUI.On("SetValue", mock.AnythingOfType("string")).Return(defaultValue).Maybe()
+		mockUI.On("Value").Return(defaultValue).Maybe()
+		
+		// Set up default Run behavior based on validation
+		match, err := regexp.MatchString(cmd.VALID_INSTALL_COMMAND_STRING_RE, defaultValue)
+		if err != nil {
+			mockUI.On("Run").Return(err).Maybe()
+		} else if match {
+			mockUI.On("Run").Return(nil).Maybe()
+		} else {
+			mockUI.On("Run").Return(fmt.Errorf(strings.Join(cmd.INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), defaultValue)).Maybe()
+		}
+	}
+	return mockUI
+}
+
+// MockPackageMultiSelectUI implements the cmd.MultiUISelecter interface using testify/mock
 type MockPackageMultiSelectUI struct {
-	values []string
+	mock.Mock
 }
 
-func (ui MockPackageMultiSelectUI) Values() []string {
-	return ui.values
+// Values returns the selected package values
+func (ui *MockPackageMultiSelectUI) Values() []string {
+	args := ui.Called()
+	return args.Get(0).([]string)
 }
 
-func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISelecter {
-	return &MockPackageMultiSelectUI{
-		values: lo.Map(packages, func(item services.PackageInfo, index int) string {
-			return item.Name
-		}),
-	}
-}
-
+// Run executes the multi-select UI
 func (ui *MockPackageMultiSelectUI) Run() error {
-	if len(ui.values) == 0 {
-		return fmt.Errorf("no packages available")
-	}
-
-	min := 1
-	max := 20
-
-	// 2. Seed the random number generator with the current time
-	// This ensures a different sequence of numbers each time the program runs.
-	source := rand.NewSource(uint64(time.Now().UnixNano()))
-	rng := rand.New(source)
-
-	// 3. Generate a random number within the range [min, max]
-	// rng.Intn(n) generates a number in [0, n).
-	// So, to get a number in [min, max], we need a range of (max - min + 1).
-	randomNumber := rng.Intn(max-min+1) + min
-
-	mutable.Shuffle(ui.values)
-
-	ui.values = lo.Slice(ui.values, 0, randomNumber)
-
-	return nil
+	args := ui.Called()
+	return args.Error(0)
 }
 
+// NewMockPackageMultiSelectUI creates a new MockPackageMultiSelectUI with default behavior
+func NewMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISelecter {
+	mockUI := &MockPackageMultiSelectUI{}
+	packageNames := lo.Map(packages, func(item services.PackageInfo, index int) string {
+		return item.Name
+	})
+	
+	if len(packages) == 0 {
+		mockUI.On("Values").Return([]string{}).Maybe()
+		mockUI.On("Run").Return(fmt.Errorf("no packages available")).Maybe()
+	} else {
+		// Set up default behavior with randomized selection
+		min := 1
+		max := 20
+		if len(packageNames) < max {
+			max = len(packageNames)
+		}
+		
+		source := rand.NewSource(uint64(time.Now().UnixNano()))
+		rng := rand.New(source)
+		randomNumber := rng.Intn(max-min+1) + min
+		if randomNumber > len(packageNames) {
+			randomNumber = len(packageNames)
+		}
+		
+		mutable.Shuffle(packageNames)
+		selectedPackages := lo.Slice(packageNames, 0, randomNumber)
+		
+		mockUI.On("Values").Return(selectedPackages).Maybe()
+		mockUI.On("Run").Return(nil).Maybe()
+	}
+	return mockUI
+}
+
+// MockTaskSelectUI implements the cmd.TaskUISelector interface using testify/mock
 type MockTaskSelectUI struct {
-	selectedValue string
-	options       []string
+	mock.Mock
 }
 
-func NewMockTaskSelectUI(options []string) cmd.TaskUISelector {
-	return &MockTaskSelectUI{
-		options: options,
-	}
+// Value returns the selected task value
+func (t *MockTaskSelectUI) Value() string {
+	args := t.Called()
+	return args.String(0)
 }
 
-func (t MockTaskSelectUI) Value() string {
-	return t.selectedValue
-}
-
+// Run executes the task selection UI
 func (t *MockTaskSelectUI) Run() error {
-	if len(t.options) == 0 {
-		return fmt.Errorf("no tasks available for selection")
-	}
-
-	// Randomly select one option
-	source := rand.NewSource(uint64(time.Now().UnixNano()))
-	rng := rand.New(source)
-	randomIndex := rng.Intn(len(t.options))
-	t.selectedValue = t.options[randomIndex]
-
-	return nil
+	args := t.Called()
+	return args.Error(0)
 }
 
+// NewMockTaskSelectUI creates a new MockTaskSelectUI with default behavior
+func NewMockTaskSelectUI(options []string) cmd.TaskUISelector {
+	mockUI := &MockTaskSelectUI{}
+	
+	if len(options) == 0 {
+		mockUI.On("Value").Return("").Maybe()
+		mockUI.On("Run").Return(fmt.Errorf("no tasks available for selection")).Maybe()
+	} else {
+		// Randomly select one option for default behavior
+		source := rand.NewSource(uint64(time.Now().UnixNano()))
+		rng := rand.New(source)
+		randomIndex := rng.Intn(len(options))
+		selectedValue := options[randomIndex]
+		
+		mockUI.On("Value").Return(selectedValue).Maybe()
+		mockUI.On("Run").Return(nil).Maybe()
+	}
+	return mockUI
+}
+
+// MockDependencyUISelector implements the cmd.DependencyUIMultiSelector interface using testify/mock
 type MockDependencyUISelector struct {
-	selectedValues []string
-	options        []string
+	mock.Mock
 }
 
-func (m MockDependencyUISelector) Values() []string {
-	return m.selectedValues
+// Values returns the selected dependency values
+func (m *MockDependencyUISelector) Values() []string {
+	args := m.Called()
+	return args.Get(0).([]string)
 }
 
+// Run executes the dependency selection UI
 func (m *MockDependencyUISelector) Run() error {
-	if len(m.options) == 0 {
-		return fmt.Errorf("no dependencies available for selection")
-	}
-
-	// Randomly select one option
-	source := rand.NewSource(uint64(time.Now().UnixNano()))
-	rng := rand.New(source)
-	randomIndex := rng.Intn(len(m.options))
-	m.selectedValues = append(m.selectedValues, m.options[randomIndex])
-
-	return nil
+	args := m.Called()
+	return args.Error(0)
 }
 
+// NewMockDependencySelectUI creates a new MockDependencyUISelector with default behavior
 func NewMockDependencySelectUI(options []string) cmd.DependencyUIMultiSelector {
-	return &MockDependencyUISelector{
-		options: options,
+	mockUI := &MockDependencyUISelector{}
+	
+	if len(options) == 0 {
+		mockUI.On("Values").Return([]string{}).Maybe()
+		mockUI.On("Run").Return(fmt.Errorf("no dependencies available for selection")).Maybe()
+	} else {
+		// Randomly select one option for default behavior
+		source := rand.NewSource(uint64(time.Now().UnixNano()))
+		rng := rand.New(source)
+		randomIndex := rng.Intn(len(options))
+		selectedValues := []string{options[randomIndex]}
+		
+		mockUI.On("Values").Return(selectedValues).Maybe()
+		mockUI.On("Run").Return(nil).Maybe()
 	}
+	return mockUI
 }

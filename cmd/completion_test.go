@@ -284,6 +284,11 @@ func TestCompletionCommand_ErrorCases(t *testing.T) {
 		// Set up the command with unsupported shell
 		completionCmd.SetArgs([]string{"unsupported"})
 
+		// Suppress error output to avoid logs in tests
+		var errBuf bytes.Buffer
+		completionCmd.SetErr(&errBuf)
+		completionCmd.SetOut(&errBuf)
+
 		// Execute the command
 		err := completionCmd.Execute()
 		assert.Error(err, "Expected error for unsupported shell")
@@ -299,6 +304,11 @@ func TestCompletionCommand_ErrorCases(t *testing.T) {
 		// Set up the command with no arguments
 		completionCmd.SetArgs([]string{})
 
+		// Suppress error output to avoid logs in tests
+		var errBuf bytes.Buffer
+		completionCmd.SetErr(&errBuf)
+		completionCmd.SetOut(&errBuf)
+
 		// Execute the command
 		err := completionCmd.Execute()
 		assert.Error(err, "Expected error when no arguments provided")
@@ -313,6 +323,11 @@ func TestCompletionCommand_ErrorCases(t *testing.T) {
 
 		// Set up the command with too many arguments
 		completionCmd.SetArgs([]string{"bash", "zsh"})
+
+		// Suppress error output to avoid logs in tests
+		var errBuf bytes.Buffer
+		completionCmd.SetErr(&errBuf)
+		completionCmd.SetOut(&errBuf)
 
 		// Execute the command
 		err := completionCmd.Execute()
@@ -331,6 +346,11 @@ func TestCompletionCommand_ErrorCases(t *testing.T) {
 		invalidPath := "/root/cannot-create/test_completion.sh"
 		completionCmd.SetArgs([]string{"bash", "--output", invalidPath})
 
+		// Suppress all command output including usage help
+		var errBuf bytes.Buffer
+		completionCmd.SetErr(&errBuf)
+		completionCmd.SetOut(&errBuf)
+		
 		// Execute the command
 		err := completionCmd.Execute()
 		if err != nil {
