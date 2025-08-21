@@ -433,7 +433,7 @@ Available commands:
 					if err == nil {
 						// Found an alternative package manager!
 						goEnv.ExecuteIfModeIsProduction(func() {
-							log.Infof("Found %s as an alternative package manager\n", pm)
+							log.Info("Found alternative package manager", "pm", pm)
 						})
 						_ = persistentFlags.Set(AGENT_FLAG, pm)
 						c.SetContext(c_ctx)

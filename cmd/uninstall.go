@@ -130,7 +130,7 @@ Examples:
 			de := getDebugExecutorFromCommandContext(cmd)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Using %s\n", pm)
+				log.Info("Using package manager", "pm", pm)
 			})
 
 			// Get flags
@@ -232,7 +232,7 @@ Examples:
 			cmdRunner.Command(pm, cmdArgs...)
 			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+				log.Info("Running command", "pm", pm, "args", strings.Join(cmdArgs, " "))
 			})
 
 			return cmdRunner.Run()
