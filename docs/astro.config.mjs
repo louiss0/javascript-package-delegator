@@ -9,6 +9,97 @@ export default defineConfig({
 		starlight({
 			title: 'javascript-package-delegator (jpd)',
 			description: 'A universal JavaScript package manager CLI written in Go that delegates to npm, Yarn, pnpm, Bun, and Deno.',
+			// SEO and social sharing configuration
+			favicon: '/favicon.svg',
+			head: [
+				// Open Graph / Facebook
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:type',
+						content: 'website',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:site_name',
+						content: 'JavaScript Package Delegator (JPD)',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:image',
+						content: 'https://jpd-docs.onrender.com/og-image.svg',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:image:width',
+						content: '1200',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						property: 'og:image:height',
+						content: '630',
+					},
+				},
+				// Twitter Card
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'twitter:card',
+						content: 'summary_large_image',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'twitter:site',
+						content: '@louiss0',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'twitter:creator',
+						content: '@louiss0',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'twitter:image',
+						content: 'https://jpd-docs.onrender.com/og-image.svg',
+					},
+				},
+				// Additional meta tags
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'keywords',
+						content: 'javascript, package manager, cli, go, npm, yarn, pnpm, bun, deno, universal, delegator',
+					},
+				},
+				{
+					tag: 'meta',
+					attrs: {
+						name: 'author',
+						content: 'Shelton Louis',
+					},
+				},
+				{
+					tag: 'link',
+					attrs: {
+						rel: 'canonical',
+						href: 'https://jpd-docs.onrender.com',
+					},
+				},
+			],
 			sidebar: [
 				{
 					label: 'Introduction',
