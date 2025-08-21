@@ -81,7 +81,7 @@ Nushell:
 Examples:
 		jpd completion bash                          # Print Bash completion to stdout
 		jpd completion zsh --output completions.zsh  # Save Zsh completion to file
-		jpd completion fish --with-shorthands        # Include alias functions
+		jpd completion fish --with-shorthand         # Include alias functions
 `,
 		DisableFlagsInUseLine: true, // Don't show global flags for completion command itself
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -173,7 +173,7 @@ func generateCompletion(cmd *cobra.Command, shell string, filename string, withS
 	case "powershell":
 		completionErr = cmd.GenPowerShellCompletionWithDesc(outputWriter)
 	case "nushell":
-		_, completionErr = fmt.Fprint(outputWriter, integrations.GetNushellCompletionScript())
+		_, completionErr = fmt.Fprint(outputWriter, integrations.NushellCompletionScript())
 		if completionErr != nil {
 			completionErr = fmt.Errorf("failed to write Nushell completion script: %w", completionErr)
 		}

@@ -249,8 +249,8 @@ func TestCompletionCommand_WithShorthandsFlag(t *testing.T) {
 			// Create completion command
 			completionCmd := NewCompletionCmd()
 
-			// Set up the command with --with-shorthands flag
-			completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
+			// Set up the command with --with-shorthand flag
+			completionCmd.SetArgs([]string{tc.shell, "--with-shorthand"})
 
 			// Capture the command output
 			var buf bytes.Buffer

@@ -125,7 +125,6 @@ Global installation locations:
 	return carapaceCmd
 }
 
-
 func runWarpIntegration(cmd *cobra.Command) error {
 	warpGenerator := integrations.NewWarpGenerator()
 

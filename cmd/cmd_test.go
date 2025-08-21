@@ -255,10 +255,10 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectNoPMFromPath()
 				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add expectation for JS command log
-				
+
 				// Configure the mock runner to make "npm" command fail using InvalidCommands approach
 				mockCommandRunner.InvalidCommands = []string{"npm"}
-				
+
 				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
