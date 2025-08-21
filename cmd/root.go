@@ -394,8 +394,11 @@ Available commands:
 					goEnv.ExecuteIfModeIsProduction(func() {
 						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
 					})
-					re := regexp.MustCompile(`\s+`)
-					splitCommandString := re.Split(commandTextUI.Value(), -1)
+					// Split the command string into name and args consistently with how tests parse it
+					splitCommandString := strings.Fields(commandTextUI.Value())
+					if len(splitCommandString) == 0 {
+						return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
+					}
 
 					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
@@ -430,7 +433,7 @@ Available commands:
 					if err == nil {
 						// Found an alternative package manager!
 						goEnv.ExecuteIfModeIsProduction(func() {
-							log.Infof("Found %s as an alternative package manager\n", pm)
+							log.Info("Found alternative package manager", "pm", pm)
 						})
 						_ = persistentFlags.Set(AGENT_FLAG, pm)
 						c.SetContext(c_ctx)
@@ -453,8 +456,11 @@ Available commands:
 						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
 					})
 
-					re := regexp.MustCompile(`\s+`)
-					splitCommandString := re.Split(commandTextUI.Value(), -1)
+					// Split the command string into name and args consistently with how tests parse it
+					splitCommandString := strings.Fields(commandTextUI.Value())
+					if len(splitCommandString) == 0 {
+						return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
+					}
 
 					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
 					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)

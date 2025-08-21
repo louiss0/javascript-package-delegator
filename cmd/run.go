@@ -165,14 +165,14 @@ Examples:
 				}
 				if _, exists := pkg.Scripts[scriptName]; !exists {
 					goEnv.ExecuteIfModeIsProduction(func() {
-						fmt.Printf("script '%s' not found, skipping\n", scriptName)
+						log.Info("Script not found, skipping", "script", scriptName)
 					})
 					return nil
 				}
 			}
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Using %s\n", pm)
+				log.Info("Using package manager", "pm", pm)
 			})
 			// Build command based on package manager
 			var cmdArgs []string
@@ -223,7 +223,7 @@ Examples:
 			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Running: %s %s\n", pm, strings.Join(cmdArgs, " "))
+				log.Info("Running command", "pm", pm, "args", strings.Join(cmdArgs, " "))
 			})
 
 			return cmdRunner.Run()

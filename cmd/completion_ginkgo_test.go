@@ -63,7 +63,7 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 					assert.Contains(GinkgoT(), contentStr, "_jpd_completion"),
 				"Generated completion file should contain expected bash completion content")
 
-			// Check that NO output goes to stdout when using --output flag (success message goes to stderr)
+			// Check that no output was written to stdout when using --output flag
 			output := buf.String()
 			assert.Empty(GinkgoT(), output, "Expected no output to stdout when using --output flag")
 		})
@@ -80,7 +80,6 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 			{"fish", "test_fish.fish", "fish completion"},
 			{"nushell", "test_nushell.nu", "extern jpd"},
 			{"powershell", "test_powershell.ps1", "PowerShell completion"},
-			{"carapace", "test_carapace.sh", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {
@@ -123,7 +122,6 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 			{"fish", "fish completion"},
 			{"nushell", "export extern \"jpd\""},
 			{"powershell", "PowerShell completion"},
-			{"carapace", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {
@@ -172,7 +170,6 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 			{"fish", "fish completion", "# jpd shorthand aliases"},
 			{"nushell", "export extern \"jpd\"", "# jpd shorthand aliases"},
 			{"powershell", "PowerShell completion", "# jpd shorthand aliases"},
-			// Note: carapace is excluded because --with-shorthand is ignored for carapace targets
 		}
 
 		for _, tc := range testCases {
@@ -246,7 +243,6 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 			{"fish", "fish completion"},
 			{"nushell", "export extern \"jpd\""},
 			{"powershell", "PowerShell completion"},
-			{"carapace", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {

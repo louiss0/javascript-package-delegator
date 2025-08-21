@@ -60,7 +60,7 @@ Examples:
 			packageArgs := args[1:]
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Using %s\n", pm)
+				log.Info("Using package manager", "pm", pm)
 			})
 
 			// Build command based on package manager
@@ -118,7 +118,7 @@ Examples:
 			de.LogJSCommandIfDebugIsTrue(execCommand, cmdArgs...)
 
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Running: %s %s\n", execCommand, strings.Join(cmdArgs, " "))
+				log.Info("Running command", "cmd", execCommand, "args", strings.Join(cmdArgs, " "))
 			})
 
 			return cmdRunner.Run()

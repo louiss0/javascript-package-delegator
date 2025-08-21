@@ -588,7 +588,7 @@ jpd completion <shell> [flags]
 
 | Flag | Description |
 |------|-------------|
-| `--output` | Write completion to file (Nushell only) |
+| `--output`, `-o` | Write completion to a file instead of stdout (all shells) |
 
 ### Installation Examples
 
@@ -730,9 +730,9 @@ jpd install --cwd ./my-app/  # ✅ OK always
 
 ---
 
-## integrate <Badge text="Subcommands: warp, carapace" variant="note" />
+## integrate
 
-Generate integration files for external tools.
+Generate integration files for external tools like Warp terminal and Carapace.
 
 ### Usage
 
@@ -740,111 +740,63 @@ Generate integration files for external tools.
 jpd integrate <target> [flags]
 ```
 
-### Targets
+### Supported Targets
 
-- **warp**: Generate Warp terminal workflow files (.yaml)
-- **carapace**: Generate Carapace YAML spec for carapace-bin
+- `warp` - Generate Warp terminal workflow files
+- `carapace` - Generate Carapace completion spec
 
-### Global Flags (for integrate)
+### Warp Integration
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--output-dir` | | Output directory for Warp workflow files (root or warp subcommand) |
-| `--output` | `-o` | Output file for Carapace spec |
-| `--stdout` | | Print Carapace spec to stdout instead of installing |
-
-<Aside type="note" title="Carapace mode precedence">
-  When using the carapace target, flags are applied in this order:
-  1) --output (write to file)
-  2) --stdout (print to stdout)
-  3) Default (install to global Carapace specs directory)
-</Aside>
-
----
-
-### integrate warp
-
-Generate Warp terminal workflow files for JPD commands.
-
-#### Usage
+Generate workflow files for [Warp terminal](https://warp.dev/):
 
 ```bash
-# Long flag (works on root and subcommand)
+# Generate individual workflow files
 jpd integrate warp --output-dir ./workflows/
 
-# Shorthand -o is available only on the warp subcommand form:
-jpd integrate warp -o ./workflows/
-```
-
-#### Behavior
-
-- **With --output-dir**: writes individual .yaml workflow files into the directory
-- **Without --output-dir (or empty)**: prints all workflows as a multi-document YAML to stdout
-
-#### Examples
-
-```bash
-# Generate files
-jpd integrate warp --output-dir ./workflows/
-
-# Print multi-doc YAML to stdout
+# Print workflows as multi-document YAML
 jpd integrate warp
 ```
 
----
+Creates workflow files for:
+- `jpd-install.yaml` - Package installation with interactive prompts
+- `jpd-run.yaml` - Script execution
+- `jpd-exec.yaml` - Package execution
+- `jpd-dlx.yaml` - Package runner execution
+- `jpd-update.yaml` - Package updates
+- `jpd-uninstall.yaml` - Package removal
+- `jpd-clean-install.yaml` - Clean installation
+- `jpd-agent.yaml` - Package manager detection
 
-### integrate carapace
+### Carapace Integration
 
-Generate a Carapace completion spec in YAML.
-
-#### Usage
-
-```bash
-# Install to global Carapace specs directory (default)
-jpd integrate carapace
-
-# Print to stdout
-jpd integrate carapace --stdout
-
-# Write to a custom file
-jpd integrate carapace --output ./jpd.yaml
-```
-
-#### Global installation locations
-
-<Tabs>
-  <TabItem label="Linux/macOS">
-    ```text
-    ~/.local/share/carapace/specs/javascript-package-delegator.yaml
-    ```
-    <Aside type="note">
-      On Unix systems, you can set XDG_DATA_HOME to override the default base directory.
-    </Aside>
-  </TabItem>
-  <TabItem label="Windows">
-    ```text
-    %APPDATA%\carapace\specs\javascript-package-delegator.yaml
-    ```
-  </TabItem>
-</Tabs>
-
-<Aside type="caution" title="Overwriting files">
-  If the target file already exists (custom or global), it will be replaced. Consider backing it up first.
-</Aside>
-
-#### Examples
+Generate spec file for [Carapace](https://carapace.sh/) universal completion:
 
 ```bash
-# Default install
+# Install spec to global Carapace directory
 jpd integrate carapace
 
-# To file
+# Write spec to custom file
 jpd integrate carapace --output ./jpd.yaml
 
-# To stdout (useful for pipelines)
+# Print spec to stdout
 jpd integrate carapace --stdout
 ```
 
+#### Installation Locations
+
+| Platform | Default Path |
+|----------|-------------|
+| Linux/macOS | `~/.local/share/carapace/specs/javascript-package-delegator.yaml` |
+| Windows | `%APPDATA%\carapace\specs\javascript-package-delegator.yaml` |
+| Custom | Set `XDG_DATA_HOME` to override on Unix systems |
+
+### Flags
+
+| Flag | Description | Applies To |
+|------|-------------|------------|
+| `--output-dir` | Output directory for workflow files | Warp |
+| `--output`, `-o` | Output file for spec | Carapace |
+| `--stdout` | Print spec to stdout instead of installing | Carapace |
 ---
 
 ## See Also

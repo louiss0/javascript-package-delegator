@@ -54,7 +54,7 @@ Examples:
 
 			// Log the detected package manager in production mode.
 			goEnv.ExecuteIfModeIsProduction(func() {
-				log.Infof("Detected package manager, now executing command: %s\n", pm)
+				log.Info("Detected package manager, executing command", "pm", pm)
 			})
 
 			// Obtain the command runner from the context, which handles external process execution.

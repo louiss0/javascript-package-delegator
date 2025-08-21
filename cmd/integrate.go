@@ -6,6 +6,7 @@ import (
 	"os"
 
 	// external
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
 	// internal
@@ -124,6 +125,7 @@ Global installation locations:
 	return carapaceCmd
 }
 
+
 func runWarpIntegration(cmd *cobra.Command) error {
 	warpGenerator := integrations.NewWarpGenerator()
 
@@ -154,7 +156,7 @@ func runWarpIntegration(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to generate Warp workflow files: %w", err)
 	}
 
-	fmt.Printf("Generated Warp workflow files in: %s\n", outputDirFlag)
+	log.Info("Generated Warp workflow files", "directory", outputDirFlag)
 	return nil
 }
 
@@ -179,7 +181,7 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("failed to write Carapace spec to file: %w", err)
 		}
-		fmt.Printf("Generated Carapace spec file: %s\n", outputFileFlag)
+		log.Info("Generated Carapace spec file", "path", outputFileFlag)
 		return nil
 	}
 
@@ -213,7 +215,7 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to write Carapace spec to global location: %w", err)
 	}
 
-	fmt.Printf("Installed Carapace spec: %s\n", specPath)
+	log.Info("Installed Carapace spec", "path", specPath)
 	return nil
 }
 
@@ -224,9 +226,12 @@ func writeToFile(filename, content string) error {
 		return err
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			// Log the error but don't override the main return error
-			fmt.Fprintf(os.Stderr, "Warning: failed to close file: %v\n", closeErr)
+		if cerr := file.Close(); cerr != nil {
+			if err == nil {
+				err = cerr
+			} else {
+				err = fmt.Errorf("%w; %w", err, cerr)
+			}
 		}
 	}()
 

@@ -186,10 +186,10 @@ fish -c "complete -f"
 
 ### Nushell
 
-Nushell supports a special `--output` flag for easier file management:
+You can write completion output directly to a file using the `--output` flag (supported for all shells):
 
 ```bash
-# Generate completion with output flag (Nushell-specific feature)
+# Generate completion with output flag
 jpd completion nushell --output ~/.config/nushell/completions/jpd_completions.nu
 
 # Add to config.nu or env.nu
@@ -199,7 +199,7 @@ echo 'source ~/.config/nushell/completions/jpd_completions.nu' >> ~/.config/nush
 ```
 
 <Aside type="tip">
-  The `--output` flag is only available for Nushell and provides a convenient way to write completion directly to a file.
+  The `--output` (or `-o`) flag works for Bash, Zsh, Fish, PowerShell, and Nushell. If omitted, output goes to stdout.
 </Aside>
 
 ## Testing Completion
@@ -387,6 +387,46 @@ jpd completions are:
 - **Fast**: Generated statically, no runtime overhead
 - **Accurate**: Based on actual jpd command definitions
 - **Complete**: Covers all commands, flags, and valid values
+
+## Advanced Integrations
+
+### Carapace Integration
+
+For enhanced completions across multiple shells, jpd supports [Carapace](https://carapace.sh/), a universal completion framework:
+
+```bash
+# Install Carapace spec to global directory
+jpd integrate carapace
+
+# Generate spec to custom file
+jpd integrate carapace --output ./jpd-carapace.yaml
+
+# Print spec to stdout
+jpd integrate carapace --stdout
+```
+
+Carapace provides intelligent completions including:
+- Package name suggestions from npm registry
+- Script name completions from `package.json`
+- File and directory completions for `--cwd` flag
+- Package manager enum completions for `--agent` flag
+
+### Warp Terminal Integration
+
+For [Warp terminal](https://warp.dev/) users, jpd can generate workflow files for enhanced command execution:
+
+```bash
+# Generate individual workflow files
+jpd integrate warp --output-dir ./warp-workflows/
+
+# Print workflows as multi-document YAML
+jpd integrate warp
+```
+
+Warp workflows provide:
+- Pre-built templates for common jpd commands
+- Interactive argument prompts
+- Command history and sharing
 
 ## See Also
 

@@ -79,21 +79,27 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	BeforeEach(func() {
+		// Clear any state from previous tests to prevent cross-contamination
+		mockCommandRunner.InvalidCommands = []string{}
+		mockCommandRunner.ResetHasBeenCalled()
+		// Set up basic mock expectations before each test
+		factory.SetupBasicCommandRunnerExpectations()
+		// Reset first, then setup debug expectations
+		factory.ResetDebugExecutor()
+		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
+		factory.SetupBasicDebugExecutorExpectations()
 		rootCmd = factory.CreateNpmAsDefault(nil)
 		// This needs to be set because Ginkgo will pass a --test.timeout flag to the root command
 		// The test.timeout flag will get in the way
 		// If the args are empty before they are set by executeCommand the right args can be passed
 		rootCmd.SetArgs([]string{})
-		factory.ResetDebugExecutor()
-		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
 
 	})
 
 	AfterEach(func() {
-
-		mockCommandRunner.Reset()
-		factory.DebugExecutor().
-			AssertExpectations(GinkgoT())
+		// Assert that all expectations were met
+		mockCommandRunner.AssertExpectations(GinkgoT())
+		factory.DebugExecutor().AssertExpectations(GinkgoT())
 	})
 
 	const DebugFlagOnSubCommands = "Debug flag on sub commands"
@@ -219,7 +225,8 @@ var _ = Describe("JPD Commands", func() {
 				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.Error(err)
 				assert.Contains(err.Error(), "A command for installing a package is at least three words")
-				assert.False(mockCommandRunner.HasBeenCalled, "CommandRunner should not have been called for installation if input is invalid")
+				// Verify that Run was not called since the command was invalid
+				mockCommandRunner.AssertNotCalled(GinkgoT(), "Run")
 			})
 
 			It("should prompt user for install command and execute it if input is valid", func() {
@@ -237,23 +244,22 @@ var _ = Describe("JPD Commands", func() {
 
 				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasBeenCalled, "CommandRunner should have been called for installation")
-
-				expectedCmdParts := strings.Fields(validInstallCommand)
-				assert.Equal(expectedCmdParts[0], mockCommandRunner.CommandCall.Name)
-				assert.Equal(expectedCmdParts[1:], mockCommandRunner.CommandCall.Args)
+				// Verify that Run was called with the correct command
+				mockCommandRunner.AssertCalled(GinkgoT(), "Run", splitCommandString[0], splitCommandString[1:], "")
 			})
 
 			It("should return an error if the user-provided install command fails to execute", func() {
 
 				const validInstallCommand = "npm install -g npm"
-				re := regexp.MustCompile(`\s+`)
-				splitCommandString := re.Split(validInstallCommand, -1)
+				splitCommandString := strings.Fields(validInstallCommand)
 				DebugExecutorExpectationManager.ExpectNoLockfile()
 				DebugExecutorExpectationManager.ExpectNoPMFromPath()
 				DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add expectation for JS command log
+				
+				// Configure the mock runner to make "npm" command fail using InvalidCommands approach
+				mockCommandRunner.InvalidCommands = []string{"npm"}
+				
 				currentRootCmd := factory.GenerateNoDetectionAtAll(validInstallCommand)
-				mockCommandRunner.InvalidCommands = []string{"npm"} // Configure the mock runner to make "npm" command fail
 				// Set context and parse flags before calling PersistentPreRunE directly
 				currentRootCmd.SetContext(context.Background())
 				_ = currentRootCmd.ParseFlags([]string{})
@@ -368,9 +374,7 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				// Verify the CommandRunner received the correct working directory
-				assert.Equal("yarn", mockCommandRunner.CommandCall.Name)
-				assert.Contains(mockCommandRunner.CommandCall.Args, "install")
-				assert.Equal(tempDir, mockCommandRunner.WorkingDir)
+				mockCommandRunner.AssertCalled(GinkgoT(), "Run", "yarn", []string{"install"}, tempDir)
 			})
 
 			It("should run a command in the specified directory using --cwd", func() {
@@ -383,10 +387,7 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(currentRootCmd, "run", "dev", "--cwd", tempDir)
 				assert.NoError(err)
 
-				assert.Equal("yarn", mockCommandRunner.CommandCall.Name)
-				assert.Contains(mockCommandRunner.CommandCall.Args, "run")
-				assert.Contains(mockCommandRunner.CommandCall.Args, "dev")
-				assert.Equal(tempDir, mockCommandRunner.WorkingDir)
+				mockCommandRunner.AssertCalled(GinkgoT(), "Run", "yarn", []string{"run", "dev"}, tempDir)
 			})
 
 			It("should not set a working directory if -C is not provided", func() {
@@ -396,12 +397,8 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(currentRootCmd, "agent")
 				assert.NoError(err)
 
-				assert.Equal("yarn", mockCommandRunner.CommandCall.Name)
-				// When Dir is not explicitly set, it defaults to the current working directory of the process.
-				// An empty string for WorkingDir in our mock implies it wasn't explicitly overridden by -C.
-				// We should verify that `e.cmd.Dir` remains unset (empty string) in the mock,
-				// which indicates the default behavior of exec.Command().
-				assert.Empty(mockCommandRunner.WorkingDir) // Assert that it's empty, implying default behavior
+				// Verify that the yarn agent command was called with no working directory override (empty string)
+				mockCommandRunner.AssertCalled(GinkgoT(), "Run", "yarn", []string{}, "")
 			})
 
 			It("should handle a non-existent directory gracefully (likely fail at exec.Command level)", func() {
@@ -480,8 +477,7 @@ var _ = Describe("JPD Commands", func() {
 					currentCommand.SetContext(context.Background())
 					_ = currentCommand.ParseFlags([]string{})
 
-					re := regexp.MustCompile(`\s+`)
-					splitCommandString := re.Split(commandString, -1)
+					splitCommandString := strings.Fields(commandString)
 					DebugExecutorExpectationManager.ExpectJSCommandLog(splitCommandString[0], splitCommandString[1:]...) // Add this line
 
 					err := currentCommand.PersistentPreRunE(currentCommand, []string{})
