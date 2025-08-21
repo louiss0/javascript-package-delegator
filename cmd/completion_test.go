@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCompletionCommand_OutputFlag(t *testing.T) {
@@ -224,5 +226,162 @@ func TestCompletionCommand_DefaultStdout(t *testing.T) {
 			// Success message
 			t.Logf("SUCCESS: %s completion script generated successfully to stdout", tc.shell)
 		})
+	}
+}
+
+func TestCompletionCommand_WithShorthandsFlag(t *testing.T) {
+	testCases := []struct {
+		shell             string
+		expectedAliases   []string
+		expectedFunctions []string
+	}{
+		{"bash", []string{"jpe", "jpx", "jpi"}, []string{"function jpe()", "function jpx()", "function jpi()"}},
+		{"zsh", []string{"jpe", "jpx", "jpi"}, []string{"jpe() { jpd exec", "jpx() { jpd dlx", "jpi() { jpd install"}},
+		{"fish", []string{"jpe", "jpx", "jpi"}, []string{"function jpe", "function jpx", "function jpi", "jpd exec $argv"}},
+		{"nushell", []string{"jpe", "jpx", "jpi"}, []string{"export def jpe", "export def jpx", "export def jpi"}},
+		{"powershell", []string{"jpe", "jpx", "jpi"}, []string{"function jpe {", "function jpx {", "function jpi {", "jpd exec @args"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("with_shorthands_%s", tc.shell), func(t *testing.T) {
+			assert := assert.New(t)
+
+			// Create completion command
+			completionCmd := NewCompletionCmd()
+
+			// Set up the command with --with-shorthands flag
+			completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
+
+			// Capture the command output
+			var buf bytes.Buffer
+			completionCmd.SetOut(&buf)
+
+			// Execute the command
+			err := completionCmd.Execute()
+			assert.NoError(err, "Command execution should succeed for %s", tc.shell)
+
+			// Check that output was generated
+			output := buf.String()
+			assert.NotEmpty(output, "Expected output for %s with shorthands", tc.shell)
+
+			// Check that shorthand functions are included
+			for _, expectedFunc := range tc.expectedFunctions {
+				assert.Contains(output, expectedFunc, "Expected %s to contain alias function: %s", tc.shell, expectedFunc)
+			}
+
+			t.Logf("SUCCESS: %s completion with shorthands generated successfully", tc.shell)
+		})
+	}
+}
+
+func TestCompletionCommand_ErrorCases(t *testing.T) {
+	t.Run("unsupported_shell", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Create completion command
+		completionCmd := NewCompletionCmd()
+
+		// Set up the command with unsupported shell
+		completionCmd.SetArgs([]string{"unsupported"})
+
+		// Execute the command
+		err := completionCmd.Execute()
+		assert.Error(err, "Expected error for unsupported shell")
+		assert.Contains(err.Error(), "unsupported shell", "Error message should mention unsupported shell")
+	})
+
+	t.Run("no_arguments", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Create completion command
+		completionCmd := NewCompletionCmd()
+
+		// Set up the command with no arguments
+		completionCmd.SetArgs([]string{})
+
+		// Execute the command
+		err := completionCmd.Execute()
+		assert.Error(err, "Expected error when no arguments provided")
+		assert.Contains(err.Error(), "requires exactly one argument", "Error message should mention required argument")
+	})
+
+	t.Run("too_many_arguments", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Create completion command
+		completionCmd := NewCompletionCmd()
+
+		// Set up the command with too many arguments
+		completionCmd.SetArgs([]string{"bash", "zsh"})
+
+		// Execute the command
+		err := completionCmd.Execute()
+		assert.Error(err, "Expected error when too many arguments provided")
+		assert.Contains(err.Error(), "requires exactly one argument", "Error message should mention required argument")
+	})
+
+	t.Run("invalid_output_path", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Create completion command
+		completionCmd := NewCompletionCmd()
+
+		// Try to write to a path that cannot be created (permission denied scenario)
+		// Use a path like /root/test which should fail due to permissions
+		invalidPath := "/root/cannot-create/test_completion.sh"
+		completionCmd.SetArgs([]string{"bash", "--output", invalidPath})
+
+		// Execute the command
+		err := completionCmd.Execute()
+		if err != nil {
+			// This should fail due to permission denied, but the exact error depends on the system
+			assert.Contains(err.Error(), "failed to create", "Error message should mention creation failure")
+		} else {
+			// If we're running as root or have unusual permissions, skip this test
+			t.Skip("Skipping invalid output path test - running with elevated permissions")
+		}
+	})
+}
+
+func TestGetSupportedShells(t *testing.T) {
+	assert := assert.New(t)
+
+	supportedShells := getSupportedShells()
+
+	// Check that we have the expected number of shells
+	assert.Len(supportedShells, 5, "Should support exactly 5 shells")
+
+	// Check that all expected shells are present
+	expectedShells := []string{"bash", "fish", "nushell", "powershell", "zsh"}
+	for _, expectedShell := range expectedShells {
+		assert.Contains(supportedShells, expectedShell, "Should support %s", expectedShell)
+	}
+
+	// Verify the exact order and content
+	assert.Equal(expectedShells, supportedShells, "Shells should be in the expected order")
+}
+
+func TestGetDefaultAliasMapping(t *testing.T) {
+	assert := assert.New(t)
+
+	aliasMap := getDefaultAliasMapping()
+
+	// Check that all expected commands have aliases
+	expectedCommands := []string{"install", "run", "exec", "dlx", "update", "uninstall", "clean-install", "agent"}
+	for _, cmd := range expectedCommands {
+		assert.Contains(aliasMap, cmd, "Should have aliases for %s command", cmd)
+		assert.NotEmpty(aliasMap[cmd], "Should have at least one alias for %s command", cmd)
+	}
+
+	// Check specific aliases
+	assert.Contains(aliasMap["exec"], "jpe", "exec command should have jpe alias")
+	assert.Contains(aliasMap["dlx"], "jpx", "dlx command should have jpx alias")
+	assert.Contains(aliasMap["install"], "jpi", "install command should have jpi alias")
+	assert.Contains(aliasMap["run"], "jpr", "run command should have jpr alias")
+
+	// Check that all aliases contain jpd- prefixed versions
+	for cmd, aliases := range aliasMap {
+		expectedJpdAlias := fmt.Sprintf("jpd-%s", cmd)
+		assert.Contains(aliases, expectedJpdAlias, "Command %s should have jpd- prefixed alias %s", cmd, expectedJpdAlias)
 	}
 }

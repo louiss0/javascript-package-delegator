@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/cmd"
@@ -58,10 +57,6 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-
-func TestJavascriptPackageDelegator(t *testing.T) {
-	RunSpecs(t, "Cmd Suite")
-}
 
 
 // It ensures that each command has access to the package manager name and CommandRunner

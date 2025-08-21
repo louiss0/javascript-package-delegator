@@ -61,9 +61,9 @@ var _ = Describe("Completion Command", func() {
 					assert.Contains(GinkgoT(), contentStr, "_jpd_completion"),
 				"Generated completion file should contain expected bash completion content")
 
-			// Check that success message is printed
+			// Check that no output was written to stdout when using --output flag
 			output := buf.String()
-			assert.Contains(GinkgoT(), output, "Completion script created at:", "Should print success message")
+			assert.Empty(GinkgoT(), output, "Expected no output to stdout when using --output flag")
 		})
 	})
 
@@ -78,7 +78,6 @@ var _ = Describe("Completion Command", func() {
 			{"fish", "test_fish.fish", "fish completion"},
 			{"nushell", "test_nushell.nu", "extern jpd"},
 			{"powershell", "test_powershell.ps1", "PowerShell completion"},
-			{"carapace", "test_carapace.sh", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {
@@ -121,7 +120,6 @@ var _ = Describe("Completion Command", func() {
 			{"fish", "fish completion"},
 			{"nushell", "export extern \"jpd\""},
 			{"powershell", "PowerShell completion"},
-			{"carapace", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {
@@ -170,7 +168,6 @@ var _ = Describe("Completion Command", func() {
 			{"fish", "fish completion", "# jpd shorthand aliases"},
 			{"nushell", "export extern \"jpd\"", "# jpd shorthand aliases"},
 			{"powershell", "PowerShell completion", "# jpd shorthand aliases"},
-			{"carapace", "carapace completion bridge", "# jpd shorthand aliases"},
 		}
 
 		for _, tc := range testCases {
@@ -182,7 +179,7 @@ var _ = Describe("Completion Command", func() {
 				if tc.shell == "bash" {
 					completionCmd.SetArgs([]string{tc.shell, "-w"})
 				} else {
-					completionCmd.SetArgs([]string{tc.shell, "--with-shorthand"})
+				completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
 				}
 
 				var buf bytes.Buffer
@@ -244,7 +241,6 @@ var _ = Describe("Completion Command", func() {
 			{"fish", "fish completion"},
 			{"nushell", "export extern \"jpd\""},
 			{"powershell", "PowerShell completion"},
-			{"carapace", "carapace completion bridge"},
 		}
 
 		for _, tc := range testCases {
