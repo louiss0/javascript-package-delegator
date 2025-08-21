@@ -10,6 +10,10 @@ export default defineConfig({
 			title: 'javascript-package-delegator (jpd)',
 			description: 'A universal JavaScript package manager CLI written in Go that delegates to npm, Yarn, pnpm, Bun, and Deno.',
 			// SEO and social sharing configuration
+			logo: {
+				src: './src/assets/jpd-logo.svg',
+				replacesTitle: false,
+			},
 			favicon: '/favicon.svg',
 			head: [
 				// Open Graph / Facebook

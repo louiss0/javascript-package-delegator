@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#60a5fa;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main circle background -->
+  <circle cx="200" cy="200" r="180" fill="url(#bgGradient)" stroke="#1e3a8a" stroke-width="4"/>
+  
+  <!-- Inner circle for contrast -->
+  <circle cx="200" cy="200" r="140" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.3"/>
+  
+  <!-- Main JPD text -->
+  <text x="200" y="220" font-family="Arial, sans-serif" font-size="72" font-weight="bold" 
+        text-anchor="middle" fill="url(#textGradient)" letter-spacing="-2px">JPD</text>
+  
+  <!-- Subtitle arc -->
+  <path id="curve" d="M 80 200 A 120 120 0 0 1 320 200" fill="none" opacity="0"/>
+  <text font-family="Arial, sans-serif" font-size="16" font-weight="500" fill="#e2e8f0">
+    <textPath href="#curve" startOffset="50%" text-anchor="middle">
+      JavaScript Package Delegator
+    </textPath>
+  </text>
+  
+  <!-- Decorative elements -->
+  <circle cx="120" cy="120" r="8" fill="#fbbf24" opacity="0.8"/>
+  <circle cx="280" cy="120" r="6" fill="#34d399" opacity="0.8"/>
+  <circle cx="120" cy="280" r="6" fill="#f87171" opacity="0.8"/>
+  <circle cx="280" cy="280" r="8" fill="#a78bfa" opacity="0.8"/>
+  
+  <!-- CLI indicator -->
+  <rect x="160" y="260" width="80" height="3" rx="1.5" fill="#ffffff" opacity="0.6"/>
+  <rect x="160" y="270" width="60" height="2" rx="1" fill="#ffffff" opacity="0.4"/>
+  
+</svg>
