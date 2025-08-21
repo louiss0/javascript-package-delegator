@@ -388,6 +388,46 @@ jpd completions are:
 - **Accurate**: Based on actual jpd command definitions
 - **Complete**: Covers all commands, flags, and valid values
 
+## Advanced Integrations
+
+### Carapace Integration
+
+For enhanced completions across multiple shells, jpd supports [Carapace](https://carapace.sh/), a universal completion framework:
+
+```bash
+# Install Carapace spec to global directory
+jpd integrate carapace
+
+# Generate spec to custom file
+jpd integrate carapace --output ./jpd-carapace.yaml
+
+# Print spec to stdout
+jpd integrate carapace --stdout
+```
+
+Carapace provides intelligent completions including:
+- Package name suggestions from npm registry
+- Script name completions from `package.json`
+- File and directory completions for `--cwd` flag
+- Package manager enum completions for `--agent` flag
+
+### Warp Terminal Integration
+
+For [Warp terminal](https://warp.dev/) users, jpd can generate workflow files for enhanced command execution:
+
+```bash
+# Generate individual workflow files
+jpd integrate warp --output-dir ./warp-workflows/
+
+# Print workflows as multi-document YAML
+jpd integrate warp
+```
+
+Warp workflows provide:
+- Pre-built templates for common jpd commands
+- Interactive argument prompts
+- Command history and sharing
+
 ## See Also
 
 - **[Getting Started](/tutorial/getting-started/)** - Basic jpd installation and usage
