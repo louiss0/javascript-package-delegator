@@ -61,6 +61,9 @@ winget install jpd
 # Via Chocolatey (Windows)
 choco install jpd
 
+# Via Nix (Linux/macOS)
+nix profile install github:nix-community/nur#repos.the-code-fixer-23-nur.jpd
+
 # Manual Installation (Cross-platform)
 # Download the appropriate binary for your OS from the
 # https://github.com/louiss0/javascript-package-delegator/releases[releases page]
