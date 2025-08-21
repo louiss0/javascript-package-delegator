@@ -31,12 +31,6 @@ jpd is distributed as a single binary and can be installed via popular package m
     ```
   </TabItem>
   
-  <TabItem label="Windows (Chocolatey)">
-    ```bash
-    choco install jpd
-    ```
-  </TabItem>
-  
   <TabItem label="Manual Installation">
     1. Visit the [releases page](https://github.com/louiss0/javascript-package-delegator/releases)
     2. Download the appropriate binary for your operating system:
@@ -47,6 +41,18 @@ jpd is distributed as a single binary and can be installed via popular package m
     3. Rename the binary to `jpd` (or `jpd.exe` on Windows)
     4. Make it executable: `chmod +x jpd` (Linux/macOS)
     5. Move it to a directory in your PATH (e.g., `/usr/local/bin`, `~/bin`)
+  </TabItem>
+
+  <TabItem label="Nix">
+    ```bash
+    # Build via default.nix and install locally
+    nix-build default.nix -A jpd
+    # Symlink into your PATH (example)
+    install -Dm755 ./result/bin/jpd ~/.local/bin/jpd
+
+    # Or use a temporary shell with jpd available
+    nix-shell -p "(import ./default.nix {}).jpd"
+    ```
   </TabItem>
 </Tabs>
 

@@ -37,9 +37,7 @@ export default defineConfig({
 				{
 					label: 'Explanation',
 					items: [
-						{ label: 'Mental model (Why / What / How)', link: '/explanation/mental-model' },
-						{ label: 'Package manager detection', link: '/explanation/detection' },
-						{ label: 'Architecture & Yarn versions', link: '/explanation/architecture' }
+						{ label: 'Mental model (Why / What / How)', link: '/explanation/mental-model' }
 					]
 				}
 			],
