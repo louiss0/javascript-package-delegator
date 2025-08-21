@@ -223,7 +223,15 @@ func writeToFile(filename, content string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			if err == nil {
+				err = cerr
+			} else {
+				err = fmt.Errorf("%w; %w", err, cerr)
+			}
+		}
+	}()
 
 	_, err = file.WriteString(content)
 	return err

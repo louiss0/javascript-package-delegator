@@ -57,8 +57,6 @@ func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	return buf.String(), err
 }
 
-
-
 // It ensures that each command has access to the package manager name and CommandRunner
 
 var _ = Describe("JPD Commands", func() {
@@ -3333,7 +3331,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-		assert.Equal(9, userCommands)
+			assert.Equal(9, userCommands)
 		})
 	})
 

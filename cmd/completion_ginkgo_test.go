@@ -179,7 +179,7 @@ var _ = Describe("Completion Command", func() {
 				if tc.shell == "bash" {
 					completionCmd.SetArgs([]string{tc.shell, "-w"})
 				} else {
-				completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
+					completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
 				}
 
 				var buf bytes.Buffer
