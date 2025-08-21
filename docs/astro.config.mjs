@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://example.local',
+	site: 'https://jpd-docs.onrender.com',
 	integrations: [
 		starlight({
 			title: 'javascript-package-delegator (jpd)',

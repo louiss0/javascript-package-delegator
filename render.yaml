@@ -1,0 +1,15 @@
+services:
+  - type: static
+    name: jpd-docs
+    runtime: node
+    buildCommand: cd docs && pnpm install && pnpm build
+    staticPublishPath: ./docs/dist
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+      - key: PNPM_VERSION  
+        value: "latest"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
