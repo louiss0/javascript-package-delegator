@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -31,6 +33,79 @@ import (
 // When you use this function, make sure to pass the root command and any arguments you want to test.
 // The first argument after the rootCmd is any sub command or flag you want to test.
 // This function now properly preserves the command context with CommandRunner.
+
+// Test helper functions for standard Go tests (originally from testhelpers_test.go)
+
+// captureStdout captures stdout during function execution
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	// Save original stdout
+	originalStdout := os.Stdout
+	defer func() { os.Stdout = originalStdout }()
+
+	// Create pipe
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
+
+	// Replace stdout
+	os.Stdout = w
+
+	// Channel to capture output
+	outputChan := make(chan string)
+	go func() {
+		defer close(outputChan)
+		output, err := io.ReadAll(r)
+		if err != nil {
+			t.Errorf("Failed to read from pipe: %v", err)
+			return
+		}
+		outputChan <- string(output)
+	}()
+
+	// Execute function
+	fn()
+
+	// Close writer and restore stdout
+	_ = w.Close()
+	os.Stdout = originalStdout
+
+	// Get captured output
+	return <-outputChan
+}
+
+// withEnv temporarily sets an environment variable
+func withEnv(t *testing.T, key, value string, fn func()) {
+	t.Helper()
+
+	original := os.Getenv(key)
+	originalSet := os.Getenv(key) != "" || os.Getenv(key) == ""
+
+	err := os.Setenv(key, value)
+	if err != nil {
+		t.Fatalf("Failed to set environment variable %s: %v", key, err)
+	}
+
+	defer func() {
+		if originalSet && original != "" {
+			_ = os.Setenv(key, original)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	}()
+
+	fn()
+}
+
+// makeTempDir creates a temporary directory for the test
+func makeTempDir(t *testing.T, fn func(string)) {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	fn(tempDir)
+}
 
 func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	// Save the original context to restore it later
@@ -3407,4 +3482,752 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
+	// Additional consolidated test sections from other test files
+
+	const CommandsAliasAndEdgeTests = "Commands Alias and Edge Test Coverage"
+	Describe(CommandsAliasAndEdgeTests, func() {
+
+		var rootCmd *cobra.Command
+		mockCommandRunner := mock.NewMockCommandRunner()
+		factory := testutil.NewRootCommandFactory(mockCommandRunner)
+		var DebugExecutorExpectationManager = testutil.DebugExecutorExpectationManager
+
+		BeforeEach(func() {
+			rootCmd = factory.CreateNpmAsDefault(nil)
+			rootCmd.SetArgs([]string{})
+			factory.ResetDebugExecutor()
+			DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
+		})
+
+		AfterEach(func() {
+			mockCommandRunner.Reset()
+			factory.DebugExecutor().AssertExpectations(GinkgoT())
+		})
+
+		Describe("Agent aliases", func() {
+			Context("jpd a runs and uses detected PM", func() {
+				It("should execute with npm when detected", func() {
+					// Set expectations for npm detection via lockfile
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM)
+
+					_, err := executeCmd(rootCmd, "a")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM))
+				})
+
+				It("should execute with yarn when detected", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN)
+
+					_, err := executeCmd(rootCmd, "a")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.YARN))
+				})
+
+				It("should execute with pnpm when detected", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM)
+
+					_, err := executeCmd(rootCmd, "a")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.PNPM))
+				})
+			})
+		})
+
+		Describe("Update aliases", func() {
+			Context("jpd up and jpd u map to update", func() {
+				It("should execute npm update via 'up' alias", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "update")
+
+					_, err := executeCmd(rootCmd, "up")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM, "update"))
+				})
+
+				It("should execute yarn upgrade via 'u' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN, "upgrade")
+
+					_, err := executeCmd(rootCmd, "u")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.YARN, "upgrade"))
+				})
+
+				It("should execute pnpm update via 'up' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "update")
+
+					_, err := executeCmd(rootCmd, "up")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "update"))
+				})
+			})
+
+			Context("update command with specific packages", func() {
+				It("should handle package names correctly with npm", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "update", "lodash", "react")
+
+					_, err := executeCmd(rootCmd, "update", "lodash", "react")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM, "update", "lodash", "react"))
+				})
+			})
+		})
+
+		Describe("Uninstall aliases", func() {
+			Context("jpd rm and jpd remove map correctly", func() {
+				It("should execute npm uninstall via 'rm' alias", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "uninstall", "lodash")
+
+					_, err := executeCmd(rootCmd, "rm", "lodash")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM, "uninstall", "lodash"))
+				})
+
+				It("should execute yarn remove via 'remove' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN, "remove", "react")
+
+					_, err := executeCmd(rootCmd, "remove", "react")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.YARN, "remove", "react"))
+				})
+
+				It("should execute pnpm remove via 'rm' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "remove", "typescript")
+
+					_, err := executeCmd(rootCmd, "rm", "typescript")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "remove", "typescript"))
+				})
+
+				It("should execute bun remove via 'remove' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.BUN, detect.BUN_LOCKB, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.BUN, "remove", "eslint")
+
+					_, err := executeCmd(rootCmd, "remove", "eslint")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.BUN, "remove", "eslint"))
+				})
+			})
+		})
+
+		Describe("Clean-install alias", func() {
+			Context("jpd ci already covered", func() {
+				It("should execute npm ci via 'ci' alias", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "ci")
+
+					_, err := executeCmd(rootCmd, "ci")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM, "ci"))
+				})
+
+				It("should execute pnpm install --frozen-lockfile via 'ci' alias", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "install", "--frozen-lockfile")
+
+					_, err := executeCmd(rootCmd, "ci")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "install", "--frozen-lockfile"))
+				})
+			})
+		})
+
+		Describe("Additional edge flags", func() {
+			Context("Mutual exclusivity errors", func() {
+				It("should handle conflicting flags on uninstall command", func() {
+					// The uninstall command has mutually exclusive --global and --interactive flags
+					// This should produce an error, but we still need debug expectations for the root command pre-run
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+					_, err := executeCmd(rootCmd, "uninstall", "--global", "--interactive")
+					assert.Error(err)
+					// The actual cobra error message for mutual exclusivity
+					assert.Contains(err.Error(), "were all set")
+				})
+			})
+
+			Context("Update command edge cases", func() {
+				It("should handle interactive flag with npm (should error)", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+					_, err := executeCmd(rootCmd, "update", "--interactive")
+					assert.Error(err)
+					assert.Contains(err.Error(), "npm does not support interactive updates")
+				})
+
+				It("should handle interactive flag with bun (should error)", func() {
+					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.BUN, detect.BUN_LOCKB, nil, false)
+
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
+
+					_, err := executeCmd(rootCmd, "update", "--interactive")
+					assert.Error(err)
+					assert.Contains(err.Error(), "bun does not support interactive updates")
+				})
+			})
+
+			Context("Agent command edge cases", func() {
+				It("should handle --version flag passthrough", func() {
+					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "--version")
+
+					_, err := executeCmd(rootCmd, "agent", "--version")
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand(detect.NPM, "--version"))
+				})
+
+				It("should error when no package manager is detected", func() {
+					rootCmd = factory.GenerateNoDetectionAtAll("")
+
+					DebugExecutorExpectationManager.ExpectNoLockfile()
+					DebugExecutorExpectationManager.ExpectNoPMFromPath()
+
+					_, err := executeCmd(rootCmd, "agent")
+					assert.Error(err)
+					// The actual error is about a command for installing a package when no PM is detected
+					assert.Contains(err.Error(), "A command for installing a package is at least three words")
+				})
+			})
+		})
+	})
+
 })
+
+// Additional test functions from separate test files (consolidated)
+
+func TestNewDlxCmd_Aliases(t *testing.T) {
+	// Arrange: Create the dlx command
+	dlxCmd := cmd.NewDlxCmd()
+
+	// Act: Get the aliases
+	actualAliases := dlxCmd.Aliases
+
+	// Assert: Should contain "x"
+	found := false
+	for _, alias := range actualAliases {
+		if alias == "x" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
+	}
+}
+
+func TestNewExecCmd_Aliases(t *testing.T) {
+	// Arrange: Create the exec command
+	execCmd := cmd.NewExecCmd()
+
+	// Act: Get the aliases
+	actualAliases := execCmd.Aliases
+
+	// Assert: Should only contain "e", NOT "x"
+	expectedAliases := []string{"e"}
+
+	if len(actualAliases) != len(expectedAliases) {
+		t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+		return
+	}
+
+	for i, alias := range actualAliases {
+		if alias != expectedAliases[i] {
+			t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+			return
+		}
+	}
+
+	// Also explicitly assert that "x" is NOT present
+	for _, alias := range actualAliases {
+		if alias == "x" {
+			t.Errorf("NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
+		}
+	}
+}
+
+// writeToFile helper function for integration tests
+func writeToFile(filePath, content string) error {
+	return os.WriteFile(filePath, []byte(content), 0644)
+}
+
+// runCarapaceIntegration wrapper for testing
+func runCarapaceIntegration(testCmd *cobra.Command) error {
+	carapaceCmd := cmd.NewIntegrateCarapaceCmd()
+	carapaceCmd.SetContext(testCmd.Context())
+	return carapaceCmd.RunE(carapaceCmd, []string{})
+}
+
+// runWarpIntegration wrapper for testing
+func runWarpIntegration(testCmd *cobra.Command) error {
+	warpCmd := cmd.NewIntegrateWarpCmd()
+	warpCmd.SetContext(testCmd.Context())
+	return warpCmd.RunE(warpCmd, []string{})
+}
+
+func TestValidInstallCommandStringRegex(t *testing.T) {
+	regex := regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
+
+	t.Run("accepts valid commands with three or more words", func(t *testing.T) {
+		validCommands := []string{
+			"npm install -g npm",
+			"yarn global add yarn",
+			"pnpm add -g pnpm",
+			"bun install -g bun",
+			"deno install --allow-net deno",
+			"sudo apt-get install nodejs",
+			"brew install pnpm",
+			"winget install Microsoft.VisualStudioCode",
+			"choco install nodejs",
+			"dnf install yarn",
+			"yum install nodejs",
+			"zypper install pnpm",
+			"apk add deno",
+			"nix-env -iA nixpkgs.nodejs",
+			"nix profile install nixpkgs#yarn",
+			"pacman -S git",
+			"apt install curl wget zip",
+			"brew cask install docker",
+		}
+
+		for _, command := range validCommands {
+			t.Run(command, func(t *testing.T) {
+				assert.True(t, regex.MatchString(command),
+					"Command '%s' should match the regex", command)
+			})
+		}
+	})
+
+	t.Run("rejects commands with insufficient words", func(t *testing.T) {
+		invalidCommands := []string{
+			"npm install",  // only two words
+			"install yarn", // only two words
+			"deno",         // single word
+			"nix profile",  // only two words
+			"yarn",         // single word
+			"pnpm",         // single word
+			"brew install", // only two words
+			"sudo apt-get", // only two words
+			"",             // empty string
+		}
+
+		for _, command := range invalidCommands {
+			t.Run(command, func(t *testing.T) {
+				assert.False(t, regex.MatchString(command),
+					"Command '%s' should not match the regex", command)
+			})
+		}
+	})
+
+	t.Run("accepts commands with complex arguments", func(t *testing.T) {
+		complexCommands := []string{
+			"npm install --save-dev typescript @types/node",
+			"yarn add --dev jest @testing-library/react",
+			"pnpm install --global --force typescript",
+			"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
+			"sudo apt-get install --yes --quiet nodejs npm",
+			"brew install --cask --verbose docker",
+			"winget install --id Microsoft.VisualStudioCode --exact",
+			"nix-env --install --attr nixpkgs.nodejs",
+		}
+
+		for _, command := range complexCommands {
+			t.Run(command, func(t *testing.T) {
+				assert.True(t, regex.MatchString(command),
+					"Complex command '%s' should match the regex", command)
+			})
+		}
+	})
+
+	t.Run("handles edge cases", func(t *testing.T) {
+		testCases := []struct {
+			command  string
+			expected bool
+			reason   string
+		}{
+			{"a b c", true, "minimal three-word command"},
+			{"a   b   c", true, "command with extra spaces"},
+			{"npm\tinstall\tpackage", true, "command with tabs"},
+			{"npm  install  package", true, "command with multiple spaces"},
+			{" npm install package ", false, "command with leading/trailing spaces should fail"},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.command, func(t *testing.T) {
+				result := regex.MatchString(testCase.command)
+				assert.Equal(t, testCase.expected, result,
+					"Command '%s' %s", testCase.command, testCase.reason)
+			})
+		}
+	})
+}
+
+func TestWriteToFile(t *testing.T) {
+	t.Run("writes content to file", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			filePath := filepath.Join(tempDir, "test.txt")
+			content := "test content\nline 2"
+
+			err := writeToFile(filePath, content)
+			assert.NoError(t, err)
+
+			// Verify file exists and has correct content
+			fileContent, err := os.ReadFile(filePath)
+			assert.NoError(t, err)
+			assert.Equal(t, content, string(fileContent))
+		})
+	})
+
+	t.Run("returns error when trying to write to directory", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			// Try to write to the directory path itself
+			err := writeToFile(tempDir, "content")
+			assert.Error(t, err)
+			// Error should be about permissions or that it's a directory
+		})
+	})
+
+	t.Run("overwrites existing file", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			filePath := filepath.Join(tempDir, "test.txt")
+
+			// Write initial content
+			err := writeToFile(filePath, "initial")
+			assert.NoError(t, err)
+
+			// Overwrite with new content
+			newContent := "overwritten content"
+			err = writeToFile(filePath, newContent)
+			assert.NoError(t, err)
+
+			// Verify new content
+			fileContent, err := os.ReadFile(filePath)
+			assert.NoError(t, err)
+			assert.Equal(t, newContent, string(fileContent))
+		})
+	})
+}
+
+func TestRunCarapaceIntegration_OutputFileMode(t *testing.T) {
+	t.Run("writes spec to custom output file", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			outputFile := filepath.Join(tempDir, "custom-spec.yaml")
+
+			// Create a minimal root command for spec generation
+			rootCmd := &cobra.Command{
+				Use:   "jpd",
+				Short: "Test command",
+			}
+
+			testCmd := &cobra.Command{}
+			rootCmd.AddCommand(testCmd)
+			testCmd.Flags().String("output", outputFile, "output file")
+
+			// Capture stdout to verify success message
+			var output bytes.Buffer
+			originalStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			go func() {
+				defer func() { _ = w.Close() }()
+				err := runCarapaceIntegration(testCmd)
+				assert.NoError(t, err)
+			}()
+
+			// Read from pipe
+			buf := make([]byte, 1024)
+			n, _ := r.Read(buf)
+			output.Write(buf[:n])
+			_ = r.Close()
+			os.Stdout = originalStdout
+
+			// Verify file was created
+			assert.FileExists(t, outputFile)
+
+			// Verify file is not empty
+			stat, err := os.Stat(outputFile)
+			assert.NoError(t, err)
+			assert.Greater(t, stat.Size(), int64(0), "File should not be empty")
+
+			// The success message is logged using structured logging, not printed to stdout
+			// Since the test captures stdout which doesn't include log output, we skip this check
+			// The important validation is that the file was created successfully
+		})
+	})
+}
+
+func TestRunCarapaceIntegration_StdoutMode(t *testing.T) {
+	t.Run("outputs spec to stdout", func(t *testing.T) {
+		// Create a minimal root command for spec generation
+		rootCmd := &cobra.Command{
+			Use:   "jpd",
+			Short: "Test command",
+		}
+
+		testCmd := &cobra.Command{}
+		rootCmd.AddCommand(testCmd)
+		testCmd.Flags().Bool("stdout", true, "output to stdout")
+
+		output := captureStdout(t, func() {
+			err := runCarapaceIntegration(testCmd)
+			assert.NoError(t, err)
+		})
+
+		assert.NotEmpty(t, output, "Should output spec to stdout")
+		// Basic validation that it looks like YAML
+		assert.Contains(t, output, "name:", "Output should contain YAML spec")
+	})
+}
+
+func TestRunCarapaceIntegration_DefaultGlobalMode(t *testing.T) {
+	t.Run("installs spec to global location", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			// Set XDG_DATA_HOME to control where the spec gets installed
+			withEnv(t, "XDG_DATA_HOME", tempDir, func() {
+				// Create a minimal root command for spec generation
+				rootCmd := &cobra.Command{
+					Use:   "jpd",
+					Short: "Test command",
+				}
+
+				testCmd := &cobra.Command{}
+				rootCmd.AddCommand(testCmd)
+				// No flags set, should trigger default global install
+
+				// Capture stdout to verify success message
+				var output bytes.Buffer
+				originalStdout := os.Stdout
+				r, w, _ := os.Pipe()
+				os.Stdout = w
+
+				go func() {
+					defer func() { _ = w.Close() }()
+					err := runCarapaceIntegration(testCmd)
+					assert.NoError(t, err)
+				}()
+
+				// Read from pipe
+				buf := make([]byte, 1024)
+				n, _ := r.Read(buf)
+				output.Write(buf[:n])
+				_ = r.Close()
+				os.Stdout = originalStdout
+
+				// Verify the spec file was created in the expected location
+				expectedPath := filepath.Join(tempDir, "carapace", "specs", "javascript-package-delegator.yaml")
+				assert.FileExists(t, expectedPath)
+
+				// Verify file is not empty
+				stat, err := os.Stat(expectedPath)
+				assert.NoError(t, err)
+				assert.Greater(t, stat.Size(), int64(0), "File should not be empty")
+
+				// The success message is logged using structured logging, not printed to stdout
+				// Since the test captures stdout which doesn't include log output, we skip this check
+				// The important validation is that the file was created in the correct location
+			})
+		})
+	})
+}
+
+func TestNewIntegrateCarapaceCmd(t *testing.T) {
+	t.Run("creates command with correct flags", func(t *testing.T) {
+		cmd := cmd.NewIntegrateCarapaceCmd()
+
+		assert.Equal(t, "carapace", cmd.Use)
+		assert.Contains(t, cmd.Short, "Carapace")
+		assert.NotEmpty(t, cmd.Long)
+
+		// Check that the output flag exists
+		outputFlag := cmd.Flag("output")
+		assert.NotNil(t, outputFlag, "Should have output flag")
+		assert.Equal(t, "o", outputFlag.Shorthand, "Should have -o shorthand")
+
+		// Check that the stdout flag exists
+		stdoutFlag := cmd.Flag("stdout")
+		assert.NotNil(t, stdoutFlag, "Should have stdout flag")
+	})
+
+	t.Run("help runs without error", func(t *testing.T) {
+		cmd := cmd.NewIntegrateCarapaceCmd()
+
+		// Set help flag and execute
+		cmd.SetArgs([]string{"--help"})
+
+		var buf bytes.Buffer
+		cmd.SetOut(&buf)
+
+		_ = cmd.Execute()
+		// Help should exit with error (this is normal cobra behavior)
+		// but the output should contain help text
+		output := buf.String()
+		assert.Contains(t, output, "Carapace", "Help output should mention Carapace")
+		assert.Contains(t, output, "output", "Help should describe output flag")
+		assert.Contains(t, output, "stdout", "Help should describe stdout flag")
+	})
+}
+
+func TestRunWarpIntegration_StdoutMode(t *testing.T) {
+	t.Run("outputs to stdout when no output-dir flag", func(t *testing.T) {
+		testCmd := &cobra.Command{}
+		// Don't define the flag, which will trigger the first branch (flag not set)
+
+		output := captureStdout(t, func() {
+			err := runWarpIntegration(testCmd)
+			assert.NoError(t, err)
+		})
+
+		assert.NotEmpty(t, output, "Should output workflows to stdout")
+		// Basic validation that it looks like YAML output
+		assert.Contains(t, output, "---", "Output should contain YAML document separator")
+	})
+
+	t.Run("outputs to stdout when output-dir flag is empty", func(t *testing.T) {
+		testCmd := &cobra.Command{}
+		testCmd.Flags().String("output-dir", "", "output directory")
+
+		output := captureStdout(t, func() {
+			err := runWarpIntegration(testCmd)
+			assert.NoError(t, err)
+		})
+
+		assert.NotEmpty(t, output, "Should output workflows to stdout")
+		assert.Contains(t, output, "---", "Output should contain YAML document separator")
+	})
+}
+
+func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
+	t.Run("generates files in specified directory", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			testCmd := &cobra.Command{}
+			testCmd.Flags().String("output-dir", tempDir, "output directory")
+
+			// Capture any output
+			var output bytes.Buffer
+			originalStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			go func() {
+				defer func() { _ = w.Close() }()
+				err := runWarpIntegration(testCmd)
+				assert.NoError(t, err)
+			}()
+
+			// Read from pipe
+			buf := make([]byte, 1024)
+			n, _ := r.Read(buf)
+			output.Write(buf[:n])
+			_ = r.Close()
+			os.Stdout = originalStdout
+
+			// Check that files were created
+			files, err := os.ReadDir(tempDir)
+			assert.NoError(t, err)
+			assert.Greater(t, len(files), 0, "Should create at least one file")
+
+			// Verify files have .yaml extension
+			yamlFileCount := 0
+			for _, file := range files {
+				if strings.HasSuffix(file.Name(), ".yaml") {
+					yamlFileCount++
+				}
+			}
+			assert.Greater(t, yamlFileCount, 0, "Should create at least one .yaml file")
+
+			// The success message is logged using structured logging, not printed to stdout
+			// Since the test captures stdout which doesn't include log output, we skip this check
+			// The important validation is that the files were created successfully
+		})
+	})
+
+	t.Run("returns error when output directory creation fails", func(t *testing.T) {
+		makeTempDir(t, func(tempDir string) {
+			// Create a file with the same name as our intended directory
+			filePath := filepath.Join(tempDir, "notadir")
+			err := os.WriteFile(filePath, []byte("content"), 0644)
+			assert.NoError(t, err)
+
+			testCmd := &cobra.Command{}
+			testCmd.Flags().String("output-dir", filePath, "output directory")
+
+			err = runWarpIntegration(testCmd)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to generate Warp workflow files")
+		})
+	})
+}
+
+func TestNewIntegrateWarpCmd(t *testing.T) {
+	t.Run("creates command with correct flags", func(t *testing.T) {
+		cmd := cmd.NewIntegrateWarpCmd()
+
+		assert.Equal(t, "warp", cmd.Use)
+		assert.Contains(t, cmd.Short, "Warp")
+		assert.NotEmpty(t, cmd.Long)
+
+		// Check that the output-dir flag exists
+		flag := cmd.Flag("output-dir")
+		assert.NotNil(t, flag, "Should have output-dir flag")
+		assert.Equal(t, "o", flag.Shorthand, "Should have -o shorthand")
+	})
+
+	t.Run("help runs without error", func(t *testing.T) {
+		cmd := cmd.NewIntegrateWarpCmd()
+
+		// Set help flag and execute
+		cmd.SetArgs([]string{"--help"})
+
+		var buf bytes.Buffer
+		cmd.SetOut(&buf)
+
+		_ = cmd.Execute()
+		// Help should exit with error (this is normal cobra behavior)
+		// but the output should contain help text
+		output := buf.String()
+		assert.Contains(t, output, "Warp", "Help output should mention Warp")
+		assert.Contains(t, output, "output-dir", "Help should describe output-dir flag")
+	})
+}
