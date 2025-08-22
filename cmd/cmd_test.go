@@ -3731,19 +3731,17 @@ var _ = Describe("JPD Commands", func() {
 				assert.Contains(output, "name: JPD Agent")
 			})
 
-			It("should print Warp workflows as multi-doc YAML to stdout if empty output-dir flag", func() {
+			It("should throw error for empty output-dir flag", func() {
 				// Add debug expectations for warp subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", "")
-				assert.NoError(err)
-				assert.Contains(output, "---")
-				assert.Contains(output, "name: JPD Install") // Check for some content
+				_, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", "")
+				assert.Error(err)
+
 			})
 
 			It("should generate Warp workflow files in the specified directory", func() {
-				outputDir := filepath.Join(tempDir, "workflows")
+				outputDir := filepath.Join(tempDir, "workflows", "/")
 
-				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", outputDir)
+				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", outputDir))
 				assert.NoError(err)
 				assert.Empty(output) // Should not print to stdout when output-dir is set
 
@@ -3764,8 +3762,8 @@ var _ = Describe("JPD Commands", func() {
 				err := os.WriteFile(blockedPath, []byte("i am a file"), 0644)
 				assert.NoError(err)
 
-				invalidOutputDir := filepath.Join(blockedPath, "sub-dir/") // This path will fail MkdirAll
-				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", invalidOutputDir)
+				invalidOutputDir := filepath.Join(blockedPath, "sub-dir") // This path will fail MkdirAll
+				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", invalidOutputDir))
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to generate Warp workflow files")
 				assert.Contains(err.Error(), "not a directory") // Specific error message for this case
