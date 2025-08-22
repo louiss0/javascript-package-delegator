@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,9 +34,6 @@ import (
 // This function now properly preserves the command context with CommandRunner.
 
 // Test helper functions for standard Go tests (originally from testhelpers_test.go)
-
-
-
 
 // makeTempDir creates a temporary directory for the test
 func makeTempDir(t *testing.T, fn func(string)) {
@@ -101,6 +97,7 @@ var _ = Describe("JPD Commands", func() {
 		factory.SetupBasicCommandRunnerExpectations()
 		// Reset first, then setup debug expectations
 		factory.ResetDebugExecutor()
+
 		DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
 		factory.SetupBasicDebugExecutorExpectations()
 		rootCmd = factory.CreateNpmAsDefault(nil)
@@ -3672,6 +3669,216 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
+	// New tests for the 'integrate' command
+	//
+	const IntegrateCommand = "Integrate Command"
+	Describe(IntegrateCommand, func() {
+		var (
+			tempDir         string
+			originalXDG     string
+			originalAppdata string
+		)
+
+		BeforeEach(func() {
+			// Create a fresh root command for each test to avoid state leakage
+
+			var err error
+			tempDir, err = os.MkdirTemp("", "jpd-integrate-test-*")
+			assert.NoError(err)
+
+			// Backup and set XDG_DATA_HOME/APPDATA for Carapace global tests to redirect to tempDir
+			originalXDG = os.Getenv("XDG_DATA_HOME")
+			err = os.Setenv("XDG_DATA_HOME", tempDir)
+			assert.NoError(err)
+			originalAppdata = os.Getenv("APPDATA")
+			err = os.Setenv("APPDATA", tempDir)
+			assert.NoError(err)
+			assert.NoError(err)
+			// No easy way to mock os.UserConfigDir directly, relying on XDG_DATA_HOME override.
+			// If on Windows, %APPDATA% is primary. On Unix, XDG_DATA_HOME or ~/.local/share.
+			// Setting XDG_DATA_HOME covers most Unix-like systems.
+
+			// Note: Debug expectations are set up individually in each test as needed
+			// Help commands don't trigger PM detection, so we don't set global expectations
+
+		})
+
+		AfterEach(func() {
+			if tempDir != "" {
+				_ = os.RemoveAll(tempDir)
+			}
+			// Restore original environment variables
+			_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+			_ = os.Setenv("APPDATA", originalAppdata)
+			// Restore original user config dir (less critical if XDG_DATA_HOME is set)
+
+		})
+
+		Context("warp subcommand", func() {
+			It("should print Warp workflows as multi-doc YAML to stdout if no output-dir flag", func() {
+				// Add debug expectations for warp subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				output, err := executeCmd(rootCmd, "integrate", "warp")
+				assert.NoError(err)
+				assert.Contains(output, "---") // Multi-doc YAML separator
+				assert.Contains(output, "name: JPD Install")
+				assert.Contains(output, "name: JPD Run")
+				assert.Contains(output, "name: JPD Exec")
+				assert.Contains(output, "name: JPD DLX")
+				assert.Contains(output, "name: JPD Update")
+				assert.Contains(output, "name: JPD Uninstall")
+				assert.Contains(output, "name: JPD Clean Install")
+				assert.Contains(output, "name: JPD Agent")
+			})
+
+			It("should print Warp workflows as multi-doc YAML to stdout if empty output-dir flag", func() {
+				// Add debug expectations for warp subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", "")
+				assert.NoError(err)
+				assert.Contains(output, "---")
+				assert.Contains(output, "name: JPD Install") // Check for some content
+			})
+
+			It("should generate Warp workflow files in the specified directory", func() {
+				outputDir := filepath.Join(tempDir, "workflows")
+
+				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", outputDir)
+				assert.NoError(err)
+				assert.Empty(output) // Should not print to stdout when output-dir is set
+
+				// Verify some files exist
+				assert.FileExists(filepath.Join(outputDir, "jpd-install.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-run.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-exec.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-dlx.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-update.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-uninstall.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-clean-install.yaml"))
+				assert.FileExists(filepath.Join(outputDir, "jpd-agent.yaml"))
+			})
+
+			It("should return an error if output directory cannot be created", func() {
+				// Create a file where a directory should be, making os.MkdirAll fail
+				blockedPath := filepath.Join(tempDir, "a_file_not_a_dir")
+				err := os.WriteFile(blockedPath, []byte("i am a file"), 0644)
+				assert.NoError(err)
+
+				invalidOutputDir := filepath.Join(blockedPath, "sub-dir") // This path will fail MkdirAll
+				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", invalidOutputDir)
+				assert.Error(err)
+				assert.Contains(err.Error(), "failed to generate Warp workflow files")
+				assert.Contains(err.Error(), "not a directory") // Specific error message for this case
+			})
+		})
+
+		Context("carapace subcommand", func() {
+			It("should install Carapace spec to the default global directory if no flags are specified", func() {
+				// Add debug expectations for carapace subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				// The actual path will be within tempDir because of XDG_DATA_HOME/APPDATA override
+				carapaceSpecPath := filepath.Join(tempDir, "carapace", "specs", "javascript-package-delegator.yaml")
+
+				output, err := executeCmd(rootCmd, "integrate", "carapace")
+				assert.NoError(err)
+				assert.Empty(output)
+
+				assert.FileExists(carapaceSpecPath)
+				content, err := os.ReadFile(carapaceSpecPath)
+				assert.NoError(err)
+				assert.Contains(string(content), "Name: javascript-package-delegator")
+				assert.Contains(string(content), "Commands:")
+			})
+
+			It("should print Carapace spec to stdout with --stdout flag", func() {
+				// Add debug expectations for carapace subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				output, err := executeCmd(rootCmd, "integrate", "carapace", "--stdout")
+				assert.NoError(err)
+				assert.Contains(output, "Name: javascript-package-delegator")
+				assert.Contains(output, "Commands:")
+			})
+
+			It("should write Carapace spec to a custom file with --output flag", func() {
+				// Add debug expectations for carapace subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				customFilePath := filepath.Join(tempDir, "jpd.yaml")
+
+				output, err := executeCmd(rootCmd, "integrate", "carapace", "--output", customFilePath)
+				assert.NoError(err)
+				assert.Empty(output)
+
+				assert.FileExists(customFilePath)
+				content, err := os.ReadFile(customFilePath)
+				assert.NoError(err)
+				assert.Contains(string(content), "Name: javascript-package-delegator")
+				assert.Contains(string(content), "Commands:")
+			})
+
+			It("should prioritize --output over --stdout if both are present", func() {
+				// Add debug expectations for carapace subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				customFilePath := filepath.Join(tempDir, "jpd-output-stdout.yaml")
+
+				output, err := executeCmd(rootCmd, "integrate", "carapace", "--output", customFilePath, "--stdout")
+				assert.NoError(err)
+				assert.Empty(output) // Should not print to stdout
+
+				assert.FileExists(customFilePath)
+				content, err := os.ReadFile(customFilePath)
+				assert.NoError(err)
+				assert.Contains(string(content), "Name: javascript-package-delegator")
+			})
+
+			It("should return an error if writing to a custom file fails", func() {
+				// Attempt to write to a directory, which will fail os.Create
+				invalidFilePath := tempDir // tempDir is a directory
+
+				_, err := executeCmd(rootCmd, "integrate", "carapace", "--output", invalidFilePath)
+				assert.Error(err)
+				assert.Contains(err.Error(), "failed to write Carapace spec to file")
+				assert.Contains(err.Error(), "is a directory") // Specific OS error for this case
+			})
+
+			It("should return an error if default carapace specs directory cannot be created", func() {
+				// Ensure tempDir is a file, not a directory, so MkdirAll for "tempDir/carapace/specs" fails
+				err := os.RemoveAll(tempDir) // Remove the directory created in BeforeEach
+				assert.NoError(err)
+				err = os.WriteFile(tempDir, []byte("not a directory"), 0644) // Create a file at tempDir
+				assert.NoError(err)
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+
+				_, err = executeCmd(rootCmd, "integrate", "carapace")
+				assert.Error(err)
+				assert.Contains(err.Error(), "failed to create Carapace specs directory")
+				assert.Contains(err.Error(), "not a directory")
+			})
+		})
+
+		Context("integrate command help", func() {
+			It("should show help for integrate command", func() {
+				output, err := executeCmd(rootCmd, "integrate", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Generate integration files for external tools")
+				assert.Contains(output, "Available integrations:")
+				assert.Contains(output, "warp")
+				assert.Contains(output, "carapace")
+			})
+
+			It("should show help for integrate warp subcommand", func() {
+				output, err := executeCmd(rootCmd, "integrate", "warp", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Generate Warp terminal workflow files")
+			})
+
+			It("should show help for integrate carapace subcommand", func() {
+				output, err := executeCmd(rootCmd, "integrate", "carapace", "--help")
+				assert.NoError(err)
+				assert.Contains(output, "Generate a Carapace YAML specification file")
+			})
+		})
+	})
+
 })
 
 // Additional test functions from separate test files (consolidated)
@@ -3731,8 +3938,6 @@ func TestNewExecCmd_Aliases(t *testing.T) {
 func writeToFile(filePath, content string) error {
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
-
-
 
 func TestValidInstallCommandStringRegex(t *testing.T) {
 	regex := regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
@@ -3875,435 +4080,5 @@ func TestWriteToFile(t *testing.T) {
 			assert.Equal(t, newContent, string(fileContent))
 		})
 	})
-}
 
-func TestRunCarapaceIntegration_OutputFileMode(t *testing.T) {
-	t.Run("writes spec to custom output file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			outputFile := filepath.Join(tempDir, "custom-spec.yaml")
-
-			// Create a minimal root command for spec generation
-			rootCmd := &cobra.Command{
-				Use:   "jpd",
-				Short: "Test command",
-			}
-
-			testCmd := &cobra.Command{}
-			rootCmd.AddCommand(testCmd)
-			testCmd.Flags().String("output", outputFile, "output file")
-
-			// Capture stdout to verify success message
-			var output bytes.Buffer
-			originalStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			go func() {
-				defer func() { _ = w.Close() }()
-				err := runCarapaceIntegration(testCmd)
-				assert.NoError(t, err)
-			}()
-
-			// Read from pipe
-			buf := make([]byte, 1024)
-			n, _ := r.Read(buf)
-			output.Write(buf[:n])
-			_ = r.Close()
-			os.Stdout = originalStdout
-
-			// Verify file was created
-			assert.FileExists(t, outputFile)
-
-			// Verify file is not empty
-			stat, err := os.Stat(outputFile)
-			assert.NoError(t, err)
-			assert.Greater(t, stat.Size(), int64(0), "File should not be empty")
-
-			// The success message is logged using structured logging, not printed to stdout
-			// Since the test captures stdout which doesn't include log output, we skip this check
-			// The important validation is that the file was created successfully
-		})
-	})
-}
-
-func TestRunCarapaceIntegration_StdoutMode(t *testing.T) {
-	t.Run("outputs spec to stdout", func(t *testing.T) {
-		// Create a minimal root command for spec generation
-		rootCmd := &cobra.Command{
-			Use:   "jpd",
-			Short: "Test command",
-		}
-
-		testCmd := &cobra.Command{}
-		rootCmd.AddCommand(testCmd)
-		testCmd.Flags().Bool("stdout", true, "output to stdout")
-
-		output := captureStdout(t, func() {
-			err := runCarapaceIntegration(testCmd)
-			assert.NoError(t, err)
-		})
-
-		assert.NotEmpty(t, output, "Should output spec to stdout")
-		// Basic validation that it looks like YAML
-		assert.Contains(t, output, "name:", "Output should contain YAML spec")
-	})
-}
-
-func TestRunCarapaceIntegration_DefaultGlobalMode(t *testing.T) {
-	t.Run("installs spec to global location", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			// Set XDG_DATA_HOME to control where the spec gets installed
-			withEnv(t, "XDG_DATA_HOME", tempDir, func() {
-				// Create a minimal root command for spec generation
-				rootCmd := &cobra.Command{
-					Use:   "jpd",
-					Short: "Test command",
-				}
-
-				testCmd := &cobra.Command{}
-				rootCmd.AddCommand(testCmd)
-				// No flags set, should trigger default global install
-
-				// Capture stdout to verify success message
-				var output bytes.Buffer
-				originalStdout := os.Stdout
-				r, w, _ := os.Pipe()
-				os.Stdout = w
-
-				go func() {
-					defer func() { _ = w.Close() }()
-					err := runCarapaceIntegration(testCmd)
-					assert.NoError(t, err)
-				}()
-
-				// Read from pipe
-				buf := make([]byte, 1024)
-				n, _ := r.Read(buf)
-				output.Write(buf[:n])
-				_ = r.Close()
-				os.Stdout = originalStdout
-
-				// Verify the spec file was created in the expected location
-				expectedPath := filepath.Join(tempDir, "carapace", "specs", "javascript-package-delegator.yaml")
-				assert.FileExists(t, expectedPath)
-
-				// Verify file is not empty
-				stat, err := os.Stat(expectedPath)
-				assert.NoError(t, err)
-				assert.Greater(t, stat.Size(), int64(0), "File should not be empty")
-
-				// The success message is logged using structured logging, not printed to stdout
-				// Since the test captures stdout which doesn't include log output, we skip this check
-				// The important validation is that the file was created in the correct location
-			})
-		})
-	})
-}
-
-func TestNewIntegrateCarapaceCmd(t *testing.T) {
-	t.Run("creates command with correct flags", func(t *testing.T) {
-		cmd := cmd.NewIntegrateCarapaceCmd()
-
-		assert.Equal(t, "carapace", cmd.Use)
-		assert.Contains(t, cmd.Short, "Carapace")
-		assert.NotEmpty(t, cmd.Long)
-
-		// Check that the output flag exists
-		outputFlag := cmd.Flag("output")
-		assert.NotNil(t, outputFlag, "Should have output flag")
-		assert.Equal(t, "o", outputFlag.Shorthand, "Should have -o shorthand")
-
-		// Check that the stdout flag exists
-		stdoutFlag := cmd.Flag("stdout")
-		assert.NotNil(t, stdoutFlag, "Should have stdout flag")
-	})
-
-	t.Run("help runs without error", func(t *testing.T) {
-		cmd := cmd.NewIntegrateCarapaceCmd()
-
-		// Set help flag and execute
-		cmd.SetArgs([]string{"--help"})
-
-		var buf bytes.Buffer
-		cmd.SetOut(&buf)
-
-		_ = cmd.Execute()
-		// Help should exit with error (this is normal cobra behavior)
-		// but the output should contain help text
-		output := buf.String()
-		assert.Contains(t, output, "Carapace", "Help output should mention Carapace")
-		assert.Contains(t, output, "output", "Help should describe output flag")
-		assert.Contains(t, output, "stdout", "Help should describe stdout flag")
-	})
-}
-
-func TestRunWarpIntegration_StdoutMode(t *testing.T) {
-	t.Run("outputs to stdout when no output-dir flag", func(t *testing.T) {
-		testCmd := &cobra.Command{}
-		// Don't define the flag, which will trigger the first branch (flag not set)
-
-		stdout, _ := captureOutput(t, func() {
-			err := runWarpIntegration(testCmd)
-			assert.NoError(t, err)
-		})
-
-		assert.NotEmpty(t, stdout, "Should output workflows to stdout")
-		// Basic validation that it looks like YAML output
-		assert.Contains(t, stdout, "---", "Output should contain YAML document separator")
-	})
-
-	t.Run("outputs to stdout when output-dir flag is empty", func(t *testing.T) {
-		testCmd := &cobra.Command{}
-		testCmd.Flags().String("output-dir", "", "output directory")
-
-		stdout, _ := captureOutput(t, func() {
-			err := runWarpIntegration(testCmd)
-			assert.NoError(t, err)
-		})
-
-		assert.NotEmpty(t, stdout, "Should output workflows to stdout")
-		assert.Contains(t, stdout, "---", "Output should contain YAML document separator")
-	})
-}
-
-func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
-	t.Run("generates files in specified directory", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			testCmd := &cobra.Command{}
-			testCmd.Flags().String("output-dir", tempDir+"/", "output directory")
-
-			// Capture any output
-			var output bytes.Buffer
-			originalStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			go func() {
-				defer func() { _ = w.Close() }()
-				err := runWarpIntegration(testCmd)
-				assert.NoError(t, err)
-			}()
-
-			// Read from pipe
-			buf := make([]byte, 1024)
-			n, _ := r.Read(buf)
-			output.Write(buf[:n])
-			_ = r.Close()
-			os.Stdout = originalStdout
-
-			// Check that files were created
-			files, err := os.ReadDir(tempDir)
-			assert.NoError(t, err)
-			assert.Greater(t, len(files), 0, "Should create at least one file")
-
-			// Verify files have .yaml extension
-			yamlFileCount := 0
-			for _, file := range files {
-				if strings.HasSuffix(file.Name(), ".yaml") {
-					yamlFileCount++
-				}
-			}
-			assert.Greater(t, yamlFileCount, 0, "Should create at least one .yaml file")
-
-			// The success message is logged using structured logging, not printed to stdout
-			// Since the test captures stdout which doesn't include log output, we skip this check
-			// The important validation is that the files were created successfully
-		})
-	})
-
-	t.Run("returns error when output directory creation fails", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			// Create a file with the same name as our intended directory
-			filePath := filepath.Join(tempDir, "notadir")
-			err := os.WriteFile(filePath, []byte("content"), 0644)
-			assert.NoError(t, err)
-
-			testCmd := &cobra.Command{}
-			testCmd.Flags().String("output-dir", filePath+"/", "output directory")
-
-			err = runWarpIntegration(testCmd)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "failed to generate Warp workflow files")
-		})
-	})
-}
-
-func TestNewIntegrateWarpCmd(t *testing.T) {
-	t.Run("creates command with correct flags", func(t *testing.T) {
-		cmd := cmd.NewIntegrateWarpCmd()
-
-		assert.Equal(t, "warp", cmd.Use)
-		assert.Contains(t, cmd.Short, "Warp")
-		assert.NotEmpty(t, cmd.Long)
-
-		// Check that the output-dir flag exists
-		flag := cmd.Flag("output-dir")
-		assert.NotNil(t, flag, "Should have output-dir flag")
-		assert.Equal(t, "o", flag.Shorthand, "Should have -o shorthand")
-	})
-
-	t.Run("help runs without error", func(t *testing.T) {
-		cmd := cmd.NewIntegrateWarpCmd()
-
-		// Set help flag and execute
-		cmd.SetArgs([]string{"--help"})
-
-		var buf bytes.Buffer
-		cmd.SetOut(&buf)
-
-		_ = cmd.Execute()
-		// Help should exit with error (this is normal cobra behavior)
-		// but the output should contain help text
-		output := buf.String()
-		assert.Contains(t, output, "Warp", "Help output should mention Warp")
-		assert.Contains(t, output, "output-dir", "Help should describe output-dir flag")
-	})
-}
-
-// Test error handling in integration helper functions
-func TestRunCarapaceIntegration_ErrorHandling(t *testing.T) {
-	t.Run("handles error when setting output flag", func(t *testing.T) {
-		// Create a test command with an output flag
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-		// Add the output flag with a value that might cause issues
-		testCmd.Flags().String("output", "/invalid/path/file.yaml", "output file")
-
-		// Parse flags to ensure they're available
-		err := testCmd.ParseFlags([]string{"--output", "/invalid/path/file.yaml"})
-		assert.NoError(t, err)
-
-			// Test that the function handles the flag setting properly
-			// Even though the path is invalid, flag setting should work
-			// The actual file operations would fail later in the execution
-			// Test that the function handles the flag setting properly
-			// Even though the path is invalid, flag setting should work
-			// The actual file operations would fail later in the execution
-			// Capture stdout to prevent any output during tests
-			_ = captureStdout(t, func() {
-				err := runCarapaceIntegration(testCmd)
-				// The error would come from the actual carapace generation, not flag setting
-				// So we expect this to run without flag-setting errors
-				if err != nil {
-					// If there's an error, it should be from file operations, not flag setting
-					assert.NotContains(t, err.Error(), "failed to set output flag")
-				}
-			})
-	})
-
-	t.Run("handles error when setting stdout flag", func(t *testing.T) {
-		// Create a test command with a stdout flag
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-		// Add the stdout flag
-		testCmd.Flags().Bool("stdout", true, "output to stdout")
-
-		// Parse flags to ensure they're available
-		err := testCmd.ParseFlags([]string{"--stdout"})
-		assert.NoError(t, err)
-
-		// Test that the function handles the flag setting properly
-		// Capture stdout to prevent the spec from being printed during tests
-		_ = captureStdout(t, func() {
-			err := runCarapaceIntegration(testCmd)
-			// The function should not fail due to flag setting errors
-			if err != nil {
-				// If there's an error, it should be from carapace generation, not flag setting
-				assert.NotContains(t, err.Error(), "failed to set stdout flag")
-			}
-		})
-	})
-
-	t.Run("handles missing flags gracefully", func(t *testing.T) {
-		// Create a test command without the expected flags
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-		// Don't add any flags - the function should handle this gracefully
-
-		// This should not panic or fail due to missing flags
-		// Capture stdout to prevent the spec from being printed during tests
-		_ = captureStdout(t, func() {
-			err := runCarapaceIntegration(testCmd)
-			// The function should handle missing flags by skipping the flag setting
-			if err != nil {
-				// Error should not be about flag setting
-				assert.NotContains(t, err.Error(), "failed to set output flag")
-				assert.NotContains(t, err.Error(), "failed to set stdout flag")
-			}
-		})
-	})
-}
-
-func TestRunWarpIntegration_ErrorHandling(t *testing.T) {
-	t.Run("handles error when setting output-dir flag", func(t *testing.T) {
-		// Create a test command with an output-dir flag
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-		// Add the output-dir flag with a value that might cause issues
-		testCmd.Flags().String("output-dir", "/invalid/path/", "output directory")
-
-		// Parse flags to ensure they're available
-		err := testCmd.ParseFlags([]string{"--output-dir", "/invalid/path/"})
-		assert.NoError(t, err)
-
-		// Test that the function handles the flag setting properly
-		// Capture stdout to prevent any output during tests
-		_ = captureStdout(t, func() {
-			err := runWarpIntegration(testCmd)
-			// The function should not fail due to flag setting errors
-			if err != nil {
-				// If there's an error, it should be from warp generation, not flag setting
-				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-			}
-		})
-	})
-
-	t.Run("handles missing output-dir flag gracefully", func(t *testing.T) {
-		// Create a test command without the expected flag
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-		// Don't add the output-dir flag - the function should handle this gracefully
-
-		// This should not panic or fail due to missing flag
-		// Capture stdout to prevent any output during tests
-		_ = captureStdout(t, func() {
-			err := runWarpIntegration(testCmd)
-			// The function should handle missing flag by skipping the flag setting
-			if err != nil {
-				// Error should not be about flag setting
-				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-			}
-		})
-	})
-
-	t.Run("propagates flag setting errors correctly", func(t *testing.T) {
-		// Create a more complex scenario to test error propagation
-		testCmd := &cobra.Command{
-			Use: "test",
-		}
-
-		// Add the output-dir flag
-		testCmd.Flags().String("output-dir", "", "output directory")
-
-		// Parse flags
-		err := testCmd.ParseFlags([]string{"--output-dir", "/some/path/"})
-		assert.NoError(t, err)
-
-		// The function should handle normal flag values without error
-		// Capture stdout to prevent any output during tests
-		_ = captureStdout(t, func() {
-			err := runWarpIntegration(testCmd)
-			// Check that if there's an error, it's not from our flag setting logic
-			if err != nil {
-				// The error message should be descriptive and not about flag setting
-				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-				// It might be about file operations or warp generation
-			}
-		})
-	})
 }
