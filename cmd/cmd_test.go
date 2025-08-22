@@ -76,6 +76,79 @@ func captureStdout(t *testing.T, fn func()) string {
 	return <-outputChan
 }
 
+// captureOutput captures both stdout and stderr during function execution
+// This is useful for integration tests that need to suppress log.Info output
+func captureOutput(t *testing.T, fn func()) (stdout, stderr string) {
+	t.Helper()
+
+	// Save original stdout and stderr
+	originalStdout := os.Stdout
+	originalStderr := os.Stderr
+	defer func() {
+		os.Stdout = originalStdout
+		os.Stderr = originalStderr
+	}()
+
+	// Create pipes for stdout and stderr
+	stdoutR, stdoutW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create stdout pipe: %v", err)
+	}
+	defer func() { _ = stdoutR.Close() }()
+
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create stderr pipe: %v", err)
+	}
+	defer func() { _ = stderrR.Close() }()
+
+	// Replace stdout and stderr
+	os.Stdout = stdoutW
+	os.Stderr = stderrW
+
+	// Channels to capture outputs
+	stdoutChan := make(chan string, 1)
+	stderrChan := make(chan string, 1)
+
+	// Goroutine to read stdout
+	go func() {
+		defer close(stdoutChan)
+		output, err := io.ReadAll(stdoutR)
+		if err != nil && err != io.EOF {
+			t.Logf("Failed to read from stdout pipe: %v", err)
+			stdoutChan <- ""
+			return
+		}
+		stdoutChan <- string(output)
+	}()
+
+	// Goroutine to read stderr
+	go func() {
+		defer close(stderrChan)
+		output, err := io.ReadAll(stderrR)
+		if err != nil && err != io.EOF {
+			t.Logf("Failed to read from stderr pipe: %v", err)
+			stderrChan <- ""
+			return
+		}
+		stderrChan <- string(output)
+	}()
+
+	// Execute function
+	fn()
+
+	// Close writers to signal EOF to readers
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+
+	// Restore stdout/stderr immediately after closing writers
+	os.Stdout = originalStdout
+	os.Stderr = originalStderr
+
+	// Get captured outputs
+	return <-stdoutChan, <-stderrChan
+}
+
 // withEnv temporarily sets an environment variable
 func withEnv(t *testing.T, key, value string, fn func()) {
 	t.Helper()
@@ -4135,27 +4208,27 @@ func TestRunWarpIntegration_StdoutMode(t *testing.T) {
 		testCmd := &cobra.Command{}
 		// Don't define the flag, which will trigger the first branch (flag not set)
 
-		output := captureStdout(t, func() {
+		stdout, _ := captureOutput(t, func() {
 			err := runWarpIntegration(testCmd)
 			assert.NoError(t, err)
 		})
 
-		assert.NotEmpty(t, output, "Should output workflows to stdout")
+		assert.NotEmpty(t, stdout, "Should output workflows to stdout")
 		// Basic validation that it looks like YAML output
-		assert.Contains(t, output, "---", "Output should contain YAML document separator")
+		assert.Contains(t, stdout, "---", "Output should contain YAML document separator")
 	})
 
 	t.Run("outputs to stdout when output-dir flag is empty", func(t *testing.T) {
 		testCmd := &cobra.Command{}
 		testCmd.Flags().String("output-dir", "", "output directory")
 
-		output := captureStdout(t, func() {
+		stdout, _ := captureOutput(t, func() {
 			err := runWarpIntegration(testCmd)
 			assert.NoError(t, err)
 		})
 
-		assert.NotEmpty(t, output, "Should output workflows to stdout")
-		assert.Contains(t, output, "---", "Output should contain YAML document separator")
+		assert.NotEmpty(t, stdout, "Should output workflows to stdout")
+		assert.Contains(t, stdout, "---", "Output should contain YAML document separator")
 	})
 }
 
@@ -4267,16 +4340,22 @@ func TestRunCarapaceIntegration_ErrorHandling(t *testing.T) {
 		err := testCmd.ParseFlags([]string{"--output", "/invalid/path/file.yaml"})
 		assert.NoError(t, err)
 
-		// Test that the function handles the flag setting properly
-		// Even though the path is invalid, flag setting should work
-		// The actual file operations would fail later in the execution
-		err = runCarapaceIntegration(testCmd)
-		// The error would come from the actual carapace generation, not flag setting
-		// So we expect this to run without flag-setting errors
-		if err != nil {
-			// If there's an error, it should be from file operations, not flag setting
-			assert.NotContains(t, err.Error(), "failed to set output flag")
-		}
+			// Test that the function handles the flag setting properly
+			// Even though the path is invalid, flag setting should work
+			// The actual file operations would fail later in the execution
+			// Test that the function handles the flag setting properly
+			// Even though the path is invalid, flag setting should work
+			// The actual file operations would fail later in the execution
+			// Capture stdout to prevent any output during tests
+			_ = captureStdout(t, func() {
+				err := runCarapaceIntegration(testCmd)
+				// The error would come from the actual carapace generation, not flag setting
+				// So we expect this to run without flag-setting errors
+				if err != nil {
+					// If there's an error, it should be from file operations, not flag setting
+					assert.NotContains(t, err.Error(), "failed to set output flag")
+				}
+			})
 	})
 
 	t.Run("handles error when setting stdout flag", func(t *testing.T) {
@@ -4292,12 +4371,15 @@ func TestRunCarapaceIntegration_ErrorHandling(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Test that the function handles the flag setting properly
-		err = runCarapaceIntegration(testCmd)
-		// The function should not fail due to flag setting errors
-		if err != nil {
-			// If there's an error, it should be from carapace generation, not flag setting
-			assert.NotContains(t, err.Error(), "failed to set stdout flag")
-		}
+		// Capture stdout to prevent the spec from being printed during tests
+		_ = captureStdout(t, func() {
+			err := runCarapaceIntegration(testCmd)
+			// The function should not fail due to flag setting errors
+			if err != nil {
+				// If there's an error, it should be from carapace generation, not flag setting
+				assert.NotContains(t, err.Error(), "failed to set stdout flag")
+			}
+		})
 	})
 
 	t.Run("handles missing flags gracefully", func(t *testing.T) {
@@ -4308,13 +4390,16 @@ func TestRunCarapaceIntegration_ErrorHandling(t *testing.T) {
 		// Don't add any flags - the function should handle this gracefully
 
 		// This should not panic or fail due to missing flags
-		err := runCarapaceIntegration(testCmd)
-		// The function should handle missing flags by skipping the flag setting
-		if err != nil {
-			// Error should not be about flag setting
-			assert.NotContains(t, err.Error(), "failed to set output flag")
-			assert.NotContains(t, err.Error(), "failed to set stdout flag")
-		}
+		// Capture stdout to prevent the spec from being printed during tests
+		_ = captureStdout(t, func() {
+			err := runCarapaceIntegration(testCmd)
+			// The function should handle missing flags by skipping the flag setting
+			if err != nil {
+				// Error should not be about flag setting
+				assert.NotContains(t, err.Error(), "failed to set output flag")
+				assert.NotContains(t, err.Error(), "failed to set stdout flag")
+			}
+		})
 	})
 }
 
@@ -4332,12 +4417,15 @@ func TestRunWarpIntegration_ErrorHandling(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Test that the function handles the flag setting properly
-		err = runWarpIntegration(testCmd)
-		// The function should not fail due to flag setting errors
-		if err != nil {
-			// If there's an error, it should be from warp generation, not flag setting
-			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-		}
+		// Capture stdout to prevent any output during tests
+		_ = captureStdout(t, func() {
+			err := runWarpIntegration(testCmd)
+			// The function should not fail due to flag setting errors
+			if err != nil {
+				// If there's an error, it should be from warp generation, not flag setting
+				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+			}
+		})
 	})
 
 	t.Run("handles missing output-dir flag gracefully", func(t *testing.T) {
@@ -4348,12 +4436,15 @@ func TestRunWarpIntegration_ErrorHandling(t *testing.T) {
 		// Don't add the output-dir flag - the function should handle this gracefully
 
 		// This should not panic or fail due to missing flag
-		err := runWarpIntegration(testCmd)
-		// The function should handle missing flag by skipping the flag setting
-		if err != nil {
-			// Error should not be about flag setting
-			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-		}
+		// Capture stdout to prevent any output during tests
+		_ = captureStdout(t, func() {
+			err := runWarpIntegration(testCmd)
+			// The function should handle missing flag by skipping the flag setting
+			if err != nil {
+				// Error should not be about flag setting
+				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+			}
+		})
 	})
 
 	t.Run("propagates flag setting errors correctly", func(t *testing.T) {
@@ -4370,12 +4461,15 @@ func TestRunWarpIntegration_ErrorHandling(t *testing.T) {
 		assert.NoError(t, err)
 
 		// The function should handle normal flag values without error
-		err = runWarpIntegration(testCmd)
-		// Check that if there's an error, it's not from our flag setting logic
-		if err != nil {
-			// The error message should be descriptive and not about flag setting
-			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
-			// It might be about file operations or warp generation
-		}
+		// Capture stdout to prevent any output during tests
+		_ = captureStdout(t, func() {
+			err := runWarpIntegration(testCmd)
+			// Check that if there's an error, it's not from our flag setting logic
+			if err != nil {
+				// The error message should be descriptive and not about flag setting
+				assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+				// It might be about file operations or warp generation
+			}
+		})
 	})
 }
