@@ -18,7 +18,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/internal/integrations"
 )
 
-const WITH_SHORTHAND = "with-shorthand"
+const WITH_SHORTHANDS = "with-shorthands"
 
 // getSupportedShells returns the list of supported shell completions
 func getSupportedShells() []string {
@@ -81,7 +81,7 @@ Nushell:
 Examples:
 		jpd completion bash                          # Print Bash completion to stdout
 		jpd completion zsh --output completions.zsh  # Save Zsh completion to file
-		jpd completion fish --with-shorthand         # Include alias functions
+		jpd completion fish --with-shorthands        # Include alias functions
 `,
 		DisableFlagsInUseLine: true, // Don't show global flags for completion command itself
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -112,7 +112,8 @@ Examples:
 			shell := args[0]
 			filename := outputFileFlag.String()
 
-			withShorthand, err := cmd.Flags().GetBool(WITH_SHORTHAND)
+			withShorthand, err := cmd.Flags().GetBool(WITH_SHORTHANDS)
+
 			if err != nil {
 				return err
 			}
@@ -123,7 +124,7 @@ Examples:
 
 	// Bind the custom flag type
 	completionCmd.Flags().VarP(&outputFileFlag, "output", "o", "Write completion script to a file instead of stdout")
-	completionCmd.Flags().BoolP(WITH_SHORTHAND, "w", false, "Generate completion script with shorthand flags")
+	completionCmd.Flags().BoolP(WITH_SHORTHANDS, "w", false, "Generate completion script with shorthand flags")
 
 	return completionCmd
 }
@@ -185,7 +186,7 @@ func generateCompletion(cmd *cobra.Command, shell string, filename string, withS
 		return completionErr
 	}
 
-	// If --with-shorthand flag is set, append alias functions
+	// If --with-shorthands flag is set, append alias functions
 	if withShorthand {
 		aliasGenerator := integrations.NewAliasGenerator()
 		aliasMap := getDefaultAliasMapping()

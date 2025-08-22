@@ -10,7 +10,7 @@ File: coverage*.out
 Issue: Coverage results show slight variations between different package filtering approaches
 Description:
 • Structural approach (excluding build_info from --coverpkg) shows 81.5%
-• Post-processing approach (grep -v) also shows 81.5% 
+• Post-processing approach (grep -v) also shows 81.5%
 • Raw --coverpkg=./... shows 80.5%
 • Need to verify which approach gives most accurate results
 ====
@@ -20,10 +20,10 @@ Description:
 ====
 
 File: cmd/completion_ginkgo_test.go
-Function: Test cases expecting carapace and --with-shorthand support
+Function: Test cases expecting carapace and --with-shorthands support
 Description:
 • Tests expect carapace shell support but CLI only supports bash, fish, nushell, powershell, zsh
-• Tests expect --with-shorthand flag but completion command doesn't recognize it
+• Tests expect --with-shorthands flag but completion command doesn't recognize it
 • Need to align test expectations with actual CLI implementation
 ====
 
@@ -47,7 +47,7 @@ Description:
 ====
 
 File: cmd/completion_ginkgo_test.go
-File: shell_alias/suite_test.go  
+File: shell_alias/suite_test.go
 File: internal/completion/suite_test.go
 Code: Describe blocks lacking labels
 Description:

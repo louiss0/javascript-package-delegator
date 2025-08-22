@@ -97,7 +97,7 @@
         --production(-P)             # Install production dependencies only
         --frozen                     # Install with frozen lockfile
         --search(-s): string         # Interactive package search selection
-        --no-volta                   # Disable Volta integration for this command
+            --no-volta                   # Disable Volta integration for this command
     ] # Install packages using the detected package manager
 
     export extern "jpd run" [
@@ -148,3 +148,49 @@
         shell_type: string@complete_jpd_completion_shells # Type of shell to generate completion script for
         output_file?: path           # Optional output file path
     ] # Generate shell completion scripts
+
+    # Define a completer for the 'jpd integrate' subcommand's targets
+    def "complete_jpd_integrate_targets" [] {
+        [
+            "warp",
+            "carapace"
+        ]
+    }
+
+    # ADDED extern for integrate command
+    export extern "jpd integrate" [
+        # Global flags
+        --debug(-d)                  # Make commands run in debug mode
+        --agent(-a): string@complete_jpd_agent_types # Select the JS package manager you want to use
+        --cwd(-C): path              # Run command in a specific directory (must end with '/')
+        --help(-h)                   # Show help for command
+        --version(-v)                # Show version for command
+        # The 'integrate' command itself now expects 'warp' or 'carapace' as subcommands
+    ] # Generate integration files for external tools
+
+    # Define extern for 'jpd integrate warp' subcommand
+    export extern "jpd integrate warp" [
+        # Global flags
+        --debug(-d)                  # Make commands run in debug mode
+        --agent(-a): string@complete_jpd_agent_types # Select the JS package manager you want to use
+        --cwd(-C): path              # Run command in a specific directory (must end with '/')
+        --help(-h)                   # Show help for command
+        --version(-v)                # Show version for command
+
+        # Warp specific flags
+        --output-dir(-o): path       # Output directory for Warp workflow files
+    ] # Generate Warp terminal workflow files
+
+    # Define extern for 'jpd integrate carapace' subcommand
+    export extern "jpd integrate carapace" [
+        # Global flags
+        --debug(-d)                  # Make commands run in debug mode
+        --agent(-a): string@complete_jpd_agent_types # Select the JS package manager you want to use
+        --cwd(-C): path              # Run command in a specific directory (must end with '/')
+        --help(-h)                   # Show help for command
+        --version(-v)                # Show version for command
+
+        # Carapace specific flags
+        --output(-o): path           # Output file for Carapace spec
+        --stdout                     # Print Carapace spec to stdout instead of installing
+    ] # Generate Carapace completion spec file

@@ -108,9 +108,10 @@ type FlagSpec struct {
 
 // CommandSpec represents a command specification in Carapace YAML.
 type CommandSpec struct {
-	Description string              `yaml:"description"`
-	Flags       map[string]FlagSpec `yaml:"flags,omitempty"`
-	Completion  string              `yaml:"completion,omitempty"`
+	Description string                 `yaml:"description"`
+	Flags       map[string]FlagSpec    `yaml:"flags,omitempty"`
+	Completion  string                 `yaml:"completion,omitempty"`
+	Commands    map[string]CommandSpec `yaml:"commands,omitempty"` // Added for nested commands
 }
 
 // GenerateYAMLSpec generates a Carapace YAML spec from the given cobra command.
@@ -179,6 +180,34 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 					},
 				},
 				Completion: "$carapace.shells",
+			},
+			"integrate": {
+				Description: "Generate integration files for external tools",
+				Commands: map[string]CommandSpec{
+					"warp": {
+						Description: "Generate Warp terminal workflow files",
+						Flags: map[string]FlagSpec{
+							"output-dir": {
+								Shorthand:   "o",
+								Description: "Output directory for workflow files",
+								Completion:  "$carapace.directories",
+							},
+						},
+					},
+					"carapace": {
+						Description: "Generate Carapace completion spec file",
+						Flags: map[string]FlagSpec{
+							"output": {
+								Shorthand:   "o",
+								Description: "Output file for Carapace spec",
+								Completion:  "$carapace.files",
+							},
+							"stdout": {
+								Description: "Print Carapace spec to stdout instead of installing",
+							},
+						},
+					},
+				},
 			},
 		},
 	}

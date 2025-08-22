@@ -174,24 +174,24 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
-			It("should include alias block when --with-shorthand is used for "+tc.shell, func() {
+			It("should include alias block when --with-shorthands is used for "+tc.shell, func() {
 				completionCmd := cmdPkg.NewCompletionCmd()
 
 				// Test shorthand version for bash, long version for others
 				if tc.shell == "bash" {
 					completionCmd.SetArgs([]string{tc.shell, "-w"})
 				} else {
-					completionCmd.SetArgs([]string{tc.shell, "--with-shorthand"})
+					completionCmd.SetArgs([]string{tc.shell, "--with-shorthands"})
 				}
 
 				var buf bytes.Buffer
 				completionCmd.SetOut(&buf)
 
 				err := completionCmd.Execute()
-				assert.NoError(GinkgoT(), err, "Command execution should succeed for "+tc.shell+" with --with-shorthand")
+				assert.NoError(GinkgoT(), err, "Command execution should succeed for "+tc.shell+" with --with-shorthands")
 
 				output := buf.String()
-				assert.NotEmpty(GinkgoT(), output, "Expected completion output to stdout for "+tc.shell+" with --with-shorthand")
+				assert.NotEmpty(GinkgoT(), output, "Expected completion output to stdout for "+tc.shell+" with --with-shorthands")
 
 				// Verify base completion content is still present
 				if tc.shell == "nushell" {
@@ -228,7 +228,7 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 				// Verify NO files were created in the directory
 				files, err := os.ReadDir(tempDir)
 				assert.NoError(GinkgoT(), err, "Should be able to read temp directory")
-				assert.Empty(GinkgoT(), files, "Expected no files to be created when using stdout with --with-shorthand")
+				assert.Empty(GinkgoT(), files, "Expected no files to be created when using stdout with --with-shorthands")
 			})
 		}
 	})
@@ -247,7 +247,7 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 
 		for _, tc := range testCases {
 			tc := tc // capture loop variable
-			It("should NOT include alias block when --with-shorthand is NOT used for "+tc.shell, func() {
+			It("should NOT include alias block when --with-shorthands is NOT used for "+tc.shell, func() {
 				completionCmd := cmdPkg.NewCompletionCmd()
 				completionCmd.SetArgs([]string{tc.shell})
 
@@ -255,10 +255,10 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 				completionCmd.SetOut(&buf)
 
 				err := completionCmd.Execute()
-				assert.NoError(GinkgoT(), err, "Command execution should succeed for "+tc.shell+" without --with-shorthand")
+				assert.NoError(GinkgoT(), err, "Command execution should succeed for "+tc.shell+" without --with-shorthands")
 
 				output := buf.String()
-				assert.NotEmpty(GinkgoT(), output, "Expected completion output to stdout for "+tc.shell+" without --with-shorthand")
+				assert.NotEmpty(GinkgoT(), output, "Expected completion output to stdout for "+tc.shell+" without --with-shorthands")
 
 				// Verify base completion content is present
 				if tc.shell == "nushell" {
@@ -271,12 +271,12 @@ var _ = Describe("Completion Command", Label("fast", "unit"), func() {
 				}
 
 				// Verify alias block marker is NOT present
-				assert.NotContains(GinkgoT(), output, "# jpd shorthand aliases", "Expected stdout to NOT contain alias block marker for "+tc.shell+" without --with-shorthand")
+				assert.NotContains(GinkgoT(), output, "# jpd shorthand aliases", "Expected stdout to NOT contain alias block marker for "+tc.shell+" without --with-shorthands")
 
 				// Verify alias functions are NOT present
-				assert.NotContains(GinkgoT(), output, "function jpi", "Expected stdout to NOT contain 'function jpi' for "+tc.shell+" without --with-shorthand")
-				assert.NotContains(GinkgoT(), output, "jpi()", "Expected stdout to NOT contain 'jpi()' for "+tc.shell+" without --with-shorthand")
-				assert.NotContains(GinkgoT(), output, "export def jpi", "Expected stdout to NOT contain 'export def jpi' for "+tc.shell+" without --with-shorthand")
+				assert.NotContains(GinkgoT(), output, "function jpi", "Expected stdout to NOT contain 'function jpi' for "+tc.shell+" without --with-shorthands")
+				assert.NotContains(GinkgoT(), output, "jpi()", "Expected stdout to NOT contain 'jpi()' for "+tc.shell+" without --with-shorthands")
+				assert.NotContains(GinkgoT(), output, "export def jpi", "Expected stdout to NOT contain 'export def jpi' for "+tc.shell+" without --with-shorthands")
 			})
 		}
 	})
