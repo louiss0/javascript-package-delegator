@@ -10,85 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/mock"
 )
-
-// MockPathLookup is a mock implementation of PathLookup for testing.
-type MockPathLookup struct {
-	ExpectedLookPathResults map[string]struct {
-		Path  string
-		Error error
-	}
-}
-
-func NewMockPathLookup() *MockPathLookup {
-	return &MockPathLookup{
-		ExpectedLookPathResults: make(map[string]struct {
-			Path  string
-			Error error
-		}),
-	}
-}
-
-func (m *MockPathLookup) LookPath(file string) (string, error) {
-	if res, ok := m.ExpectedLookPathResults[file]; ok {
-		return res.Path, res.Error
-	}
-	return "", fmt.Errorf("mock LookPath: no expectation set for '%s'", file) // Fallback for unconfigured mocks
-}
-
-// MockFileSystem is a mock implementation of FileSystem for testing.
-type MockFileSystem struct {
-	StatFn  func(name string) (os.FileInfo, error)
-	GetwdFn func() (string, error)
-}
-
-// NewMockFileSystem creates a new MockFileSystem with default behaviors.
-func NewMockFileSystem() *MockFileSystem {
-	return &MockFileSystem{
-		StatFn: func(name string) (os.FileInfo, error) {
-			return nil, os.ErrNotExist // Default: file does not exist
-		},
-		GetwdFn: func() (string, error) {
-			return "/mock/current/dir", nil // Default: a mock current working directory
-		},
-	}
-}
-
-// Stat implements FileSystem using the mock StatFn.
-func (m *MockFileSystem) Stat(name string) (os.FileInfo, error) {
-	return m.StatFn(name)
-}
-
-// Getwd implements FileSystem using the mock GetwdFn.
-func (m *MockFileSystem) Getwd() (string, error) {
-	return m.GetwdFn()
-}
-
-// MockFileInfo is a mock implementation of os.FileInfo for testing.
-type MockFileInfo struct {
-	NameVal    string
-	SizeVal    int64
-	ModeVal    os.FileMode
-	ModTimeVal time.Time
-	IsDirVal   bool
-	SysVal     interface{}
-}
-
-func (m *MockFileInfo) Name() string       { return m.NameVal }
-func (m *MockFileInfo) Size() int64        { return m.SizeVal }
-func (m *MockFileInfo) Mode() os.FileMode  { return m.ModeVal }
-func (m *MockFileInfo) ModTime() time.Time { return m.ModTimeVal }
-func (m *MockFileInfo) IsDir() bool        { return m.IsDirVal }
-func (m *MockFileInfo) Sys() interface{}   { return m.SysVal }
 
 var _ = Describe("Detect", Label("fast", "unit"), func() {
 	assert := assert.New(GinkgoT()) // Initialize assert for each spec
 
 	Context("DetectJSPackageManager", func() {
-		var mockPath *MockPathLookup
+		var mockPath *mock.MockPathLookup
 
 		BeforeEach(func() {
-			mockPath = NewMockPathLookup()
+			mockPath = mock.NewMockPathLookup()
 		})
 
 		type TestCase struct {
@@ -203,10 +135,10 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 	})
 
 	Context("DetectLockfile", func() {
-		var mockFs *MockFileSystem
+		var mockFs *mock.MockFileSystem
 
 		BeforeEach(func() {
-			mockFs = NewMockFileSystem()
+			mockFs = mock.NewMockFileSystem()
 			// Default GetwdFn for mockFs
 			mockFs.GetwdFn = func() (string, error) {
 				return "/mock/test/dir", nil
@@ -216,7 +148,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect deno from deno.lock", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.DENO_LOCK) {
-					return &MockFileInfo{NameVal: detect.DENO_LOCK, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.DENO_LOCK, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -228,7 +160,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect deno from deno.json", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.DENO_JSON) {
-					return &MockFileInfo{NameVal: detect.DENO_JSON, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.DENO_JSON, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -240,7 +172,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect deno from deno.jsonc", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.DENO_JSONC) {
-					return &MockFileInfo{NameVal: detect.DENO_JSONC, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.DENO_JSONC, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -252,7 +184,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect bun from bun.lockb", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.BUN_LOCKB) {
-					return &MockFileInfo{NameVal: detect.BUN_LOCKB, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.BUN_LOCKB, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -264,7 +196,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect pnpm from pnpm-lock.yaml", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.PNPM_LOCK_YAML) {
-					return &MockFileInfo{NameVal: detect.PNPM_LOCK_YAML, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.PNPM_LOCK_YAML, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -276,7 +208,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect yarn from yarn.lock", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.YARN_LOCK) {
-					return &MockFileInfo{NameVal: detect.YARN_LOCK, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.YARN_LOCK, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -288,7 +220,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		It("should detect npm from package-lock.json", func() {
 			mockFs.StatFn = func(name string) (os.FileInfo, error) {
 				if name == filepath.Join("/mock/test/dir", detect.PACKAGE_LOCK_JSON) {
-					return &MockFileInfo{NameVal: detect.PACKAGE_LOCK_JSON, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.PACKAGE_LOCK_JSON, 0, 0, time.Time{}, false), nil
 				}
 				return nil, os.ErrNotExist
 			}
@@ -310,11 +242,11 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				mockDir := "/mock/test/dir"
 				switch name {
 				case filepath.Join(mockDir, detect.DENO_JSON):
-					return &MockFileInfo{NameVal: detect.DENO_JSON, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.DENO_JSON, 0, 0, time.Time{}, false), nil
 				case filepath.Join(mockDir, detect.PACKAGE_LOCK_JSON):
-					return &MockFileInfo{NameVal: detect.PACKAGE_LOCK_JSON, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.PACKAGE_LOCK_JSON, 0, 0, time.Time{}, false), nil
 				case filepath.Join(mockDir, detect.YARN_LOCK):
-					return &MockFileInfo{NameVal: detect.YARN_LOCK, IsDirVal: false}, nil
+					return mock.NewMockFileInfo(detect.YARN_LOCK, 0, 0, time.Time{}, false), nil
 				default:
 					return nil, os.ErrNotExist
 				}
@@ -335,10 +267,10 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 	})
 
 	Context("DetectJSPackageManagerBasedOnLockFile", func() {
-		var mockPath *MockPathLookup
+		var mockPath *mock.MockPathLookup
 
 		BeforeEach(func() {
-			mockPath = NewMockPathLookup()
+			mockPath = mock.NewMockPathLookup()
 			// Default: assume all package managers are found in PATH
 			for _, pm := range detect.SupportedJSPackageManagers {
 				mockPath.ExpectedLookPathResults[pm] = struct {
@@ -450,10 +382,10 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 	})
 
 	Context("DetectVolta", func() {
-		var mockPath *MockPathLookup
+		var mockPath *mock.MockPathLookup
 
 		BeforeEach(func() {
-			mockPath = NewMockPathLookup()
+			mockPath = mock.NewMockPathLookup()
 		})
 
 		It("should return true if Volta is found in PATH", func() {

@@ -441,3 +441,110 @@ func NewMockDependencySelectUI(options []string) cmd.DependencyUIMultiSelector {
 	}
 	return mockUI
 }
+
+// MockPathLookup implements the detect.PathLookup interface using testify/mock
+type MockPathLookup struct {
+	mock.Mock
+	ExpectedLookPathResults map[string]struct {
+		Path  string
+		Error error
+	}
+}
+
+// LookPath implements the PathLookup interface using mock expectations
+func (m *MockPathLookup) LookPath(file string) (string, error) {
+	// Check for explicit expectations first
+	if result, ok := m.ExpectedLookPathResults[file]; ok {
+		return result.Path, result.Error
+	}
+	// Fall back to testify mock expectations
+	args := m.Called(file)
+	return args.String(0), args.Error(1)
+}
+
+// NewMockPathLookup creates a new MockPathLookup with default behavior
+func NewMockPathLookup() *MockPathLookup {
+	return &MockPathLookup{
+		ExpectedLookPathResults: make(map[string]struct {
+			Path  string
+			Error error
+		}),
+	}
+}
+
+// MockFileSystem implements the detect.FileSystem interface using testify/mock
+type MockFileSystem struct {
+	mock.Mock
+	StatFn  func(name string) (os.FileInfo, error)
+	GetwdFn func() (string, error)
+}
+
+// hasExpectation returns true if there is an explicit expectation set for the given method name.
+func (m *MockFileSystem) hasExpectation(method string) bool {
+	for _, c := range m.ExpectedCalls {
+		if c.Method == method {
+			return true
+		}
+	}
+	return false
+}
+
+// Stat implements FileSystem using the mock StatFn or testify expectations
+func (m *MockFileSystem) Stat(name string) (os.FileInfo, error) {
+	if m.StatFn != nil {
+		return m.StatFn(name)
+	}
+	if m.hasExpectation("Stat") {
+		args := m.Called(name)
+		if args.Get(0) == nil {
+			return nil, args.Error(1)
+		}
+		return args.Get(0).(os.FileInfo), args.Error(1)
+	}
+	return nil, os.ErrNotExist // Default: file does not exist
+}
+
+// Getwd implements FileSystem using the mock GetwdFn or testify expectations
+func (m *MockFileSystem) Getwd() (string, error) {
+	if m.GetwdFn != nil {
+		return m.GetwdFn()
+	}
+	if m.hasExpectation("Getwd") {
+		args := m.Called()
+		return args.String(0), args.Error(1)
+	}
+	return "/mock/current/dir", nil // Default: a mock current working directory
+}
+
+// NewMockFileSystem creates a new MockFileSystem with default behaviors
+func NewMockFileSystem() *MockFileSystem {
+	return &MockFileSystem{}
+}
+
+// MockFileInfo implements os.FileInfo for testing
+type MockFileInfo struct {
+	NameVal    string
+	SizeVal    int64
+	ModeVal    os.FileMode
+	ModTimeVal time.Time
+	IsDirVal   bool
+	SysVal     interface{}
+}
+
+func (m *MockFileInfo) Name() string       { return m.NameVal }
+func (m *MockFileInfo) Size() int64        { return m.SizeVal }
+func (m *MockFileInfo) Mode() os.FileMode  { return m.ModeVal }
+func (m *MockFileInfo) ModTime() time.Time { return m.ModTimeVal }
+func (m *MockFileInfo) IsDir() bool        { return m.IsDirVal }
+func (m *MockFileInfo) Sys() interface{}   { return m.SysVal }
+
+// NewMockFileInfo creates a new MockFileInfo with the given values
+func NewMockFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, isDir bool) *MockFileInfo {
+	return &MockFileInfo{
+		NameVal:    name,
+		SizeVal:    size,
+		ModeVal:    mode,
+		ModTimeVal: modTime,
+		IsDirVal:   isDir,
+	}
+}
