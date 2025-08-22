@@ -9,18 +9,17 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-	// internal
-	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
 	"github.com/louiss0/javascript-package-delegator/internal/integrations"
 )
 
 // NewIntegrateCmd creates the integrate command with subcommands for external integrations
 func NewIntegrateCmd() *cobra.Command {
+
 	outputFileFlag := custom_flags.NewFilePathFlag("output")
 
 	integrateCmd := &cobra.Command{
-		Use:   "integrate <target>",
+		Use:   "integrate",
 		Short: "Generate integration files for external tools",
 		Long: `Generate integration files for external tools like Warp terminal and Carapace.
 
@@ -41,38 +40,30 @@ Carapace spec installation locations:
   Custom:      Set XDG_DATA_HOME to override on Unix systems
 `,
 		DisableFlagsInUseLine: true,
-		Args:                  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			target := args[0]
-			switch target {
-			case "warp":
-				return runWarpIntegration(cmd)
-			case "carapace":
-				return runCarapaceIntegration(cmd)
-			default:
-				return custom_errors.CreateInvalidArgumentErrorWithMessage(
-					fmt.Sprintf("unsupported integration target: '%s'. Supported targets are: warp, carapace", target))
-			}
-		},
 	}
 
 	// Add flags for both warp and carapace integrations
 	// Use standard string flag for output-dir to allow empty values for stdout behavior
 	integrateCmd.Flags().String("output-dir", "", "Output directory for Warp workflow files")
-	integrateCmd.Flags().VarP(&outputFileFlag, "output", "o", "Output file for Carapace spec")
+	integrateCmd.Flags().VarP(outputFileFlag, "output", "o", "Output file for Carapace spec")
 	integrateCmd.Flags().Bool("stdout", false, "Print Carapace spec to stdout instead of installing")
+
+	integrateCmd.AddCommand(NewIntegrateWarpCmd(), NewIntegrateCarapaceCmd())
 
 	return integrateCmd
 }
 
 // NewIntegrateWarpCmd creates the warp integration subcommand
 func NewIntegrateWarpCmd() *cobra.Command {
+
+	outputDirFlag := custom_flags.NewFolderPathFlag("output-dir")
+
 	warpCmd := &cobra.Command{
 		Use:   "warp",
 		Short: "Generate Warp terminal workflow files",
 		Long: `Generate Warp terminal workflow files for JPD commands.
 
-This generates individual .yaml workflow files for each JPD command (install, run, exec, dlx, 
+This generates individual .yaml workflow files for each JPD command (install, run, exec, dlx,
 update, uninstall, clean-install, agent) that can be used with Warp terminal.
 
 Examples:
@@ -84,8 +75,8 @@ Examples:
 		},
 	}
 
-	// Use standard string flag to allow empty values for stdout behavior
-	warpCmd.Flags().StringP("output-dir", "o", "", "Output directory for workflow files")
+	// Add the --output-dir flag directly to the warp subcommand
+	warpCmd.Flags().VarP(outputDirFlag, "output-dir", "o", "Output directory for workflow files")
 
 	return warpCmd
 }
@@ -118,7 +109,7 @@ Global installation locations:
 		},
 	}
 
-	carapaceCmd.Flags().VarP(&outputFileFlag, "output", "o", "Output file for Carapace spec")
+	carapaceCmd.Flags().VarP(outputFileFlag, "output", "o", "Output file for Carapace spec")
 	carapaceCmd.Flags().Bool("stdout", false, "Print Carapace spec to stdout instead of installing")
 
 	return carapaceCmd
@@ -127,6 +118,8 @@ Global installation locations:
 func runWarpIntegration(cmd *cobra.Command) error {
 	warpGenerator := integrations.NewWarpGenerator()
 
+	goEnv := getGoEnvFromCommandContext(cmd)
+
 	outputDirFlag, err := cmd.Flags().GetString("output-dir")
 	if err != nil {
 		// Flag not set, output to stdout
@@ -134,7 +127,7 @@ func runWarpIntegration(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("failed to generate Warp workflows: %w", err)
 		}
-		fmt.Print(multiDoc)
+		cmd.Print(multiDoc)
 		return nil
 	}
 
@@ -144,7 +137,7 @@ func runWarpIntegration(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("failed to generate Warp workflows: %w", err)
 		}
-		fmt.Print(multiDoc)
+		cmd.Print(multiDoc)
 		return nil
 	}
 
@@ -154,7 +147,10 @@ func runWarpIntegration(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to generate Warp workflow files: %w", err)
 	}
 
-	log.Info("Generated Warp workflow files", "directory", outputDirFlag)
+	goEnv.ExecuteIfModeIsProduction(func() {
+		log.Info("Generated Warp workflow files", "directory", outputDirFlag)
+
+	})
 	return nil
 }
 
@@ -164,6 +160,8 @@ func runWarpIntegration(cmd *cobra.Command) error {
 // 3. Default: Install to global Carapace specs directory (new default behavior)
 func runCarapaceIntegration(cmd *cobra.Command) error {
 	carapaceGenerator := integrations.NewCarapaceSpecGenerator()
+
+	goEnv := getGoEnvFromCommandContext(cmd)
 
 	// Generate the spec (needed for all modes)
 	spec, err := carapaceGenerator.GenerateYAMLSpec(cmd.Root())
@@ -179,14 +177,18 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("failed to write Carapace spec to file: %w", err)
 		}
-		log.Info("Generated Carapace spec file", "path", outputFileFlag)
+
+		goEnv.ExecuteIfModeIsProduction(func() {
+
+			log.Info("Generated Carapace spec file", "path", outputFileFlag)
+		})
 		return nil
 	}
 
 	stdoutFlag, _ := cmd.Flags().GetBool("stdout")
 	if stdoutFlag {
 		// Mode 2: Print to stdout (old default behavior)
-		fmt.Print(spec)
+		cmd.Print(spec)
 		return nil
 	}
 
@@ -213,7 +215,10 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to write Carapace spec to global location: %w", err)
 	}
 
-	log.Info("Installed Carapace spec", "path", specPath)
+	goEnv.ExecuteIfModeIsProduction(func() {
+		log.Info("Installed Carapace spec", "path", specPath)
+
+	})
 	return nil
 }
 
