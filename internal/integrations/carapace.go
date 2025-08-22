@@ -92,10 +92,10 @@ func NewCarapaceSpecGenerator() *carapaceSpecGenerator {
 
 // CarapaceSpec represents the structure of a Carapace YAML specification.
 type CarapaceSpec struct {
-	Name            string                 `yaml:"name"`
-	Description     string                 `yaml:"description"`
-	PersistentFlags map[string]FlagSpec    `yaml:"persistentFlags,omitempty"`
-	Commands        map[string]CommandSpec `yaml:"commands,omitempty"`
+	Name            string                 `yaml:"Name"`
+	Description     string                 `yaml:"Description"`
+	PersistentFlags map[string]FlagSpec    `yaml:"PersistentFlags,omitempty"`
+	Commands        map[string]CommandSpec `yaml:"Commands,omitempty"`
 }
 
 // FlagSpec represents a flag specification in Carapace YAML.
@@ -117,7 +117,7 @@ type CommandSpec struct {
 // GenerateYAMLSpec generates a Carapace YAML spec from the given cobra command.
 func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, error) {
 	spec := CarapaceSpec{
-		Name:        "jpd",
+		Name:        "javascript-package-delegator",
 		Description: "JavaScript Package Delegator - A universal package manager interface",
 		PersistentFlags: map[string]FlagSpec{
 			"agent": {
