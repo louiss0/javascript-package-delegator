@@ -286,9 +286,9 @@ var _ = Describe("Carapace Spec Generator", func() {
 			result, err := generator.GenerateYAMLSpec(mockCmd)
 
 			assert.NoError(GinkgoT(), err, "Expected no error generating YAML spec")
-			assert.Contains(GinkgoT(), result, "name: jpd", "Expected YAML to contain 'name: jpd'")
+			assert.Contains(GinkgoT(), result, "Name: javascript-package-delegator", "Expected YAML to contain 'Name: javascript-package-delegator'")
 			assert.Contains(GinkgoT(), result, "# Carapace completion spec for jpd", "Expected YAML to contain header comment")
-			assert.Contains(GinkgoT(), result, "description: JavaScript Package Delegator - A universal package manager interface", "Expected YAML to contain correct description")
+			assert.Contains(GinkgoT(), result, "Description: JavaScript Package Delegator - A universal package manager interface", "Expected YAML to contain correct description")
 		})
 
 		It("should include all JPD top-level commands", func() {
@@ -320,17 +320,17 @@ var _ = Describe("Carapace Spec Generator", func() {
 			assert.NoError(GinkgoT(), err, "Expected no error generating YAML spec")
 
 			// Check for agent flag with shorthand
-			assert.Contains(GinkgoT(), result, "persistentFlags:", "Expected YAML to contain persistentFlags section")
-			assert.Contains(GinkgoT(), result, "  agent:", "Expected YAML to contain agent flag")
-			assert.Contains(GinkgoT(), result, "    shorthand: a", "Expected agent flag to have shorthand 'a'")
+			assert.Contains(GinkgoT(), result, "PersistentFlags:", "Expected YAML to contain PersistentFlags section")
+			assert.Contains(GinkgoT(), result, "agent:", "Expected YAML to contain agent flag")
+			assert.Contains(GinkgoT(), result, "shorthand: a", "Expected agent flag to have shorthand 'a'")
 
 			// Check for debug flag with shorthand
-			assert.Contains(GinkgoT(), result, "  debug:", "Expected YAML to contain debug flag")
-			assert.Contains(GinkgoT(), result, "    shorthand: d", "Expected debug flag to have shorthand 'd'")
+			assert.Contains(GinkgoT(), result, "debug:", "Expected YAML to contain debug flag")
+			assert.Contains(GinkgoT(), result, "shorthand: d", "Expected debug flag to have shorthand 'd'")
 
 			// Check for cwd flag with shorthand
-			assert.Contains(GinkgoT(), result, "  cwd:", "Expected YAML to contain cwd flag")
-			assert.Contains(GinkgoT(), result, "    shorthand: C", "Expected cwd flag to have shorthand 'C'")
+			assert.Contains(GinkgoT(), result, "cwd:", "Expected YAML to contain cwd flag")
+			assert.Contains(GinkgoT(), result, "shorthand: C", "Expected cwd flag to have shorthand 'C'")
 		})
 
 		It("should include enumeration for agent flag", func() {
@@ -408,9 +408,9 @@ var _ = Describe("Carapace Spec Generator", func() {
 			assert.NotEmpty(GinkgoT(), yamlPart, "Expected non-empty YAML content after header")
 
 			// Basic check for structure; deeper parsing could be done with a YAML library
-			assert.Contains(GinkgoT(), yamlPart, "name: jpd", "Expected main YAML content to contain name")
-			assert.Contains(GinkgoT(), yamlPart, "commands:", "Expected YAML to contain 'commands' section")
-			assert.Contains(GinkgoT(), yamlPart, "persistentFlags:", "Expected YAML to contain 'persistentFlags' section")
+			assert.Contains(GinkgoT(), yamlPart, "Name: javascript-package-delegator", "Expected main YAML content to contain name")
+			assert.Contains(GinkgoT(), yamlPart, "Commands:", "Expected YAML to contain 'Commands' section")
+			assert.Contains(GinkgoT(), yamlPart, "PersistentFlags:", "Expected YAML to contain 'PersistentFlags' section")
 		})
 	})
 
