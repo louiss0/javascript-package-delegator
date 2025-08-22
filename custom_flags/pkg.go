@@ -10,10 +10,54 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/spf13/pflag"
 
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 )
+
+// Interfaces extending pflag.Value for testability
+
+// FilePathFlagInterface extends pflag.Value for file path flags
+type FilePathFlagInterface interface {
+	pflag.Value
+	FlagName() string
+}
+
+// FolderPathFlagInterface extends pflag.Value for folder path flags
+type FolderPathFlagInterface interface {
+	pflag.Value
+	FlagName() string
+}
+
+// EmptyStringFlagInterface extends pflag.Value for empty string flags
+type EmptyStringFlagInterface interface {
+	pflag.Value
+	FlagName() string
+}
+
+// BoolFlagInterface extends pflag.Value for boolean flags
+type BoolFlagInterface interface {
+	pflag.Value
+	FlagName() string
+	Value() bool
+}
+
+// UnionFlagInterface extends pflag.Value for union flags
+type UnionFlagInterface interface {
+	pflag.Value
+	FlagName() string
+	AllowedValues() []string
+}
+
+// RangeFlagInterface extends pflag.Value for range flags
+type RangeFlagInterface interface {
+	pflag.Value
+	FlagName() string
+	Value() int
+	Min() int
+	Max() int
+}
 
 // filePathFlag represents a flag that must contain a valid POSIX/UNIX file path
 type filePathFlag struct {
@@ -67,6 +111,11 @@ func (p *filePathFlag) Set(value string) error {
 // Type returns the flag type as a string
 func (p filePathFlag) Type() string {
 	return "string"
+}
+
+// FlagName returns the flag's name for testing
+func (p filePathFlag) FlagName() string {
+	return p.flagName
 }
 
 // folderPathFlag represents a flag that must contain a valid POSIX/UNIX path
@@ -146,6 +195,11 @@ func (p folderPathFlag) Type() string {
 	return "string"
 }
 
+// FlagName returns the flag's name for testing
+func (p folderPathFlag) FlagName() string {
+	return p.flagName
+}
+
 // emptyStringFlag represents a flag that cannot be empty or contain only whitespace
 type emptyStringFlag struct {
 	value    string
@@ -180,6 +234,11 @@ func (t *emptyStringFlag) Set(value string) error {
 // Type returns the flag type as a string
 func (t emptyStringFlag) Type() string {
 	return "string"
+}
+
+// FlagName returns the flag's name for testing
+func (t emptyStringFlag) FlagName() string {
+	return t.flagName
 }
 
 // boolFlag represents a flag that must be either "true" or "false"
@@ -224,6 +283,11 @@ func (c boolFlag) Value() bool {
 	return value
 }
 
+// FlagName returns the flag's name for testing
+func (c boolFlag) FlagName() string {
+	return c.flagName
+}
+
 // unionFlag represents a flag that must be one of a predefined set of values
 type unionFlag struct {
 	value         string
@@ -260,6 +324,16 @@ func (u *unionFlag) Set(value string) error {
 // Type returns the flag type as a string
 func (u unionFlag) Type() string {
 	return "string"
+}
+
+// FlagName returns the flag's name for testing
+func (u unionFlag) FlagName() string {
+	return u.flagName
+}
+
+// AllowedValues returns the allowed values for testing
+func (u unionFlag) AllowedValues() []string {
+	return u.allowedValues
 }
 
 // RangeFlag represents a flag that must be an integer within a specified range
@@ -313,4 +387,19 @@ func (r *RangeFlag) Set(value string) error {
 // Type returns the flag type as a string
 func (r RangeFlag) Type() string {
 	return "string"
+}
+
+// FlagName returns the flag's name for testing
+func (r RangeFlag) FlagName() string {
+	return r.flagName
+}
+
+// Min returns the minimum value for testing
+func (r RangeFlag) Min() int {
+	return r.min
+}
+
+// Max returns the maximum value for testing
+func (r RangeFlag) Max() int {
+	return r.max
 }

@@ -38,18 +38,6 @@ go tool cover -html=coverage.out -o coverage.html
 # Local development build
 go build -o jpd ./main.go
 
-# Production build with ldflags
-go build -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCLI_VERSION=v1.0.0 -X github.com/louiss0/javascript-package-delegator/build_info.rawGO_MODE=production" -o jpd ./main.go
-
-# Cross-compile for different platforms
-GOOS=linux GOARCH=amd64 go build -o jpd-linux-amd64 ./main.go
-GOOS=darwin GOARCH=arm64 go build -o jpd-darwin-arm64 ./main.go
-GOOS=windows GOARCH=amd64 go build -o jpd-windows-amd64.exe ./main.go
-
-# Release build (requires goreleaser)
-goreleaser release --clean
-```
-
 ### Code Quality
 ```bash
 # Lint with golangci-lint
@@ -127,7 +115,7 @@ cd docs && pnpm preview
 
 ### BDD Approach with Ginkgo
 - **Test Runner**: Ginkgo v2 for BDD-style testing
-- **Assertions**: Gomega for expressive assertions
+- **Assertions**: Testify assertions
 - **Test Organization**: Each package has a `*_suite_test.go` file that sets up the Ginkgo test suite
 - **Parallel Execution**: Ginkgo runs tests in parallel by default - be mindful of shared state
 
@@ -156,6 +144,7 @@ type CommandRunner interface {
     SetTargetDir(string) error
 }
 ```
+They are implemented using the `githhub.com/testify/mock` package.
 
 ### Coverage Requirements
 - **Minimum**: 80% test coverage enforced in CI
@@ -227,15 +216,6 @@ jpd --debug --cwd ./subproject/ run dev
 go test ./... -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"
 ```
 
-### Integration Development
-```bash
-# Generate Warp workflows
-jpd integrate warp --output-dir ./workflows/
-
-# Generate Carapace completion specs
-jpd integrate carapace --stdout
-jpd integrate carapace --output ./jpd.yaml
-```
 
 ## Code Coverage
 
@@ -278,7 +258,7 @@ go tool cover -func=coverage.out
 
 ### Dependencies
 - **CLI Framework**: `spf13/cobra`
-- **Testing**: `onsi/ginkgo` + `onsi/gomega`
+- **Testing**: `onsi/ginkgo` + `testify/assert`
 - **UI**: `charmbracelet/huh` for interactive prompts
 - **Utilities**: `samber/lo` for functional helpers
 

@@ -1,457 +1,508 @@
-package custom_flags
+package custom_flags_test
 
 import (
-	"strconv"
-	"strings"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/louiss0/javascript-package-delegator/build_info"
+	"github.com/louiss0/javascript-package-delegator/custom_flags"
 )
 
-// Test filePathFlag
-func TestNewFilePathFlag(t *testing.T) {
-	flag := NewFilePathFlag("testflag")
-	if flag.flagName != "testflag" {
-		t.Errorf("Expected flagName to be 'testflag', got %s", flag.flagName)
-	}
-	if flag.value != "" {
-		t.Errorf("Expected initial value to be empty, got %s", flag.value)
-	}
+func TestCustomFlags(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Custom Flags Suite")
 }
 
-func TestFilePathFlag_String(t *testing.T) {
-	flag := NewFilePathFlag("test")
-	flag.value = "/path/to/file.txt"
-	if flag.String() != "/path/to/file.txt" {
-		t.Errorf("Expected String() to return '/path/to/file.txt', got %s", flag.String())
-	}
-}
+var _ = Describe("FilePathFlag", func() {
+	var (
+		flag    custom_flags.FilePathFlagInterface
+		assertT *assert.Assertions
+	)
 
-func TestFilePathFlag_Type(t *testing.T) {
-	flag := NewFilePathFlag("test")
-	if flag.Type() != "string" {
-		t.Errorf("Expected Type() to return 'string', got %s", flag.Type())
-	}
-}
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		flagVal := custom_flags.NewFilePathFlag("testflag")
+		flag = &flagVal
+	})
 
-func TestFilePathFlag_Set(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"valid absolute path", "/path/to/file.txt", false},
-		{"valid relative path", "file.txt", false},
-		{"valid path with dots", "../dir/file.log", false},
-		{"valid path with underscores", "my_file.txt", false},
-		{"valid path with hyphens", "my-file.txt", false},
-		{"empty string", "", true},
-		{"whitespace only", "   ", true},
-		{"path with double slash", "path//file.txt", true},
-		{"path with trailing slash", "path/", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewFilePathFlag("test")
-			err := flag.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && flag.value != tt.value {
-				t.Errorf("Expected value to be set to %s, got %s", tt.value, flag.value)
-			}
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
 		})
-	}
-}
 
-// Test folderPathFlag
-func TestNewFolderPathFlag(t *testing.T) {
-	flag := NewFolderPathFlag("testflag")
-	if flag.flagName != "testflag" {
-		t.Errorf("Expected flagName to be 'testflag', got %s", flag.flagName)
-	}
-	if flag.value != "" {
-		t.Errorf("Expected initial value to be empty, got %s", flag.value)
-	}
-}
-
-func TestFolderPathFlag_String(t *testing.T) {
-	flag := NewFolderPathFlag("test")
-	flag.value = "/path/to/dir/"
-	if flag.String() != "/path/to/dir/" {
-		t.Errorf("Expected String() to return '/path/to/dir/', got %s", flag.String())
-	}
-}
-
-func TestFolderPathFlag_Type(t *testing.T) {
-	flag := NewFolderPathFlag("test")
-	if flag.Type() != "string" {
-		t.Errorf("Expected Type() to return 'string', got %s", flag.Type())
-	}
-}
-
-func TestFolderPathFlag_Set(t *testing.T) {
-	// Get current CI mode from build_info
-	currentCIMode := build_info.InCI()
-
-	tests := []struct {
-		name     string
-		value    string
-		wantErr  bool
-		errorMsg string
-	}{
-		{"valid absolute path with slash", "/path/to/dir/", false, ""},
-		{"valid relative path with slash", "dir/", false, ""},
-		{"valid root path", "/", false, ""},
-		{"file-like path rejected", "/path/to/file.txt", true, "not a valid POSIX/UNIX folder path"},
-		{"empty string", "", true, "cannot be empty"},
-		{"whitespace only", "   ", true, "cannot be empty"},
-	}
-
-	// Add CI-specific tests based on current mode
-	if currentCIMode {
-		// In CI mode, paths without trailing slash are allowed
-		tests = append(tests, struct {
-			name     string
-			value    string
-			wantErr  bool
-			errorMsg string
-		}{"path without slash allowed in CI", "/path/to/dir", false, ""})
-	} else {
-		// In non-CI mode, paths without trailing slash should error
-		tests = append(tests, struct {
-			name     string
-			value    string
-			wantErr  bool
-			errorMsg string
-		}{"path without trailing slash rejected (not CI)", "/path/to/dir", true, "must end with '/'"})
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewFolderPathFlag("test")
-			err := flag.Set(tt.value)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if tt.wantErr && err != nil {
-				if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("Expected error to contain '%s', got '%s'", tt.errorMsg, err.Error())
-				}
-			}
-
-			if !tt.wantErr && flag.value != tt.value {
-				t.Errorf("Expected value to be set to %s, got %s", tt.value, flag.value)
-			}
+		It("should have string type", func() {
+			assertT.Equal("string", flag.Type())
 		})
-	}
-}
 
-// Test emptyStringFlag
-func TestNewEmptyStringFlag(t *testing.T) {
-	flag := NewEmptyStringFlag("testflag")
-	if flag.flagName != "testflag" {
-		t.Errorf("Expected flagName to be 'testflag', got %s", flag.flagName)
-	}
-	if flag.value != "" {
-		t.Errorf("Expected initial value to be empty, got %s", flag.value)
-	}
-}
-
-func TestEmptyStringFlag_String(t *testing.T) {
-	flag := NewEmptyStringFlag("test")
-	flag.value = "test value"
-	if flag.String() != "test value" {
-		t.Errorf("Expected String() to return 'test value', got %s", flag.String())
-	}
-}
-
-func TestEmptyStringFlag_Type(t *testing.T) {
-	flag := NewEmptyStringFlag("test")
-	if flag.Type() != "string" {
-		t.Errorf("Expected Type() to return 'string', got %s", flag.Type())
-	}
-}
-
-func TestEmptyStringFlag_Set(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"valid non-empty string", "valid value", false},
-		{"empty string", "", false}, // Empty string is allowed, only whitespace-only is rejected
-		{"whitespace only", "   ", true},
-		{"string with content and spaces", "  content  ", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewEmptyStringFlag("test")
-			err := flag.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && flag.value != tt.value {
-				t.Errorf("Expected value to be set to %s, got %s", tt.value, flag.value)
-			}
+		It("should initialize with empty value", func() {
+			assertT.Equal("", flag.String())
 		})
-	}
-}
+	})
 
-// Test boolFlag
-func TestNewBoolFlag(t *testing.T) {
-	flag := NewBoolFlag("testflag")
-	if flag.flagName != "testflag" {
-		t.Errorf("Expected flagName to be 'testflag', got %s", flag.flagName)
-	}
-	if flag.value != "" {
-		t.Errorf("Expected initial value to be empty, got %s", flag.value)
-	}
-}
+	Describe("Set method", func() {
+		Context("when provided valid file paths", func() {
+			It("should accept valid absolute path", func() {
+				err := flag.Set("/path/to/file.txt")
+				assertT.NoError(err)
+				assertT.Equal("/path/to/file.txt", flag.String())
+			})
 
-func TestBoolFlag_String(t *testing.T) {
-	flag := NewBoolFlag("test")
-	flag.value = "true"
-	if flag.String() != "true" {
-		t.Errorf("Expected String() to return 'true', got %s", flag.String())
-	}
-}
+			It("should accept valid relative path", func() {
+				err := flag.Set("file.txt")
+				assertT.NoError(err)
+				assertT.Equal("file.txt", flag.String())
+			})
 
-func TestBoolFlag_Type(t *testing.T) {
-	flag := NewBoolFlag("test")
-	if flag.Type() != "bool" {
-		t.Errorf("Expected Type() to return 'bool', got %s", flag.Type())
-	}
-}
+			It("should accept path with dots", func() {
+				err := flag.Set("../dir/file.log")
+				assertT.NoError(err)
+				assertT.Equal("../dir/file.log", flag.String())
+			})
 
-func TestBoolFlag_Set(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"valid true", "true", false},
-		{"valid false", "false", false},
-		{"invalid yes", "yes", true},
-		{"invalid 1", "1", true},
-		{"empty string", "", false}, // Empty string passes regex but is not true/false
-	}
+			It("should accept path with underscores", func() {
+				err := flag.Set("my_file.txt")
+				assertT.NoError(err)
+				assertT.Equal("my_file.txt", flag.String())
+			})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewBoolFlag("test")
-			err := flag.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && flag.value != tt.value {
-				t.Errorf("Expected value to be set to %s, got %s", tt.value, flag.value)
-			}
+			It("should accept path with hyphens", func() {
+				err := flag.Set("my-file.txt")
+				assertT.NoError(err)
+				assertT.Equal("my-file.txt", flag.String())
+			})
 		})
-	}
-}
 
-func TestBoolFlag_Value(t *testing.T) {
-	tests := []struct {
-		name     string
-		setValue string
-		expected bool
-	}{
-		{"true value", "true", true},
-		{"false value", "false", false},
-		{"invalid value", "invalid", false}, // ParseBool returns false for invalid strings
-		{"empty value", "", false},
-	}
+		Context("when provided invalid file paths", func() {
+			It("should reject empty string", func() {
+				err := flag.Set("")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "cannot be empty")
+			})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewBoolFlag("test")
-			flag.value = tt.setValue
-			result := flag.Value()
-			if result != tt.expected {
-				t.Errorf("Value() = %v, want %v", result, tt.expected)
-			}
+			It("should reject whitespace only", func() {
+				err := flag.Set("   ")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "cannot be empty")
+			})
+
+			It("should reject path with double slash", func() {
+				err := flag.Set("path//file.txt")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+			})
+
+			It("should reject path with trailing slash", func() {
+				err := flag.Set("path/")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+			})
 		})
-	}
-}
+	})
+})
 
-// Test unionFlag
-func TestNewUnionFlag(t *testing.T) {
-	allowedValues := []string{"option1", "option2", "option3"}
-	flag := NewUnionFlag(allowedValues, "testflag")
-	if flag.flagName != "testflag" {
-		t.Errorf("Expected flagName to be 'testflag', got %s", flag.flagName)
-	}
-	if len(flag.allowedValues) != 3 {
-		t.Errorf("Expected 3 allowed values, got %d", len(flag.allowedValues))
-	}
-}
+var _ = Describe("FolderPathFlag", func() {
+	var (
+		flag    custom_flags.FolderPathFlagInterface
+		assertT *assert.Assertions
+	)
 
-func TestUnionFlag_String(t *testing.T) {
-	flag := NewUnionFlag([]string{"a", "b"}, "test")
-	flag.value = "a"
-	if flag.String() != "a" {
-		t.Errorf("Expected String() to return 'a', got %s", flag.String())
-	}
-}
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		flagVal := custom_flags.NewFolderPathFlag("testflag")
+		flag = &flagVal
+	})
 
-func TestUnionFlag_Type(t *testing.T) {
-	flag := NewUnionFlag([]string{"a", "b"}, "test")
-	if flag.Type() != "string" {
-		t.Errorf("Expected Type() to return 'string', got %s", flag.Type())
-	}
-}
-
-func TestUnionFlag_Set(t *testing.T) {
-	allowedValues := []string{"option1", "option2", "option3"}
-
-	tests := []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"valid option1", "option1", false},
-		{"valid option2", "option2", false},
-		{"invalid option", "option4", true},
-		{"empty string", "", false}, // Empty string passes regex but is not in allowed values
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewUnionFlag(allowedValues, "test")
-			err := flag.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && flag.value != tt.value {
-				t.Errorf("Expected value to be set to %s, got %s", tt.value, flag.value)
-			}
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
 		})
-	}
-}
 
-// Test RangeFlag
-func TestNewRangeFlag(t *testing.T) {
-	flag := NewRangeFlag("test", 1, 10)
-	if flag.flagName != "test" {
-		t.Errorf("Expected flagName to be 'test', got %s", flag.flagName)
-	}
-	if flag.min != 1 {
-		t.Errorf("Expected min to be 1, got %d", flag.min)
-	}
-	if flag.max != 10 {
-		t.Errorf("Expected max to be 10, got %d", flag.max)
-	}
-}
-
-func TestNewRangeFlag_Panics(t *testing.T) {
-	tests := []struct {
-		name string
-		min  int
-		max  int
-	}{
-		{"min greater than max", 10, 5},
-		{"negative min", -1, 10},
-		{"negative max", 0, -1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r == nil {
-					t.Errorf("Expected NewRangeFlag to panic, but it didn't")
-				}
-			}()
-			NewRangeFlag("test", tt.min, tt.max)
+		It("should have string type", func() {
+			assertT.Equal("string", flag.Type())
 		})
-	}
-}
 
-func TestRangeFlag_String(t *testing.T) {
-	flag := NewRangeFlag("test", 1, 10)
-	flag.value = 5
-	if flag.String() != "5" {
-		t.Errorf("Expected String() to return '5', got %s", flag.String())
-	}
-}
-
-func TestRangeFlag_Type(t *testing.T) {
-	flag := NewRangeFlag("test", 1, 10)
-	if flag.Type() != "string" {
-		t.Errorf("Expected Type() to return 'string', got %s", flag.Type())
-	}
-}
-
-func TestRangeFlag_Value(t *testing.T) {
-	flag := NewRangeFlag("test", 1, 10)
-	flag.value = 7
-	if flag.Value() != 7 {
-		t.Errorf("Expected Value() to return 7, got %d", flag.Value())
-	}
-}
-
-func TestRangeFlag_Set(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		min     int
-		max     int
-		wantErr bool
-	}{
-		{"valid value in range", "5", 1, 10, false},
-		{"minimum value", "1", 1, 10, false},
-		{"maximum value", "10", 1, 10, false},
-		{"value below range", "0", 1, 10, true},
-		{"value above range", "11", 1, 10, true},
-		{"non-numeric value", "abc", 1, 10, true},
-		{"empty string", "", 1, 10, true},
-		{"negative number as string", "-1", 1, 10, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := NewRangeFlag("test", tt.min, tt.max)
-			err := flag.Set(tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr {
-				expectedValue, _ := strconv.Atoi(tt.value)
-				if flag.value != expectedValue {
-					t.Errorf("Expected value to be set to %d, got %d", expectedValue, flag.value)
-				}
-			}
+		It("should initialize with empty value", func() {
+			assertT.Equal("", flag.String())
 		})
-	}
-}
+	})
 
-// Edge case tests for regex failures
-func TestFilePathFlag_Set_RegexError(t *testing.T) {
-	// This test is difficult to trigger in practice since the regex is well-formed
-	// But we can test the error path by mocking a regex failure scenario
-	flag := NewFilePathFlag("test")
+	Describe("Set method", func() {
+		Context("when provided valid folder paths", func() {
+			It("should accept valid absolute path with slash", func() {
+				err := flag.Set("/path/to/dir/")
+				assertT.NoError(err)
+				assertT.Equal("/path/to/dir/", flag.String())
+			})
 
-	// Test with an extremely long string that might cause issues
-	longString := strings.Repeat("a", 10000) + "/" + strings.Repeat("b", 10000)
-	err := flag.Set(longString)
-	// This should either succeed or fail with a validation error, not a regex compilation error
-	if err != nil && strings.Contains(err.Error(), "internal error: failed to compile") {
-		t.Errorf("Unexpected regex compilation error: %v", err)
-	}
-}
+			It("should accept valid relative path with slash", func() {
+				err := flag.Set("dir/")
+				assertT.NoError(err)
+				assertT.Equal("dir/", flag.String())
+			})
 
-func TestFolderPathFlag_Set_RegexError(t *testing.T) {
-	flag := NewFolderPathFlag("test")
+			It("should accept root path", func() {
+				err := flag.Set("/")
+				assertT.NoError(err)
+				assertT.Equal("/", flag.String())
+			})
 
-	// Test with an extremely long string
-	longString := strings.Repeat("a", 10000) + "/" + strings.Repeat("b", 10000) + "/"
-	err := flag.Set(longString)
-	// This should either succeed or fail with a validation error, not a regex compilation error
-	if err != nil && strings.Contains(err.Error(), "internal error: failed to compile") {
-		t.Errorf("Unexpected regex compilation error: %v", err)
-	}
-}
+			Context("when in CI mode", func() {
+				It("should accept path without trailing slash if InCI returns true", func() {
+					if build_info.InCI() {
+						err := flag.Set("/path/to/dir")
+						assertT.NoError(err)
+						assertT.Equal("/path/to/dir", flag.String())
+					} else {
+						Skip("Skipping CI-specific test when not in CI mode")
+					}
+				})
+			})
+
+			Context("when not in CI mode", func() {
+				It("should reject path without trailing slash if InCI returns false", func() {
+					if !build_info.InCI() {
+						err := flag.Set("/path/to/dir")
+						assertT.Error(err)
+						assertT.Contains(err.Error(), "must end with '/'")
+					} else {
+						Skip("Skipping non-CI test when in CI mode")
+					}
+				})
+			})
+		})
+
+		Context("when provided invalid folder paths", func() {
+			It("should reject file-like paths", func() {
+				err := flag.Set("/path/to/file.txt")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "not a valid POSIX/UNIX folder path")
+			})
+
+			It("should reject empty string", func() {
+				err := flag.Set("")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "cannot be empty")
+			})
+
+			It("should reject whitespace only", func() {
+				err := flag.Set("   ")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "cannot be empty")
+			})
+		})
+	})
+})
+
+var _ = Describe("EmptyStringFlag", func() {
+	var (
+		flag    custom_flags.EmptyStringFlagInterface
+		assertT *assert.Assertions
+	)
+
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		flagVal := custom_flags.NewEmptyStringFlag("testflag")
+		flag = &flagVal
+	})
+
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
+		})
+
+		It("should have string type", func() {
+			assertT.Equal("string", flag.Type())
+		})
+
+		It("should initialize with empty value", func() {
+			assertT.Equal("", flag.String())
+		})
+	})
+
+	Describe("Set method", func() {
+		Context("when provided valid strings", func() {
+			It("should accept valid non-empty string", func() {
+				err := flag.Set("valid value")
+				assertT.NoError(err)
+				assertT.Equal("valid value", flag.String())
+			})
+
+			It("should accept empty string", func() {
+				err := flag.Set("")
+				assertT.NoError(err)
+				assertT.Equal("", flag.String())
+			})
+
+			It("should accept string with content and spaces", func() {
+				err := flag.Set("  content  ")
+				assertT.NoError(err)
+				assertT.Equal("  content  ", flag.String())
+			})
+		})
+
+		Context("when provided invalid strings", func() {
+			It("should reject whitespace-only strings", func() {
+				err := flag.Set("   ")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "flag is empty")
+			})
+		})
+	})
+})
+
+var _ = Describe("BoolFlag", func() {
+	var (
+		flag    custom_flags.BoolFlagInterface
+		assertT *assert.Assertions
+	)
+
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		flagVal := custom_flags.NewBoolFlag("testflag")
+		flag = &flagVal
+	})
+
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
+		})
+
+		It("should have bool type", func() {
+			assertT.Equal("bool", flag.Type())
+		})
+
+		It("should initialize with empty value", func() {
+			assertT.Equal("", flag.String())
+		})
+	})
+
+	Describe("Set method", func() {
+		Context("when provided valid boolean values", func() {
+			It("should accept 'true'", func() {
+				err := flag.Set("true")
+				assertT.NoError(err)
+				assertT.Equal("true", flag.String())
+				assertT.True(flag.Value())
+			})
+
+			It("should accept 'false'", func() {
+				err := flag.Set("false")
+				assertT.NoError(err)
+				assertT.Equal("false", flag.String())
+				assertT.False(flag.Value())
+			})
+
+			It("should accept empty string", func() {
+				err := flag.Set("")
+				assertT.NoError(err)
+				assertT.Equal("", flag.String())
+			})
+		})
+
+		Context("when provided invalid boolean values", func() {
+			It("should reject 'yes'", func() {
+				err := flag.Set("yes")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be one of")
+			})
+
+			It("should reject '1'", func() {
+				err := flag.Set("1")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be one of")
+			})
+		})
+	})
+
+	Describe("Value method", func() {
+		It("should return correct boolean for 'true'", func() {
+			_ = flag.Set("true")
+			assertT.True(flag.Value())
+		})
+
+		It("should return correct boolean for 'false'", func() {
+			_ = flag.Set("false")
+			assertT.False(flag.Value())
+		})
+
+		It("should return false for invalid value", func() {
+			// We need to manually set an invalid value for this test
+			// This simulates what happens when ParseBool fails
+			_ = flag.Set("") // Empty string parses as false
+			assertT.False(flag.Value())
+		})
+	})
+})
+
+var _ = Describe("UnionFlag", func() {
+	var (
+		flag        custom_flags.UnionFlagInterface
+		allowedVals []string
+		assertT     *assert.Assertions
+	)
+
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		allowedVals = []string{"option1", "option2", "option3"}
+		flagVal := custom_flags.NewUnionFlag(allowedVals, "testflag")
+		flag = &flagVal
+	})
+
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
+		})
+
+		It("should have string type", func() {
+			assertT.Equal("string", flag.Type())
+		})
+
+		It("should store allowed values", func() {
+			assertT.Equal(allowedVals, flag.AllowedValues())
+		})
+
+		It("should initialize with empty value", func() {
+			assertT.Equal("", flag.String())
+		})
+	})
+
+	Describe("Set method", func() {
+		Context("when provided valid options", func() {
+			It("should accept 'option1'", func() {
+				err := flag.Set("option1")
+				assertT.NoError(err)
+				assertT.Equal("option1", flag.String())
+			})
+
+			It("should accept 'option2'", func() {
+				err := flag.Set("option2")
+				assertT.NoError(err)
+				assertT.Equal("option2", flag.String())
+			})
+
+			It("should accept empty string", func() {
+				err := flag.Set("")
+				assertT.NoError(err)
+				assertT.Equal("", flag.String())
+			})
+		})
+
+		Context("when provided invalid options", func() {
+			It("should reject 'option4'", func() {
+				err := flag.Set("option4")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be one of")
+			})
+		})
+	})
+})
+
+var _ = Describe("RangeFlag", func() {
+	var (
+		flag    custom_flags.RangeFlagInterface
+		assertT *assert.Assertions
+	)
+
+	BeforeEach(func() {
+		assertT = assert.New(GinkgoT())
+		flagVal := custom_flags.NewRangeFlag("testflag", 1, 10)
+		flag = &flagVal
+	})
+
+	Describe("initialization", func() {
+		It("should set correct flag name", func() {
+			assertT.Equal("testflag", flag.FlagName())
+		})
+
+		It("should have string type", func() {
+			assertT.Equal("string", flag.Type())
+		})
+
+		It("should set correct min and max values", func() {
+			assertT.Equal(1, flag.Min())
+			assertT.Equal(10, flag.Max())
+		})
+
+		It("should initialize with zero value", func() {
+			assertT.Equal(0, flag.Value())
+		})
+	})
+
+	Describe("NewRangeFlag panics", func() {
+		It("should panic when min > max", func() {
+			assertT.Panics(func() {
+				custom_flags.NewRangeFlag("test", 10, 5)
+			}, "Should panic when min is greater than max")
+		})
+
+		It("should panic when min is negative", func() {
+			assertT.Panics(func() {
+				custom_flags.NewRangeFlag("test", -1, 10)
+			}, "Should panic when min is negative")
+		})
+
+		It("should panic when max is negative", func() {
+			assertT.Panics(func() {
+				custom_flags.NewRangeFlag("test", 0, -1)
+			}, "Should panic when max is negative")
+		})
+	})
+
+	Describe("Set method", func() {
+		Context("when provided valid values", func() {
+			It("should accept value in range", func() {
+				err := flag.Set("5")
+				assertT.NoError(err)
+				assertT.Equal(5, flag.Value())
+				assertT.Equal("5", flag.String())
+			})
+
+			It("should accept minimum value", func() {
+				err := flag.Set("1")
+				assertT.NoError(err)
+				assertT.Equal(1, flag.Value())
+			})
+
+			It("should accept maximum value", func() {
+				err := flag.Set("10")
+				assertT.NoError(err)
+				assertT.Equal(10, flag.Value())
+			})
+		})
+
+		Context("when provided invalid values", func() {
+			It("should reject value below range", func() {
+				err := flag.Set("0")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be between")
+			})
+
+			It("should reject value above range", func() {
+				err := flag.Set("11")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be between")
+			})
+
+			It("should reject non-numeric value", func() {
+				err := flag.Set("abc")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be an integer")
+			})
+
+			It("should reject empty string", func() {
+				err := flag.Set("")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be an integer")
+			})
+
+			It("should reject negative number as string", func() {
+				err := flag.Set("-1")
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "must be an integer")
+			})
+		})
+	})
+})

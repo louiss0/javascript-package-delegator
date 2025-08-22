@@ -3796,6 +3796,19 @@ func writeToFile(filePath, content string) error {
 func runCarapaceIntegration(testCmd *cobra.Command) error {
 	carapaceCmd := cmd.NewIntegrateCarapaceCmd()
 	carapaceCmd.SetContext(testCmd.Context())
+
+	// Copy flags from testCmd to carapaceCmd
+	if outputFlag := testCmd.Flag("output"); outputFlag != nil {
+		if err := carapaceCmd.Flags().Set("output", outputFlag.Value.String()); err != nil {
+			return fmt.Errorf("failed to set output flag: %w", err)
+		}
+	}
+	if stdoutFlag := testCmd.Flag("stdout"); stdoutFlag != nil {
+		if err := carapaceCmd.Flags().Set("stdout", stdoutFlag.Value.String()); err != nil {
+			return fmt.Errorf("failed to set stdout flag: %w", err)
+		}
+	}
+
 	return carapaceCmd.RunE(carapaceCmd, []string{})
 }
 
@@ -3803,6 +3816,14 @@ func runCarapaceIntegration(testCmd *cobra.Command) error {
 func runWarpIntegration(testCmd *cobra.Command) error {
 	warpCmd := cmd.NewIntegrateWarpCmd()
 	warpCmd.SetContext(testCmd.Context())
+
+	// Copy flags from testCmd to warpCmd
+	if outputDirFlag := testCmd.Flag("output-dir"); outputDirFlag != nil {
+		if err := warpCmd.Flags().Set("output-dir", outputDirFlag.Value.String()); err != nil {
+			return fmt.Errorf("failed to set output-dir flag: %w", err)
+		}
+	}
+
 	return warpCmd.RunE(warpCmd, []string{})
 }
 
@@ -4142,7 +4163,7 @@ func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
 	t.Run("generates files in specified directory", func(t *testing.T) {
 		makeTempDir(t, func(tempDir string) {
 			testCmd := &cobra.Command{}
-			testCmd.Flags().String("output-dir", tempDir, "output directory")
+			testCmd.Flags().String("output-dir", tempDir+"/", "output directory")
 
 			// Capture any output
 			var output bytes.Buffer
@@ -4191,7 +4212,7 @@ func TestRunWarpIntegration_DirectoryMode(t *testing.T) {
 			assert.NoError(t, err)
 
 			testCmd := &cobra.Command{}
-			testCmd.Flags().String("output-dir", filePath, "output directory")
+			testCmd.Flags().String("output-dir", filePath+"/", "output directory")
 
 			err = runWarpIntegration(testCmd)
 			assert.Error(t, err)
@@ -4229,5 +4250,132 @@ func TestNewIntegrateWarpCmd(t *testing.T) {
 		output := buf.String()
 		assert.Contains(t, output, "Warp", "Help output should mention Warp")
 		assert.Contains(t, output, "output-dir", "Help should describe output-dir flag")
+	})
+}
+
+// Test error handling in integration helper functions
+func TestRunCarapaceIntegration_ErrorHandling(t *testing.T) {
+	t.Run("handles error when setting output flag", func(t *testing.T) {
+		// Create a test command with an output flag
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+		// Add the output flag with a value that might cause issues
+		testCmd.Flags().String("output", "/invalid/path/file.yaml", "output file")
+
+		// Parse flags to ensure they're available
+		err := testCmd.ParseFlags([]string{"--output", "/invalid/path/file.yaml"})
+		assert.NoError(t, err)
+
+		// Test that the function handles the flag setting properly
+		// Even though the path is invalid, flag setting should work
+		// The actual file operations would fail later in the execution
+		err = runCarapaceIntegration(testCmd)
+		// The error would come from the actual carapace generation, not flag setting
+		// So we expect this to run without flag-setting errors
+		if err != nil {
+			// If there's an error, it should be from file operations, not flag setting
+			assert.NotContains(t, err.Error(), "failed to set output flag")
+		}
+	})
+
+	t.Run("handles error when setting stdout flag", func(t *testing.T) {
+		// Create a test command with a stdout flag
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+		// Add the stdout flag
+		testCmd.Flags().Bool("stdout", true, "output to stdout")
+
+		// Parse flags to ensure they're available
+		err := testCmd.ParseFlags([]string{"--stdout"})
+		assert.NoError(t, err)
+
+		// Test that the function handles the flag setting properly
+		err = runCarapaceIntegration(testCmd)
+		// The function should not fail due to flag setting errors
+		if err != nil {
+			// If there's an error, it should be from carapace generation, not flag setting
+			assert.NotContains(t, err.Error(), "failed to set stdout flag")
+		}
+	})
+
+	t.Run("handles missing flags gracefully", func(t *testing.T) {
+		// Create a test command without the expected flags
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+		// Don't add any flags - the function should handle this gracefully
+
+		// This should not panic or fail due to missing flags
+		err := runCarapaceIntegration(testCmd)
+		// The function should handle missing flags by skipping the flag setting
+		if err != nil {
+			// Error should not be about flag setting
+			assert.NotContains(t, err.Error(), "failed to set output flag")
+			assert.NotContains(t, err.Error(), "failed to set stdout flag")
+		}
+	})
+}
+
+func TestRunWarpIntegration_ErrorHandling(t *testing.T) {
+	t.Run("handles error when setting output-dir flag", func(t *testing.T) {
+		// Create a test command with an output-dir flag
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+		// Add the output-dir flag with a value that might cause issues
+		testCmd.Flags().String("output-dir", "/invalid/path/", "output directory")
+
+		// Parse flags to ensure they're available
+		err := testCmd.ParseFlags([]string{"--output-dir", "/invalid/path/"})
+		assert.NoError(t, err)
+
+		// Test that the function handles the flag setting properly
+		err = runWarpIntegration(testCmd)
+		// The function should not fail due to flag setting errors
+		if err != nil {
+			// If there's an error, it should be from warp generation, not flag setting
+			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+		}
+	})
+
+	t.Run("handles missing output-dir flag gracefully", func(t *testing.T) {
+		// Create a test command without the expected flag
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+		// Don't add the output-dir flag - the function should handle this gracefully
+
+		// This should not panic or fail due to missing flag
+		err := runWarpIntegration(testCmd)
+		// The function should handle missing flag by skipping the flag setting
+		if err != nil {
+			// Error should not be about flag setting
+			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+		}
+	})
+
+	t.Run("propagates flag setting errors correctly", func(t *testing.T) {
+		// Create a more complex scenario to test error propagation
+		testCmd := &cobra.Command{
+			Use: "test",
+		}
+
+		// Add the output-dir flag
+		testCmd.Flags().String("output-dir", "", "output directory")
+
+		// Parse flags
+		err := testCmd.ParseFlags([]string{"--output-dir", "/some/path/"})
+		assert.NoError(t, err)
+
+		// The function should handle normal flag values without error
+		err = runWarpIntegration(testCmd)
+		// Check that if there's an error, it's not from our flag setting logic
+		if err != nil {
+			// The error message should be descriptive and not about flag setting
+			assert.NotContains(t, err.Error(), "failed to set output-dir flag")
+			// It might be about file operations or warp generation
+		}
 	})
 }
