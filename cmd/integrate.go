@@ -17,7 +17,6 @@ import (
 
 // NewIntegrateCmd creates the integrate command with subcommands for external integrations
 func NewIntegrateCmd() *cobra.Command {
-	outputDirFlag := custom_flags.NewFolderPathFlag("output-dir")
 	outputFileFlag := custom_flags.NewFilePathFlag("output")
 
 	integrateCmd := &cobra.Command{
@@ -58,7 +57,8 @@ Carapace spec installation locations:
 	}
 
 	// Add flags for both warp and carapace integrations
-	integrateCmd.Flags().Var(&outputDirFlag, "output-dir", "Output directory for Warp workflow files")
+	// Use standard string flag for output-dir to allow empty values for stdout behavior
+	integrateCmd.Flags().String("output-dir", "", "Output directory for Warp workflow files")
 	integrateCmd.Flags().VarP(&outputFileFlag, "output", "o", "Output file for Carapace spec")
 	integrateCmd.Flags().Bool("stdout", false, "Print Carapace spec to stdout instead of installing")
 
@@ -67,8 +67,6 @@ Carapace spec installation locations:
 
 // NewIntegrateWarpCmd creates the warp integration subcommand
 func NewIntegrateWarpCmd() *cobra.Command {
-	outputDirFlag := custom_flags.NewFolderPathFlag("output-dir")
-
 	warpCmd := &cobra.Command{
 		Use:   "warp",
 		Short: "Generate Warp terminal workflow files",
@@ -86,7 +84,8 @@ Examples:
 		},
 	}
 
-	warpCmd.Flags().VarP(&outputDirFlag, "output-dir", "o", "Output directory for workflow files")
+	// Use standard string flag to allow empty values for stdout behavior
+	warpCmd.Flags().StringP("output-dir", "o", "", "Output directory for workflow files")
 
 	return warpCmd
 }
