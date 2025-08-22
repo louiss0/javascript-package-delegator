@@ -18,14 +18,14 @@ func TestCustomFlags(t *testing.T) {
 
 var _ = Describe("FilePathFlag", func() {
 	var (
-		flag    custom_flags.FilePathFlagInterface
+		flag    custom_flags.FilePathFlag
 		assertT *assert.Assertions
 	)
 
 	BeforeEach(func() {
 		assertT = assert.New(GinkgoT())
 		flagVal := custom_flags.NewFilePathFlag("testflag")
-		flag = &flagVal
+		flag = flagVal
 	})
 
 	Describe("initialization", func() {
@@ -42,7 +42,7 @@ var _ = Describe("FilePathFlag", func() {
 		})
 	})
 
-	Describe("Set method", func() {
+	Describe("S	zet method", func() {
 		Context("when provided valid file paths", func() {
 			It("should accept valid absolute path", func() {
 				err := flag.Set("/path/to/file.txt")
@@ -105,14 +105,14 @@ var _ = Describe("FilePathFlag", func() {
 
 var _ = Describe("FolderPathFlag", func() {
 	var (
-		flag    custom_flags.FolderPathFlagInterface
+		flag    custom_flags.FolderPathFlag
 		assertT *assert.Assertions
 	)
 
 	BeforeEach(func() {
 		assertT = assert.New(GinkgoT())
 		flagVal := custom_flags.NewFolderPathFlag("testflag")
-		flag = &flagVal
+		flag = flagVal
 	})
 
 	Describe("initialization", func() {
@@ -198,7 +198,7 @@ var _ = Describe("FolderPathFlag", func() {
 
 var _ = Describe("EmptyStringFlag", func() {
 	var (
-		flag    custom_flags.EmptyStringFlagInterface
+		flag    custom_flags.EmptyStringFlag
 		assertT *assert.Assertions
 	)
 
@@ -255,7 +255,7 @@ var _ = Describe("EmptyStringFlag", func() {
 
 var _ = Describe("BoolFlag", func() {
 	var (
-		flag    custom_flags.BoolFlagInterface
+		flag    custom_flags.BoolFlag
 		assertT *assert.Assertions
 	)
 
@@ -339,7 +339,7 @@ var _ = Describe("BoolFlag", func() {
 
 var _ = Describe("UnionFlag", func() {
 	var (
-		flag        custom_flags.UnionFlagInterface
+		flag        custom_flags.UnionFlag
 		allowedVals []string
 		assertT     *assert.Assertions
 	)
@@ -402,14 +402,14 @@ var _ = Describe("UnionFlag", func() {
 
 var _ = Describe("RangeFlag", func() {
 	var (
-		flag    custom_flags.RangeFlagInterface
+		flag    custom_flags.RangeFlag
 		assertT *assert.Assertions
 	)
 
 	BeforeEach(func() {
 		assertT = assert.New(GinkgoT())
 		flagVal := custom_flags.NewRangeFlag("testflag", 1, 10)
-		flag = &flagVal
+		flag = flagVal
 	})
 
 	Describe("initialization", func() {

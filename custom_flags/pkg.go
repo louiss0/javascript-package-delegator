@@ -18,40 +18,40 @@ import (
 
 // Interfaces extending pflag.Value for testability
 
-// FilePathFlagInterface extends pflag.Value for file path flags
-type FilePathFlagInterface interface {
+// FilePathFlag extends pflag.Value for file path flags
+type FilePathFlag interface {
 	pflag.Value
 	FlagName() string
 }
 
-// FolderPathFlagInterface extends pflag.Value for folder path flags
-type FolderPathFlagInterface interface {
+// FolderPathFlag extends pflag.Value for folder path flags
+type FolderPathFlag interface {
 	pflag.Value
 	FlagName() string
 }
 
-// EmptyStringFlagInterface extends pflag.Value for empty string flags
-type EmptyStringFlagInterface interface {
+// EmptyStringFlag extends pflag.Value for empty string flags
+type EmptyStringFlag interface {
 	pflag.Value
 	FlagName() string
 }
 
-// BoolFlagInterface extends pflag.Value for boolean flags
-type BoolFlagInterface interface {
+// BoolFlag extends pflag.Value for boolean flags
+type BoolFlag interface {
 	pflag.Value
 	FlagName() string
 	Value() bool
 }
 
-// UnionFlagInterface extends pflag.Value for union flags
-type UnionFlagInterface interface {
+// UnionFlag extends pflag.Value for union flags
+type UnionFlag interface {
 	pflag.Value
 	FlagName() string
 	AllowedValues() []string
 }
 
-// RangeFlagInterface extends pflag.Value for range flags
-type RangeFlagInterface interface {
+// RangeFlag extends pflag.Value for range flags
+type RangeFlag interface {
 	pflag.Value
 	FlagName() string
 	Value() int
@@ -66,8 +66,8 @@ type filePathFlag struct {
 }
 
 // NewFilePathFlag creates a new FilePathFlag with the given flag name
-func NewFilePathFlag(flagName string) filePathFlag {
-	return filePathFlag{
+func NewFilePathFlag(flagName string) FilePathFlag {
+	return &filePathFlag{
 		flagName: flagName,
 	}
 }
@@ -125,8 +125,8 @@ type folderPathFlag struct {
 }
 
 // NewFolderPathFlag creates a new PathFlag with the given flag name
-func NewFolderPathFlag(flagName string) folderPathFlag {
-	return folderPathFlag{
+func NewFolderPathFlag(flagName string) FolderPathFlag {
+	return &folderPathFlag{
 		flagName: flagName,
 	}
 }
@@ -336,8 +336,8 @@ func (u unionFlag) AllowedValues() []string {
 	return u.allowedValues
 }
 
-// RangeFlag represents a flag that must be an integer within a specified range
-type RangeFlag struct {
+// rangeFlag represents a flag that must be an integer within a specified range
+type rangeFlag struct {
 	value, min, max int
 	flagName        string
 }
@@ -350,7 +350,7 @@ func NewRangeFlag(flagName string, min, max int) RangeFlag {
 	if min < 0 || max < 0 {
 		panic("min and max must be non-negative")
 	}
-	return RangeFlag{
+	return &rangeFlag{
 		min:      min,
 		max:      max,
 		flagName: flagName,
@@ -358,17 +358,17 @@ func NewRangeFlag(flagName string, min, max int) RangeFlag {
 }
 
 // String returns the flag's value as a string
-func (r RangeFlag) String() string {
+func (r rangeFlag) String() string {
 	return fmt.Sprintf("%d", r.value)
 }
 
 // Value returns the flag's value as an int
-func (r RangeFlag) Value() int {
+func (r rangeFlag) Value() int {
 	return r.value
 }
 
 // Set validates and sets the flag's value, ensuring it's within the allowed range
-func (r *RangeFlag) Set(value string) error {
+func (r *rangeFlag) Set(value string) error {
 	match, err := regexp.MatchString(`^\d+$`, value)
 	if err != nil {
 		return err
@@ -385,21 +385,21 @@ func (r *RangeFlag) Set(value string) error {
 }
 
 // Type returns the flag type as a string
-func (r RangeFlag) Type() string {
+func (r rangeFlag) Type() string {
 	return "string"
 }
 
 // FlagName returns the flag's name for testing
-func (r RangeFlag) FlagName() string {
+func (r rangeFlag) FlagName() string {
 	return r.flagName
 }
 
 // Min returns the minimum value for testing
-func (r RangeFlag) Min() int {
+func (r rangeFlag) Min() int {
 	return r.min
 }
 
 // Max returns the maximum value for testing
-func (r RangeFlag) Max() int {
+func (r rangeFlag) Max() int {
 	return r.max
 }

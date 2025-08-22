@@ -123,7 +123,7 @@ Examples:
 	}
 
 	// Bind the custom flag type
-	completionCmd.Flags().VarP(&outputFileFlag, "output", "o", "Write completion script to a file instead of stdout")
+	completionCmd.Flags().VarP(outputFileFlag, "output", "o", "Write completion script to a file instead of stdout")
 	completionCmd.Flags().BoolP(WITH_SHORTHANDS, "w", false, "Generate completion script with shorthand flags")
 
 	return completionCmd

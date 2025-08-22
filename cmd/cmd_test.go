@@ -3764,7 +3764,7 @@ var _ = Describe("JPD Commands", func() {
 				err := os.WriteFile(blockedPath, []byte("i am a file"), 0644)
 				assert.NoError(err)
 
-				invalidOutputDir := filepath.Join(blockedPath, "sub-dir") // This path will fail MkdirAll
+				invalidOutputDir := filepath.Join(blockedPath, "sub-dir/") // This path will fail MkdirAll
 				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", invalidOutputDir)
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to generate Warp workflow files")
