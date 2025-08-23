@@ -626,8 +626,8 @@ github.com/louiss0/javascript-package-delegator/detect/pkg.go:140.37,142.4 1 1
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:143.3,143.17 1 1
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:146.2,146.34 1 1
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:157.69,161.2 1 1
-github.com/louiss0/javascript-package-delegator/detect/pkg.go:163.64,166.16 2 0
-github.com/louiss0/javascript-package-delegator/detect/pkg.go:166.16,168.3 1 0
+github.com/louiss0/javascript-package-delegator/detect/pkg.go:163.64,166.16 2 1
+github.com/louiss0/javascript-package-delegator/detect/pkg.go:166.16,168.3 1 1
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:170.2,170.28 1 0
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:173.87,176.16 2 1
 github.com/louiss0/javascript-package-delegator/detect/pkg.go:176.16,178.3 1 1

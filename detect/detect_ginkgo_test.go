@@ -513,6 +513,23 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				assert.NotNil(runner)
 			})
 
+			It("should call yarn version command and handle output", func() {
+				// This test will always run, testing the Output method regardless of yarn availability
+				runner := detect.NewRealYarnCommandVersionRunner()
+				version, err := runner.Output()
+				
+				// Either yarn is available and returns version, or not available and returns error
+				if err != nil {
+					// Yarn not available - this is acceptable, we just tested the method
+					assert.Contains(err.Error(), "executable file not found", "Expected 'executable file not found' error when yarn is missing")
+					assert.Empty(version, "Version should be empty when command fails")
+				} else {
+					// Yarn is available - should return valid version
+					assert.NoError(err, "Expected no error when yarn is available")
+					assert.NotEmpty(version, "Version should not be empty when yarn is available")
+				}
+			})
+
 			Context("when yarn is available", func() {
 				BeforeEach(func() {
 					// Check if yarn is actually available before running yarn-specific tests
