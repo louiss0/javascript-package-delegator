@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
-	"github.com/louiss0/javascript-package-delegator/internal/integrations"
+	"github.com/louiss0/javascript-package-delegator/internal"
 )
 
 // NewIntegrateCmd creates the integrate command with subcommands for external integrations

@@ -15,7 +15,7 @@ import (
 	// internal
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/custom_flags"
-	"github.com/louiss0/javascript-package-delegator/internal/integrations"
+	"github.com/louiss0/javascript-package-delegator/internal"
 )
 
 const WITH_SHORTHANDS = "with-shorthands"

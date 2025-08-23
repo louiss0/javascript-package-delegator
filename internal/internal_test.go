@@ -1,4 +1,4 @@
-package internal_test
+package integrations_test
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/louiss0/javascript-package-delegator/internal/integrations"
+	"github.com/louiss0/javascript-package-delegator/internal"
 )
 
 func TestIntegrations(t *testing.T) {

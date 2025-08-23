@@ -381,6 +381,37 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		)
 	})
 
+	Context("DetectYarnVersion", func() {
+		It("should return yarn version when successful", func() {
+			mockYarnVersion := &mock.MockYarnCommandVersionOutputer{}
+			mockYarnVersion.On("Output").Return("1.22.22", nil)
+			version, err := detect.DetectYarnVersion(mockYarnVersion)
+			assert.NoError(err)
+			assert.Equal("1.22.22", version)
+			mockYarnVersion.AssertExpectations(GinkgoT())
+		})
+
+		It("should return error when yarn version command fails", func() {
+			mockYarnVersion := &mock.MockYarnCommandVersionOutputer{}
+			mockYarnVersion.On("Output").Return("", fmt.Errorf("unable to detect yarn version"))
+			version, err := detect.DetectYarnVersion(mockYarnVersion)
+			assert.Error(err)
+			assert.Empty(version)
+			assert.Contains(err.Error(), "unable to detect yarn version")
+			mockYarnVersion.AssertExpectations(GinkgoT())
+		})
+
+		It("should return error when invalid version format", func() {
+			mockYarnVersion := &mock.MockYarnCommandVersionOutputer{}
+			mockYarnVersion.On("Output").Return("", fmt.Errorf("invalid version format you must use semver versioning"))
+			version, err := detect.DetectYarnVersion(mockYarnVersion)
+			assert.Error(err)
+			assert.Empty(version)
+			assert.Contains(err.Error(), "invalid version format")
+			mockYarnVersion.AssertExpectations(GinkgoT())
+		})
+	})
+
 	Context("DetectVolta", func() {
 		var mockPath *mock.MockPathLookup
 
@@ -416,6 +447,89 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 
 			found := detect.DetectVolta(mockPath)
 			assert.False(found)
+		})
+	})
+
+	Context("Integration Tests", Label("integration"), func() {
+		Context("RealPathLookup", func() {
+			var realPath detect.RealPathLookup
+
+			BeforeEach(func() {
+				realPath = detect.RealPathLookup{}
+			})
+
+			It("should find a common system command", func() {
+				// Test with a command that should exist on most systems
+				path, err := realPath.LookPath("echo")
+				assert.NoError(err)
+				assert.NotEmpty(path)
+			})
+
+			It("should return error for non-existent command", func() {
+				path, err := realPath.LookPath("nonexistentcommand123456789")
+				assert.Error(err)
+				assert.Empty(path)
+			})
+		})
+
+		Context("RealFileSystem", func() {
+			var realFs detect.RealFileSystem
+
+			BeforeEach(func() {
+				realFs = detect.RealFileSystem{}
+			})
+
+			It("should get current working directory", func() {
+				cwd, err := realFs.Getwd()
+				assert.NoError(err)
+				assert.NotEmpty(cwd)
+			})
+
+			It("should stat an existing file", func() {
+				// Create a temporary file
+				tempFile := filepath.Join(os.TempDir(), "test_jpd_detect.txt")
+				err := os.WriteFile(tempFile, []byte("test"), 0644)
+				assert.NoError(err)
+				defer func() {
+					os.Remove(tempFile)
+				}()
+
+				fileInfo, err := realFs.Stat(tempFile)
+				assert.NoError(err)
+				assert.NotNil(fileInfo)
+				assert.Equal("test_jpd_detect.txt", fileInfo.Name())
+			})
+
+			It("should return error for non-existent file", func() {
+				_, err := realFs.Stat("/path/that/does/not/exist/file.txt")
+				assert.Error(err)
+				assert.True(os.IsNotExist(err))
+			})
+		})
+
+		Context("RealYarnCommandVersionRunner", func() {
+			It("should create a new yarn version runner", func() {
+				runner := detect.NewRealYarnCommandVersionRunner()
+				assert.NotNil(runner)
+			})
+
+			Context("when yarn is available", func() {
+				BeforeEach(func() {
+					// Check if yarn is actually available before running yarn-specific tests
+					realPath := detect.RealPathLookup{}
+					_, err := realPath.LookPath("yarn")
+					if err != nil {
+						Skip("Yarn is not available on this system")
+					}
+				})
+
+				It("should execute yarn version command successfully", func() {
+					runner := detect.NewRealYarnCommandVersionRunner()
+					version, err := runner.Output()
+					assert.NoError(err)
+					assert.NotEmpty(version)
+				})
+			})
 		})
 	})
 })
