@@ -491,7 +491,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				err := os.WriteFile(tempFile, []byte("test"), 0644)
 				assert.NoError(err)
 				defer func() {
-					os.Remove(tempFile)
+					_ = os.Remove(tempFile) // Ignore cleanup errors in tests
 				}()
 
 				fileInfo, err := realFs.Stat(tempFile)
@@ -517,7 +517,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				// This test will always run, testing the Output method regardless of yarn availability
 				runner := detect.NewRealYarnCommandVersionRunner()
 				version, err := runner.Output()
-				
+
 				// Either yarn is available and returns version, or not available and returns error
 				if err != nil {
 					// Yarn not available - this is acceptable, we just tested the method

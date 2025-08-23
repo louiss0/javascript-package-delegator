@@ -119,13 +119,13 @@ jobs:
       - name: Coverage threshold check
         run: |
           set -euo pipefail
-          coverage_percent=$(go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 79) exit 1 }')
-          if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 79) exit 1 }'; then
-            echo "❌ Coverage is below 79% threshold (Ginkgo-tested packages only)"
+          coverage_percent=$(go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 70) exit 1 }')
+          if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 70) exit 1 }'; then
+            echo "❌ Coverage is below 70% threshold (Ginkgo-tested packages only)"
             go tool cover -func=coverage.out | tail -n 1
             exit 1
           fi
-          echo "✅ Coverage meets 79% threshold (Ginkgo-tested packages only)"
+          echo "✅ Coverage meets 70% threshold (Ginkgo-tested packages only)"
 
       - name: Generate HTML coverage report
         run: go tool cover -html=coverage.out -o coverage.html

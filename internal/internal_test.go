@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/louiss0/javascript-package-delegator/internal"
+	integrations "github.com/louiss0/javascript-package-delegator/internal"
 )
 
 func TestIntegrations(t *testing.T) {
@@ -618,6 +618,25 @@ var _ = Describe("Warp Workflow Generator", func() {
 			assert.Contains(GinkgoT(), contentStr, "name: package", "Expected package argument")
 			assert.Contains(GinkgoT(), contentStr, "name: args", "Expected args argument")
 		})
+
+		It("should return error when unable to create output directory", func() {
+			// Try to create workflows in a path that will fail (e.g., root directory without permissions)
+			// This test might not work on all systems, so we'll create a more controlled scenario
+			readOnlyDir := filepath.Join(tempDir, "readonly")
+			err := os.MkdirAll(readOnlyDir, 0555) // Read-only directory
+			assert.NoError(GinkgoT(), err, "Expected no error creating read-only directory")
+
+			// Make nested path that would require write access to readonly dir
+			inaccessiblePath := filepath.Join(readOnlyDir, "inaccessible")
+			err = generator.GenerateJPDWorkflows(inaccessiblePath)
+
+			// Should get a permission denied error
+			assert.Error(GinkgoT(), err, "Expected error when trying to create directory in read-only location")
+			assert.Contains(GinkgoT(), err.Error(), "failed to create output directory", "Expected specific error message")
+
+			// Restore permissions for cleanup
+			_ = os.Chmod(readOnlyDir, 0755)
+		})
 	})
 
 	Describe("Multi-document format", func() {
@@ -634,95 +653,95 @@ var _ = Describe("Warp Workflow Generator", func() {
 	})
 })
 
-// Carapace paths tests (standard Go tests converted to work with the package structure)
-func TestResolveCarapaceSpecsDirFor(t *testing.T) {
-	tests := []struct {
-		name     string
-		goos     string
-		getenv   func(string) string
-		home     func() (string, error)
-		expected string
-		hasError bool
-	}{
-		{
-			name: "Linux with XDG_DATA_HOME set",
-			goos: "linux",
-			getenv: func(key string) string {
-				if key == "XDG_DATA_HOME" {
-					return "/custom/xdg/data"
-				}
-				return ""
-			},
-			home:     func() (string, error) { return "/home/user", nil },
-			expected: filepath.Join("/custom/xdg/data", "carapace", "specs"),
-		},
-		{
-			name: "Linux without XDG_DATA_HOME (fallback)",
-			goos: "linux",
-			getenv: func(key string) string {
-				return "" // No XDG_DATA_HOME set
-			},
-			home:     func() (string, error) { return "/home/user", nil },
-			expected: filepath.Join("/home/user", ".local", "share", "carapace", "specs"),
-		},
-		{
-			name: "macOS fallback to local share",
-			goos: "darwin",
-			getenv: func(key string) string {
-				return ""
-			},
-			home:     func() (string, error) { return "/Users/user", nil },
-			expected: filepath.Join("/Users/user", ".local", "share", "carapace", "specs"),
-		},
-		{
-			name: "Windows with APPDATA",
-			goos: "windows",
-			getenv: func(key string) string {
-				if key == "APPDATA" {
-					return "C:\\Users\\User\\AppData\\Roaming"
-				}
-				return ""
-			},
-			home:     func() (string, error) { return "C:\\Users\\User", nil },
-			expected: filepath.Join("C:\\Users\\User\\AppData\\Roaming", "carapace", "specs"),
-		},
-		{
-			name: "Windows without APPDATA (fallback)",
-			goos: "windows",
-			getenv: func(key string) string {
-				return ""
-			},
-			home:     func() (string, error) { return "C:\\Users\\User", nil },
-			expected: filepath.Join("C:\\Users\\User", "AppData", "Roaming", "carapace", "specs"),
-		},
-		{
-			name: "Home directory error",
-			goos: "linux",
-			getenv: func(key string) string {
-				return ""
-			},
-			home:     func() (string, error) { return "", &testError{"home directory not found"} },
-			hasError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// This would need to be adapted to call the actual function from integrations package
-			// For now, marking as Skip since we can't easily access the unexported function
-			t.Skip("Function resolveCarapaceSpecsDirFor is not exported from integrations package")
+// Carapace Directory Resolution tests
+var _ = Describe("Carapace Directory Resolution", func() {
+	Describe("CarapaceSpecsDir", func() {
+		It("should return a valid directory path", func() {
+			dir, err := integrations.CarapaceSpecsDir()
+			assert.NoError(GinkgoT(), err, "Expected no error getting carapace specs dir")
+			assert.NotEmpty(GinkgoT(), dir, "Expected non-empty directory path")
+			assert.Contains(GinkgoT(), dir, "carapace", "Expected path to contain 'carapace'")
+			assert.Contains(GinkgoT(), dir, "specs", "Expected path to contain 'specs'")
 		})
-	}
-}
+	})
 
-// testError is a simple error type for testing
-type testError struct {
-	message string
-}
+	Describe("DefaultCarapaceSpecPath", func() {
+		It("should return the full path for the spec file", func() {
+			path, err := integrations.DefaultCarapaceSpecPath()
+			assert.NoError(GinkgoT(), err, "Expected no error getting default spec path")
+			assert.NotEmpty(GinkgoT(), path, "Expected non-empty spec path")
+			assert.Contains(GinkgoT(), path, integrations.CarapaceSpecFileName, "Expected path to contain spec filename")
+			assert.Contains(GinkgoT(), path, "carapace", "Expected path to contain 'carapace'")
+			assert.Contains(GinkgoT(), path, "specs", "Expected path to contain 'specs'")
+		})
+	})
 
-func (e *testError) Error() string {
-	return e.message
-}
+	Describe("EnsureDir", func() {
+		var tempDir string
+
+		BeforeEach(func() {
+			var err error
+			tempDir, err = os.MkdirTemp("", "ensure-dir-test-*")
+			assert.NoError(GinkgoT(), err, "Expected no error creating temp dir")
+			// Remove the dir so we can test creating it
+			err = os.RemoveAll(tempDir)
+			assert.NoError(GinkgoT(), err, "Expected no error removing temp dir")
+		})
+
+		AfterEach(func() {
+			if tempDir != "" {
+				_ = os.RemoveAll(tempDir) // Ignore cleanup errors
+			}
+		})
+
+		It("should create directory if it doesn't exist", func() {
+			// Directory should not exist initially
+			_, err := os.Stat(tempDir)
+			assert.True(GinkgoT(), os.IsNotExist(err), "Expected directory to not exist initially")
+
+			// EnsureDir should create it
+			err = integrations.EnsureDir(tempDir)
+			assert.NoError(GinkgoT(), err, "Expected no error ensuring directory")
+
+			// Directory should now exist
+			info, err := os.Stat(tempDir)
+			assert.NoError(GinkgoT(), err, "Expected no error stating directory")
+			assert.True(GinkgoT(), info.IsDir(), "Expected path to be a directory")
+		})
+
+		It("should create nested directories", func() {
+			nestedDir := filepath.Join(tempDir, "nested", "deeply", "nested")
+
+			// Nested directory should not exist initially
+			_, err := os.Stat(nestedDir)
+			assert.True(GinkgoT(), os.IsNotExist(err), "Expected nested directory to not exist initially")
+
+			// EnsureDir should create it
+			err = integrations.EnsureDir(nestedDir)
+			assert.NoError(GinkgoT(), err, "Expected no error ensuring nested directory")
+
+			// Directory should now exist
+			info, err := os.Stat(nestedDir)
+			assert.NoError(GinkgoT(), err, "Expected no error stating nested directory")
+			assert.True(GinkgoT(), info.IsDir(), "Expected nested path to be a directory")
+		})
+
+		It("should not error if directory already exists", func() {
+			// Create directory first
+			err := os.MkdirAll(tempDir, 0755)
+			assert.NoError(GinkgoT(), err, "Expected no error creating directory")
+
+			// EnsureDir should still succeed
+			err = integrations.EnsureDir(tempDir)
+			assert.NoError(GinkgoT(), err, "Expected no error ensuring existing directory")
+
+			// Directory should still exist
+			info, err := os.Stat(tempDir)
+			assert.NoError(GinkgoT(), err, "Expected no error stating directory")
+			assert.True(GinkgoT(), info.IsDir(), "Expected path to be a directory")
+		})
+	})
+})
 
 func TestCarapaceSpecFileName(t *testing.T) {
 	expected := "javascript-package-delegator.yaml"
