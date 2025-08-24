@@ -4,30 +4,47 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-JavaScript Package Delegator (jpd) is a universal CLI that automatically detects JavaScript package managers (npm, yarn, pnpm, bun, deno) and delegates commands to the appropriate tool. Built with Go and inspired by @antfu/ni, it provides a unified interface across different package managers.
+JavaScript Package Delegator (jpd) is a universal CLI that automatically detects JavaScript package managers (npm, yarn, pnpm, bun, deno) and delegates commands to the appropriate tool.
+Built with Go and inspired by @antfu/ni, it provides a unified interface across different package managers.
 
 ## Quick Start Commands
 
 ### Testing
 ```bash
-# Run all tests (BDD-style with Ginkgo)
-ginkgo run
+# Run all tests with coverage (BDD-style with Ginkgo) - Primary command
+ginkgo -cover --skip-package build_info,test_util,mock
 
-# Watch mode for TDD development
+# Watch mode for TDD development (auto-reruns on file changes)
 ginkgo watch
+
+# Run all tests recursively from current directory
+ginkgo -r
+
+# Run tests in parallel for faster execution
+ginkgo -p
+
+# Run tests with race condition detection
+ginkgo -race
+
+# Run only focused tests or skip specific tests
+ginkgo --focus "pattern"
+ginkgo --skip "pattern"
+
+# Run tests with maximum verbosity
+ginkgo -v -vv
+
+# Run tests until they fail (for debugging flaky tests)
+ginkgo --until-it-fails
+
+# Run tests specific number of times
+ginkgo --repeat 5
 
 # Run tests for specific package
 ginkgo run ./cmd
 ginkgo run ./detect
 
-# Generate coverage report (80% minimum threshold)
-go test ./... -race -coverprofile=coverage.out
-
 # Run tests with CI build flags (relaxed --cwd validation)
 go test ./... -race -coverprofile=coverage.out -ldflags "-X github.com/louiss0/javascript-package-delegator/build_info.rawCI=true"
-
-# Check coverage threshold with automated cleanup
-./scripts/check-coverage.sh
 
 # Generate HTML coverage report
 go tool cover -html=coverage.out -o coverage.html
@@ -39,14 +56,20 @@ go tool cover -html=coverage.out -o coverage.html
 go build -o jpd ./main.go
 
 ### Code Quality
-```bash
-# Lint with golangci-lint
-golangci-lint run
 
-# Format code (required before commits)
-gofmt -s -w .
+**MANDATORY WORKFLOW**: After every file change, follow this exact order:
+
+```bash
+# 1. Format code immediately after any file change (REQUIRED)
+gofmt -w .
+
+# 2. Update imports when new imports are added (REQUIRED if imports changed)
 goimports -w .
 
+# 3. Run linter after completing all tasks (ALWAYS FINAL STEP)
+golangci-lint run
+
+# Additional quality checks
 # Verify Go modules are tidy
 go mod tidy
 go mod verify
@@ -96,6 +119,12 @@ cd docs && pnpm preview
 2. Path-based detection (`detect/DetectJSPackageManager`) checks PATH for package managers
 3. Fallback to interactive installation prompt if nothing is found
 
+**Custom Flag Implementation:**
+1. All custom flags **MUST** inherit from `pflag.Value` interface for consistency
+2. The `custom_flags` package provides validation and parsing logic
+3. Example: `--cwd` flag uses custom path validation with trailing `/` requirements
+4. Flags integrate with Cobra's flag system while maintaining type safety
+
 ## Package Structure
 
 | Package | Responsibility |
@@ -115,9 +144,10 @@ cd docs && pnpm preview
 
 ### BDD Approach with Ginkgo
 - **Test Runner**: Ginkgo v2 for BDD-style testing
-- **Assertions**: Testify assertions
+- **Assertions**: Testify assertions **ONLY** - Gomega is never used
 - **Test Organization**: Each package has a `*_suite_test.go` file that sets up the Ginkgo test suite
 - **Parallel Execution**: Ginkgo runs tests in parallel by default - be mindful of shared state
+- **Import Policy**: If a file is created that imports Gomega (`github.com/onsi/gomega`), remove the import immediately
 
 ### Mocking Strategy
 The codebase uses interface-based mocking for external dependencies:
@@ -147,8 +177,10 @@ type CommandRunner interface {
 They are implemented using the `githhub.com/testify/mock` package.
 
 ### Coverage Requirements
-- **Minimum**: 80% test coverage enforced in CI
+- **Minimum Threshold**: 80% test coverage enforced in CI
+- **Acceptable Fallback**: 70% coverage is acceptable when 80% is impossible due to edge cases
 - **Excluded Packages**: `build_info`, `mock`, `testutil` (infrastructure code)
+- **Production Logs**: Production logs will **never** be tested (logging in production mode excluded from coverage)
 - **Enforcement**: CI fails automatically if coverage drops below threshold
 
 ## Build Configuration
@@ -179,6 +211,44 @@ The project uses Go's `-ldflags` to inject build-time information:
 - **Cross-platform builds**: Linux, macOS, Windows for amd64 and arm64
 - **Package managers**: Homebrew, Scoop, Winget, Nix
 - **Automatic releases**: Triggered on Git tags with conventional commit changelog
+
+## Release Workflow
+
+### Version Determination Using Git History
+When releasing this package, always use Git history to determine the new tag following semantic versioning principles, just like most release libraries do:
+
+**Semantic Versioning Rules:**
+- **PATCH** (`x.x.1`): Bug fixes, documentation updates, internal refactoring
+- **MINOR** (`x.1.x`): New features, new commands, backwards-compatible API additions
+- **MAJOR** (`1.x.x`): Breaking changes, CLI interface changes, incompatible API changes
+
+**Git History Analysis:**
+```bash
+# Review commits since last tag to determine version bump
+git log $(git describe --tags --abbrev=0)..HEAD --oneline
+
+# Check for conventional commit types:
+# - fix: → PATCH version
+# - feat: → MINOR version  
+# - BREAKING CHANGE or !: → MAJOR version
+# - docs:, style:, refactor:, test:, chore: → PATCH version
+
+# Example version determination:
+git describe --tags --abbrev=0  # Shows current version (e.g., v1.2.3)
+# Analyze commits → determine new version (e.g., v1.3.0)
+
+# Create and push new tag
+git tag v1.3.0
+git push origin v1.3.0
+```
+
+**Release Checklist:**
+1. Ensure all tests pass: `ginkgo -cover --skip-package build_info,test_util,mock`
+2. Run full linting: `golangci-lint run`
+3. Verify coverage meets threshold (80% minimum, 70% acceptable)
+4. Analyze Git history for version bump
+5. Create semantic version tag
+6. Push tag to trigger GoReleaser automation
 
 ## Common Workflows
 
@@ -238,6 +308,46 @@ go tool cover -html=coverage.out -o coverage.html
 # View coverage by function
 go tool cover -func=coverage.out
 ```
+
+## Development Best Practices
+
+### TDD Workflow
+```bash
+# Start TDD workflow
+ginkgo watch
+
+# Make changes, tests run automatically
+# When tests pass, check coverage
+ginkgo -cover --skip-package build_info,test_util,mock
+
+# Clean up artifacts
+./scripts/cleanup.sh
+```
+
+### Format-on-Save Practices
+1. **After Every File Change**: Run `gofmt -w .` immediately
+2. **Import Management**: Run `goimports -w .` when new imports are added
+3. **Final Step**: Always run `golangci-lint run` after completing all tasks
+4. **Workflow Order**: Code → Format → Imports → Lint
+
+### Package Structure Constraints
+- **One Test File**: Each package must have exactly one `*_suite_test.go` file that sets up the Ginkgo test suite
+- **Single Folder Depth**: Go packages can only have one level of folders (no nested packages)
+- **Test Organization**: Group related tests in the same package's test files
+
+### Coverage Workflow
+```bash
+# Always use ginkgo for coverage testing
+ginkgo -cover --skip-package build_info,test_util,mock
+
+# Coverage must meet 80% minimum, 70% acceptable for edge cases
+# Production logs will never be tested
+```
+
+### Import Management
+- **Gomega Policy**: If any file imports `github.com/onsi/gomega`, remove the import immediately
+- **Testify Only**: Use only `github.com/stretchr/testify/assert` for assertions
+- **Flag Requirements**: All custom flags must inherit from `pflag.Value` interface
 
 ## Project Conventions
 
