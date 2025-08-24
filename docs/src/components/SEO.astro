@@ -1,92 +1,95 @@
 ---
-import { SEO } from 'astro-seo';
+import { SEO as Astro_SEO } from "astro-seo";
 
 export interface Props {
-  title?: string;
-  description?: string;
-  image?: string;
-  url?: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    url?: string;
 }
 
 const {
-  title = 'JavaScript Package Delegator (JPD)',
-  description = 'A universal JavaScript package manager CLI written in Go that delegates to npm, Yarn, pnpm, Bun, and Deno.',
-  image = '/og-image.svg',
-  url = Astro.url.href,
+    title = "JavaScript Package Delegator (JPD)",
+    description = "A universal JavaScript package manager CLI written in Go that delegates to npm, Yarn, pnpm, Bun, and Deno.",
+    image = "/og-image.svg",
+    url = Astro.url.href,
 } = Astro.props;
 
-const siteUrl = 'https://jpd-docs.onrender.com';
+const siteUrl = "https://jpd-docs.onrender.com";
 const fullImageUrl = new URL(image, siteUrl).href;
 const canonicalUrl = new URL(url, siteUrl).href;
 ---
 
-<SEO
-  title={title}
-  description={description}
-  canonical={canonicalUrl}
-  openGraph={{
-    basic: {
-      title: title,
-      type: 'website',
-      image: fullImageUrl,
-      url: canonicalUrl,
-    },
-    optional: {
-      description: description,
-      siteName: 'JavaScript Package Delegator (JPD) Documentation',
-    },
-    image: {
-      alt: 'JavaScript Package Delegator (JPD) - Universal CLI for package managers',
-      width: 1200,
-      height: 630,
-    },
-  }}
-  twitter={{
-    card: 'summary_large_image',
-    site: '@louiss0',
-    creator: '@louiss0',
-    title: title,
-    description: description,
-    image: fullImageUrl,
-    imageAlt: 'JavaScript Package Delegator (JPD) - Universal CLI for package managers',
-  }}
-  extend={{
-    meta: [
-      {
-        name: 'keywords',
-        content: 'javascript, package manager, cli, go, npm, yarn, pnpm, bun, deno, universal, delegator, jpd',
-      },
-      {
-        name: 'author',
-        content: 'Shelton Louis',
-      },
-      {
-        name: 'robots',
-        content: 'index, follow',
-      },
-      {
-        name: 'googlebot',
-        content: 'index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1',
-      },
-      {
-        property: 'og:locale',
-        content: 'en_US',
-      },
-      {
-        name: 'theme-color',
-        content: '#1e40af',
-      },
-    ],
-    link: [
-      {
-        rel: 'icon',
-        type: 'image/svg+xml',
-        href: '/favicon.svg',
-      },
-      {
-        rel: 'sitemap',
-        href: '/sitemap-index.xml',
-      },
-    ],
-  }}
+<Astro_SEO
+    title={title}
+    description={description}
+    canonical={canonicalUrl}
+    openGraph={{
+        basic: {
+            title: title,
+            type: "website",
+            image: fullImageUrl,
+            url: canonicalUrl,
+        },
+        optional: {
+            description: description,
+            siteName: "JavaScript Package Delegator (JPD) Documentation",
+        },
+        image: {
+            alt: "JavaScript Package Delegator (JPD) - Universal CLI for package managers",
+            width: 1200,
+            height: 630,
+        },
+    }}
+    twitter={{
+        card: "summary_large_image",
+        site: "@louiss0",
+        creator: "@louiss0",
+        title: title,
+        description: description,
+        image: fullImageUrl,
+        imageAlt:
+            "JavaScript Package Delegator (JPD) - Universal CLI for package managers",
+    }}
+    extend={{
+        meta: [
+            {
+                name: "keywords",
+                content:
+                    "javascript, package manager, cli, go, npm, yarn, pnpm, bun, deno, universal, delegator, jpd",
+            },
+            {
+                name: "author",
+                content: "Shelton Louis",
+            },
+            {
+                name: "robots",
+                content: "index, follow",
+            },
+            {
+                name: "googlebot",
+                content:
+                    "index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1",
+            },
+            {
+                property: "og:locale",
+                content: "en_US",
+            },
+            {
+                name: "theme-color",
+                content: "#1e40af",
+            },
+        ],
+        link: [
+            {
+                rel: "icon",
+                type: "image/svg+xml",
+                href: "/favicon.svg",
+            },
+            {
+                rel: "sitemap",
+                href: "/sitemap-index.xml",
+            },
+        ],
+    }}
 />
