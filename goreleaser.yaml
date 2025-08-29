@@ -159,7 +159,7 @@ winget:
         base:
           name: winget-pkgs
           owner: microsoft
-          branch: main
+          branch: master
 
       # For uploading to git!
       git:
