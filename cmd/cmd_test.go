@@ -3715,20 +3715,26 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		Context("warp subcommand", func() {
-			It("should print Warp workflows as multi-doc YAML to stdout if no output-dir flag", func() {
+			It("should install Warp workflows to default directory if no output-dir flag", func() {
 				// Add debug expectations for warp subcommand which executes business logic
 				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+
+				// The actual path will be within tempDir because of XDG_DATA_HOME override
+				warpWorkflowsDir := filepath.Join(tempDir, "warp-terminal", "workflows")
+
 				output, err := executeCmd(rootCmd, "integrate", "warp")
 				assert.NoError(err)
-				assert.Contains(output, "---") // Multi-doc YAML separator
-				assert.Contains(output, "name: JPD Install")
-				assert.Contains(output, "name: JPD Run")
-				assert.Contains(output, "name: JPD Exec")
-				assert.Contains(output, "name: JPD DLX")
-				assert.Contains(output, "name: JPD Update")
-				assert.Contains(output, "name: JPD Uninstall")
-				assert.Contains(output, "name: JPD Clean Install")
-				assert.Contains(output, "name: JPD Agent")
+				assert.Empty(output) // Should not print to stdout, now installs to default dir
+
+				// Verify workflow files were created in default directory
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-install.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-run.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-exec.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-dlx.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-update.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-uninstall.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-clean-install.yaml"))
+				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-agent.yaml"))
 			})
 
 			It("should throw error for empty output-dir flag", func() {

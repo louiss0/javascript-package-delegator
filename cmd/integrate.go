@@ -16,7 +16,7 @@ import (
 // NewIntegrateCmd creates the integrate command with subcommands for external integrations
 func NewIntegrateCmd() *cobra.Command {
 
-	outputFileFlag := custom_flags.NewFilePathFlag("output")
+	outputFile := custom_flags.NewFilePathFlag("output")
 
 	integrateCmd := &cobra.Command{
 		Use:   "integrate",
@@ -28,8 +28,8 @@ Available integrations:
   carapace  - Generate Carapace completion spec
 
 Examples:
-	jpd integrate warp --output-dir ./workflows/  # Generate Warp workflow files
-	jpd integrate warp                           # Print Warp workflows as multi-doc YAML
+	jpd integrate warp                           # Install workflows to default directory
+	jpd integrate warp --output-dir ./workflows  # Install workflows to custom directory
 	jpd integrate carapace                       # Install spec to global Carapace directory
 	jpd integrate carapace --stdout              # Print spec to stdout
 	jpd integrate carapace --output ./jpd.yaml   # Write spec to custom file
@@ -42,10 +42,9 @@ Carapace spec installation locations:
 		DisableFlagsInUseLine: true,
 	}
 
-	// Add flags for both warp and carapace integrations
-	// Use standard string flag for output-dir to allow empty values for stdout behavior
-	integrateCmd.Flags().String("output-dir", "", "Output directory for Warp workflow files")
-	integrateCmd.Flags().VarP(outputFileFlag, "output", "o", "Output file for Carapace spec")
+	// Only add Carapace-specific flags to the root integrate command
+	// The warp-specific output-dir flag is defined on the warp subcommand itself
+	integrateCmd.Flags().VarP(outputFile, "output", "o", "Output file for Carapace spec")
 	integrateCmd.Flags().Bool("stdout", false, "Print Carapace spec to stdout instead of installing")
 
 	integrateCmd.AddCommand(NewIntegrateWarpCmd(), NewIntegrateCarapaceCmd())
@@ -66,12 +65,15 @@ func NewIntegrateWarpCmd() *cobra.Command {
 This generates individual .yaml workflow files for each JPD command (install, run, exec, dlx,
 update, uninstall, clean-install, agent) that can be used with Warp terminal.
 
+By default, workflow files are installed to:
+  ${XDG_DATA_HOME:-$HOME/.local/share}/warp-terminal/workflows
+
 Examples:
-	jpd integrate warp --output-dir ./workflows/  # Generate individual workflow files
-	jpd integrate warp                           # Print workflows as multi-doc YAML
+	jpd integrate warp                           # Install to default directory
+	jpd integrate warp --output-dir ./workflows  # Install to custom directory
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWarpIntegration(cmd)
+			return runWarpIntegration(outputDirFlag.String(), cmd)
 		},
 	}
 
@@ -105,7 +107,7 @@ Global installation locations:
   Custom:      Set XDG_DATA_HOME to override on Unix systems
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCarapaceIntegration(cmd)
+			return runCarapaceIntegration(outputFileFlag.String(), cmd)
 		},
 	}
 
@@ -115,41 +117,34 @@ Global installation locations:
 	return carapaceCmd
 }
 
-func runWarpIntegration(cmd *cobra.Command) error {
+func runWarpIntegration(output_dir string, cmd *cobra.Command) error {
 	warpGenerator := integrations.NewWarpGenerator()
-
 	goEnv := getGoEnvFromCommandContext(cmd)
 
-	outputDirFlag, err := cmd.Flags().GetString("output-dir")
-	if err != nil {
-		// Flag not set, output to stdout
-		multiDoc, err := warpGenerator.RenderJPDWorkflowsMultiDoc()
+	// Get output directory from flag (already validated by FolderPathFlag)
+	var outDir string
+	var err error
+
+	if output_dir == "" {
+		// No flag provided, use default directory
+		outDir, err = integrations.DefaultWarpWorkflowsDir()
 		if err != nil {
-			return fmt.Errorf("failed to generate Warp workflows: %w", err)
+			return fmt.Errorf("failed to resolve default Warp workflows directory: %w", err)
 		}
-		cmd.Print(multiDoc)
-		return nil
+	} else {
+		// Use the provided directory (already validated by FolderPathFlag)
+		// Remove trailing slash for consistency
+		outDir = output_dir
 	}
 
-	if outputDirFlag == "" {
-		// No output directory specified, output to stdout
-		multiDoc, err := warpGenerator.RenderJPDWorkflowsMultiDoc()
-		if err != nil {
-			return fmt.Errorf("failed to generate Warp workflows: %w", err)
-		}
-		cmd.Print(multiDoc)
-		return nil
-	}
-
-	// Generate individual workflow files in directory
-	err = warpGenerator.GenerateJPDWorkflows(outputDirFlag)
+	// Generate workflow files in the directory
+	err = warpGenerator.GenerateJPDWorkflows(outDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate Warp workflow files: %w", err)
 	}
 
 	goEnv.ExecuteIfModeIsProduction(func() {
-		log.Info("Generated Warp workflow files", "directory", outputDirFlag)
-
+		log.Info("Generated Warp workflow files", "directory", outDir)
 	})
 	return nil
 }
@@ -158,7 +153,7 @@ func runWarpIntegration(cmd *cobra.Command) error {
 // 1. --output flag: Write to specified file (preserves existing behavior)
 // 2. --stdout flag: Print to stdout (preserves old default behavior for tooling/pipes)
 // 3. Default: Install to global Carapace specs directory (new default behavior)
-func runCarapaceIntegration(cmd *cobra.Command) error {
+func runCarapaceIntegration(outputFile string, cmd *cobra.Command) error {
 	carapaceGenerator := integrations.NewCarapaceSpecGenerator()
 
 	goEnv := getGoEnvFromCommandContext(cmd)
@@ -170,17 +165,16 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 	}
 
 	// Check flag precedence: 1) --output, 2) --stdout, 3) default (global install)
-	outputFileFlag, _ := cmd.Flags().GetString("output")
-	if outputFileFlag != "" {
+	if outputFile != "" {
 		// Mode 1: Write to custom file path
-		err = writeToFile(outputFileFlag, spec)
+		err = writeToFile(outputFile, spec)
 		if err != nil {
 			return fmt.Errorf("failed to write Carapace spec to file: %w", err)
 		}
 
 		goEnv.ExecuteIfModeIsProduction(func() {
 
-			log.Info("Generated Carapace spec file", "path", outputFileFlag)
+			log.Info("Generated Carapace spec file", "path", outputFile)
 		})
 		return nil
 	}
