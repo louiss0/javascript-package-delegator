@@ -122,23 +122,21 @@ func runWarpIntegration(output_dir string, cmd *cobra.Command) error {
 	goEnv := getGoEnvFromCommandContext(cmd)
 
 	// Get output directory from flag (already validated by FolderPathFlag)
-
 	var outDir string
-
 	var err error
 
 	if output_dir == "" {
-		outDir, err := integrations.DefaultWarpWorkflowsDir()
+		// No flag provided, use default directory
+		outDir, err = integrations.DefaultWarpWorkflowsDir()
 		if err != nil {
 			return fmt.Errorf("failed to resolve default Warp workflows directory: %w", err)
 		}
-		err = warpGenerator.GenerateJPDWorkflows(outDir)
-
-		if err != nil {
-			return fmt.Errorf("failed to generate Warp workflow files using default directory: %w", err)
-		}
-
+	} else {
+		// Use the provided directory (already validated by FolderPathFlag)
+		// Remove trailing slash for consistency
+		outDir = output_dir
 	}
+
 	// Generate workflow files in the directory
 	err = warpGenerator.GenerateJPDWorkflows(outDir)
 	if err != nil {
