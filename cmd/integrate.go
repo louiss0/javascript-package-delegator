@@ -73,7 +73,7 @@ Examples:
 	jpd integrate warp --output-dir ./workflows  # Install to custom directory
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWarpIntegration(cmd)
+			return runWarpIntegration(outputDirFlag.String(), cmd)
 		},
 	}
 
@@ -117,23 +117,30 @@ Global installation locations:
 	return carapaceCmd
 }
 
-func runWarpIntegration(cmd *cobra.Command) error {
+func runWarpIntegration(output_dir string, cmd *cobra.Command) error {
 	warpGenerator := integrations.NewWarpGenerator()
 	goEnv := getGoEnvFromCommandContext(cmd)
 
-	// Get output directory from flag, or use default
-	outputDirFlag, _ := cmd.Flags().GetString("output-dir")
-	outDir := outputDirFlag
-	if outDir == "" {
-		var err error
-		outDir, err = integrations.DefaultWarpWorkflowsDir()
+	// Get output directory from flag (already validated by FolderPathFlag)
+
+	var outDir string
+
+	var err error
+
+	if output_dir == "" {
+		outDir, err := integrations.DefaultWarpWorkflowsDir()
 		if err != nil {
 			return fmt.Errorf("failed to resolve default Warp workflows directory: %w", err)
 		}
-	}
+		err = warpGenerator.GenerateJPDWorkflows(outDir)
 
+		if err != nil {
+			return fmt.Errorf("failed to generate Warp workflow files using default directory: %w", err)
+		}
+
+	}
 	// Generate workflow files in the directory
-	err := warpGenerator.GenerateJPDWorkflows(outDir)
+	err = warpGenerator.GenerateJPDWorkflows(outDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate Warp workflow files: %w", err)
 	}
