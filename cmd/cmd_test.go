@@ -3718,14 +3718,14 @@ var _ = Describe("JPD Commands", func() {
 			It("should install Warp workflows to default directory if no output-dir flag", func() {
 				// Add debug expectations for warp subcommand which executes business logic
 				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				
+
 				// The actual path will be within tempDir because of XDG_DATA_HOME override
 				warpWorkflowsDir := filepath.Join(tempDir, "warp-terminal", "workflows")
-				
+
 				output, err := executeCmd(rootCmd, "integrate", "warp")
 				assert.NoError(err)
 				assert.Empty(output) // Should not print to stdout, now installs to default dir
-				
+
 				// Verify workflow files were created in default directory
 				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-install.yaml"))
 				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-run.yaml"))
