@@ -450,6 +450,63 @@ var _ = Describe("Warp Workflow Generator", func() {
 		}
 	})
 
+	Describe("DefaultWarpWorkflowsDir", func() {
+		Context("when XDG_DATA_HOME is set", func() {
+			It("should return XDG_DATA_HOME/warp-terminal/workflows", func() {
+				// Save original env and create temp dir
+				originalXDG := os.Getenv("XDG_DATA_HOME")
+				defer func() { _ = os.Setenv("XDG_DATA_HOME", originalXDG) }()
+
+				tmpDir, err := os.MkdirTemp("", "xdg-test-*")
+				assert.NoError(GinkgoT(), err)
+				defer func() { _ = os.RemoveAll(tmpDir) }()
+
+				// Set XDG_DATA_HOME to temp dir
+				err = os.Setenv("XDG_DATA_HOME", tmpDir)
+				assert.NoError(GinkgoT(), err)
+
+				// Call function
+				result, err := integrations.DefaultWarpWorkflowsDir()
+
+				// Assertions
+				assert.NoError(GinkgoT(), err)
+				expected := filepath.Join(tmpDir, "warp-terminal", "workflows")
+				assert.Equal(GinkgoT(), expected, result)
+			})
+		})
+
+		Context("when XDG_DATA_HOME is not set", func() {
+			It("should return HOME/.local/share/warp-terminal/workflows", func() {
+				// Save original env vars
+				originalXDG := os.Getenv("XDG_DATA_HOME")
+				originalHOME := os.Getenv("HOME")
+				defer func() {
+					_ = os.Setenv("XDG_DATA_HOME", originalXDG)
+					_ = os.Setenv("HOME", originalHOME)
+				}()
+
+				// Create temp home dir
+				tmpHome, err := os.MkdirTemp("", "home-test-*")
+				assert.NoError(GinkgoT(), err)
+				defer func() { _ = os.RemoveAll(tmpHome) }()
+
+				// Unset XDG_DATA_HOME and set HOME
+				err = os.Unsetenv("XDG_DATA_HOME")
+				assert.NoError(GinkgoT(), err)
+				err = os.Setenv("HOME", tmpHome)
+				assert.NoError(GinkgoT(), err)
+
+				// Call function
+				result, err := integrations.DefaultWarpWorkflowsDir()
+
+				// Assertions
+				assert.NoError(GinkgoT(), err)
+				expected := filepath.Join(tmpHome, ".local", "share", "warp-terminal", "workflows")
+				assert.Equal(GinkgoT(), expected, result)
+			})
+		})
+	})
+
 	Describe("RenderJPDWorkflowsMultiDoc", func() {
 		It("should render multi-document YAML with all workflows", func() {
 			result, err := generator.RenderJPDWorkflowsMultiDoc()

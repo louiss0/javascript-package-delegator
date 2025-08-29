@@ -234,3 +234,17 @@ func (g *warpGenerator) RenderJPDWorkflowsMultiDoc() (string, error) {
 
 	return strings.Join(parts, "\n"), nil
 }
+
+// DefaultWarpWorkflowsDir returns the default Warp workflows directory:
+// ${XDG_DATA_HOME:-$HOME/.local/share}/warp-terminal/workflows
+func DefaultWarpWorkflowsDir() (string, error) {
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve user home: %w", err)
+		}
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(dataHome, "warp-terminal", "workflows"), nil
+}
