@@ -16,7 +16,7 @@ import (
 // NewIntegrateCmd creates the integrate command with subcommands for external integrations
 func NewIntegrateCmd() *cobra.Command {
 
-	outputFileFlag := custom_flags.NewFilePathFlag("output")
+	outputFile := custom_flags.NewFilePathFlag("output")
 
 	integrateCmd := &cobra.Command{
 		Use:   "integrate",
@@ -44,7 +44,7 @@ Carapace spec installation locations:
 
 	// Only add Carapace-specific flags to the root integrate command
 	// The warp-specific output-dir flag is defined on the warp subcommand itself
-	integrateCmd.Flags().VarP(outputFileFlag, "output", "o", "Output file for Carapace spec")
+	integrateCmd.Flags().VarP(outputFile, "output", "o", "Output file for Carapace spec")
 	integrateCmd.Flags().Bool("stdout", false, "Print Carapace spec to stdout instead of installing")
 
 	integrateCmd.AddCommand(NewIntegrateWarpCmd(), NewIntegrateCarapaceCmd())
@@ -107,7 +107,7 @@ Global installation locations:
   Custom:      Set XDG_DATA_HOME to override on Unix systems
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCarapaceIntegration(cmd)
+			return runCarapaceIntegration(outputFileFlag.String(), cmd)
 		},
 	}
 
@@ -155,7 +155,7 @@ func runWarpIntegration(output_dir string, cmd *cobra.Command) error {
 // 1. --output flag: Write to specified file (preserves existing behavior)
 // 2. --stdout flag: Print to stdout (preserves old default behavior for tooling/pipes)
 // 3. Default: Install to global Carapace specs directory (new default behavior)
-func runCarapaceIntegration(cmd *cobra.Command) error {
+func runCarapaceIntegration(outputFile string, cmd *cobra.Command) error {
 	carapaceGenerator := integrations.NewCarapaceSpecGenerator()
 
 	goEnv := getGoEnvFromCommandContext(cmd)
@@ -167,17 +167,16 @@ func runCarapaceIntegration(cmd *cobra.Command) error {
 	}
 
 	// Check flag precedence: 1) --output, 2) --stdout, 3) default (global install)
-	outputFileFlag, _ := cmd.Flags().GetString("output")
-	if outputFileFlag != "" {
+	if outputFile != "" {
 		// Mode 1: Write to custom file path
-		err = writeToFile(outputFileFlag, spec)
+		err = writeToFile(outputFile, spec)
 		if err != nil {
 			return fmt.Errorf("failed to write Carapace spec to file: %w", err)
 		}
 
 		goEnv.ExecuteIfModeIsProduction(func() {
 
-			log.Info("Generated Carapace spec file", "path", outputFileFlag)
+			log.Info("Generated Carapace spec file", "path", outputFile)
 		})
 		return nil
 	}
