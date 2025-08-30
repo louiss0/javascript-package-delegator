@@ -50,27 +50,27 @@ changelog:
       - '^style(\(.*\))?:'
       - '^refactor(\(.*\))?:'
       # Also exclude merge commits and dependency updates
-      - '^Merge'
+      - "^Merge"
       - '^(build|ci)\(deps'
       - '^(build|ci)\(.*\): bump'
   # Group commits by type in the release notes
   groups:
-    - title: 'Features'
+    - title: "Features"
       regexp: '^feat(\(.*\))?:'
       order: 0
-    - title: 'Bug Fixes'
+    - title: "Bug Fixes"
       regexp: '^fix(\(.*\))?:'
       order: 1
-    - title: 'Tests'
+    - title: "Tests"
       regexp: '^test(\(.*\))?:'
       order: 2
-    - title: 'Performance'
+    - title: "Performance"
       regexp: '^perf(\(.*\))?:'
       order: 3
-    - title: 'CI/Build'
+    - title: "CI/Build"
       regexp: '^(build|ci)(\(.*\))?:'
       order: 4
-    - title: 'Others'
+    - title: "Others"
       order: 999
   # Sort commits within groups
   sort: asc
@@ -149,6 +149,17 @@ winget:
       #
       # Templates: allowed.
       name: winget-pkgs
+
+      # Repository branch.
+      #
+      # Templates: allowed.
+      branch: "{{.ProjectName}}-{{.Version}}"
+      pull_request:
+        enabled: true
+        base:
+          name: winget-pkgs
+          owner: microsoft
+          branch: master
 
       # For uploading to git!
       git:

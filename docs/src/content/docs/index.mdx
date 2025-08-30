@@ -20,7 +20,7 @@ hero:
 import { Card, CardGrid, Badge } from '@astrojs/starlight/components';
 
 <div style="text-align: center; margin-bottom: 2rem;">
-  <Badge text="Documentation for jpd 1.2.2" variant="note" />
+  <Badge text="Documentation for jpd 2.0.0" variant="note" />
 </div>
 
 ## What is jpd?
@@ -30,7 +30,7 @@ import { Card, CardGrid, Badge } from '@astrojs/starlight/components';
 Inspired by [@antfu/ni](https://github.com/antfu/ni), jpd automatically detects your project's package manager by analyzing lock files and configuration, then transparently delegates commands to the appropriate tool. This creates a **unified development experience** that's especially valuable for:
 
 - **Teams with diverse preferences** (some prefer npm, others prefer pnpm)
-- **Polyglot developers** switching between Node.js and Deno projects  
+- **Polyglot developers** switching between Node.js and Deno projects
 - **Monorepos** with different package managers in different workspaces
 - **Open source contributors** working across many different projects
 
@@ -40,27 +40,27 @@ Inspired by [@antfu/ni](https://github.com/antfu/ni), jpd automatically detects 
   <Card title="Automatic Detection" icon="magnifier">
     Intelligently identifies package managers by checking for `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lockb`, `deno.json`, and more.
   </Card>
-  
+
   <Card title="Unified Commands" icon="rocket">
     One consistent API for install, run, exec, update, uninstall, and clean-install across all supported package managers.
   </Card>
-  
+
   <Card title="Interactive Workflows" icon="puzzle">
     Search npm registry interactively, select scripts/tasks from a menu, and choose dependencies to uninstall with built-in UI.
   </Card>
-  
+
   <Card title="Volta Integration" icon="setting">
     Automatically uses Volta when detected to ensure consistent Node.js versions across your environments.
   </Card>
-  
+
   <Card title="Shell Completion" icon="open-book">
     Generate completion scripts for Bash, Zsh, Fish, PowerShell, and Nushell to boost productivity and reduce errors.
   </Card>
-  
+
   <Card title="Debug Mode" icon="information">
     Built-in debugging with `--debug` flag shows exactly what commands are being executed behind the scenes.
   </Card>
-  
+
   <Card title="External Integrations" icon="puzzle">
     Generate Warp terminal workflows and Carapace completion specs with one command.
   </Card>
@@ -116,15 +116,15 @@ This design makes jpd predictable and easy to learn, whether you're a newcomer o
   <Card title="Tutorial" icon="rocket">
     [Get started](/tutorial/getting-started/) with installation and basic usage patterns.
   </Card>
-  
+
   <Card title="How-to Guides" icon="list-format">
     Learn specific techniques like [running commands in subprojects](/how-to/run-in-subproject/) and [interactive workflows](/how-to/interactive/).
   </Card>
-  
+
   <Card title="Commands Reference" icon="document">
     Browse the complete [command reference](/reference/commands/) with all flags and examples.
   </Card>
-  
+
   <Card title="Mental Model" icon="puzzle">
     Understand the [design philosophy](/explanation/mental-model/) behind jpd's CLI structure.
   </Card>
