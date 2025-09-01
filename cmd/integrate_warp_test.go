@@ -14,9 +14,7 @@ import (
 )
 
 // Define a custom type for context key to avoid collisions
-type contextKey string
-
-const goEnvKey contextKey = "go_env"
+type goEnvKey string
 
 var _ = Describe("Integrate Warp Command", func() {
 	Describe("NewIntegrateWarpCmd", func() {
@@ -38,7 +36,7 @@ var _ = Describe("Integrate Warp Command", func() {
 
 				// Add GoEnv to context
 				goEnv := env.NewGoEnv()
-				ctx := context.WithValue(context.Background(), goEnvKey, goEnv)
+				ctx := context.WithValue(context.Background(), goEnvKey("go_env"), goEnv)
 				// Also set the untyped string key used by the command context
 				ctx = context.WithValue(ctx, "go_env", goEnv) // nolint:staticcheck // command expects string key
 				warpCmd.SetContext(ctx)
@@ -95,7 +93,7 @@ var _ = Describe("Integrate Warp Command", func() {
 
 				// Add GoEnv to context
 				goEnv := env.NewGoEnv()
-				ctx := context.WithValue(context.Background(), goEnvKey, goEnv)
+				ctx := context.WithValue(context.Background(), goEnvKey("go_env"), goEnv)
 				// Also set the untyped string key used by the command context
 				ctx = context.WithValue(ctx, "go_env", goEnv) // nolint:staticcheck // command expects string key
 				warpCmd.SetContext(ctx)
