@@ -43,6 +43,7 @@ type taskSelectorUI struct {
 }
 
 func newTaskSelectorUI(options []string) TaskUISelector {
+
 	return &taskSelectorUI{
 		selectUI: *huh.NewSelect[string]().
 			Title("Select a task").
@@ -55,7 +56,7 @@ func (t taskSelectorUI) Value() string {
 	return t.selectedValue
 }
 
-func (t taskSelectorUI) Run() error {
+func (t *taskSelectorUI) Run() error {
 	return t.selectUI.Value(&t.selectedValue).Run()
 }
 
@@ -79,13 +80,23 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
 
+			// Resolve target directory from --cwd flag, fallback to current working directory
+			targetDir, _ := cmd.Flags().GetString(_CWD_FLAG)
+			if targetDir == "" {
+				var err error
+				targetDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get current working directory: %w", err)
+				}
+			}
+
 			// If no script name provided, list available scripts
 
 			var selectedPackage string
 
 			if pm == "deno" {
 				if len(args) == 0 {
-					pkg, err := readDenoJSON()
+					pkg, err := readDenoJSONFrom(targetDir)
 					if err != nil {
 						return err
 					}
@@ -112,7 +123,7 @@ Examples:
 				}
 			} else {
 				if len(args) == 0 {
-					pkg, err := readPackageJSONAndUnmarshalScripts()
+					pkg, err := readPackageJSONAndUnmarshalScriptsFrom(targetDir)
 					if err != nil {
 						return err
 					}
@@ -122,11 +133,15 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-						_, _ = fmt.Fprintf(
+						_, err = fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Scripts), ","),
 						)
+					}
+
+					if err != nil {
+						return err
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
@@ -159,7 +174,7 @@ Examples:
 			// Check if script exists when --if-present flag is used
 			ifPresent, _ := cmd.Flags().GetBool("if-present")
 			if ifPresent {
-				pkg, err := readPackageJSONAndUnmarshalScripts()
+				pkg, err := readPackageJSONAndUnmarshalScriptsFrom(targetDir)
 				if err != nil {
 					return err
 				}
@@ -240,13 +255,10 @@ type PackageJSONScripts struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-func readPackageJSONAndUnmarshalScripts() (*PackageJSONScripts, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
 
-	packageJSONPath := filepath.Join(cwd, "package.json")
+// readPackageJSONAndUnmarshalScriptsFrom reads package.json from the specified directory
+func readPackageJSONAndUnmarshalScriptsFrom(baseDir string) (*PackageJSONScripts, error) {
+	packageJSONPath := filepath.Join(baseDir, "package.json")
 	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
@@ -264,13 +276,10 @@ type DenoJSON struct {
 	Tasks map[string]string `json:"tasks"`
 }
 
-func readDenoJSON() (*DenoJSON, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
 
-	denoJSONPath := filepath.Join(cwd, "deno.json")
+// readDenoJSONFrom reads deno.json from the specified directory
+func readDenoJSONFrom(baseDir string) (*DenoJSON, error) {
+	denoJSONPath := filepath.Join(baseDir, "deno.json")
 	data, err := os.ReadFile(denoJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read deno.json: %w", err)
