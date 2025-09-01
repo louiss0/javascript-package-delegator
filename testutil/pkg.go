@@ -206,7 +206,7 @@ func (f *RootCommandFactory) CreateRootCmdWithLockfileDetected(pm string, lockfi
 	// As per the prompt, if a package manager is detected based on a lock file,
 	// the lock file should be returned by the detector.
 	// `DetectLockfile` is the primary detector for the lockfile itself.
-	deps.DetectLockfile = func() (string, error) {
+	deps.DetectLockfile = func(targetDir string) (string, error) {
 		return lockfile, nil // Lockfile successfully detected and returned
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
@@ -232,7 +232,7 @@ func (f *RootCommandFactory) CreateRootCmdWithLockfileDetected(pm string, lockfi
 // `volta` specifies if Volta should be detected.
 func (f *RootCommandFactory) CreateRootCmdWithPathDetected(pm string, pmDetectionErr error, volta bool) *cobra.Command {
 	deps := f.baseDependencies()
-	deps.DetectLockfile = func() (string, error) {
+	deps.DetectLockfile = func(targetDir string) (string, error) {
 		return "", os.ErrNotExist // No lockfile found, forcing path detection
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
@@ -276,7 +276,7 @@ func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
 // simulating lockfile-based detection.
 func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	deps := f.baseDependencies()
-	deps.DetectLockfile = func() (string, error) {
+	deps.DetectLockfile = func(targetDir string) (string, error) {
 		return detect.YARN_LOCK, nil // Lockfile found
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
@@ -299,7 +299,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 	deps := f.baseDependencies()
 
-	deps.DetectLockfile = func() (string, error) {
+	deps.DetectLockfile = func(targetDir string) (string, error) {
 		return "", os.ErrNotExist // No lockfile found, forcing path detection
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
@@ -342,7 +342,7 @@ func (f *RootCommandFactory) CreateNpmAsDefault(err error) *cobra.Command {
 func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string) *cobra.Command {
 	deps := f.baseDependencies()
 
-	deps.DetectLockfile = func() (lockfile string, error error) {
+	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist // No lockfile detected
 	}
 	deps.DetectJSPackageManagerBasedOnLockFile = func(detectedLockFile string) (string, error) {
@@ -369,7 +369,7 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile: "npm", nil.
 	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
 	deps := f.baseDependencies()
-	deps.DetectLockfile = func() (lockfile string, error error) {
+	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
@@ -387,7 +387,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile.
 	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
 	deps := f.baseDependencies()
-	deps.DetectLockfile = func() (lockfile string, error error) {
+	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist
 	}
 	deps.DetectJSPackageManager = func() (string, error) {
@@ -401,7 +401,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 // package manager detected via PATH.
 func (f *RootCommandFactory) CreateWithDependencySelectUI(packageManager string) *cobra.Command {
 	deps := f.baseDependencies()
-	deps.DetectLockfile = func() (lockfile string, error error) {
+	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist
 	}
 	deps.DetectJSPackageManager = func() (string, error) {

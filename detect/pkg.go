@@ -85,11 +85,14 @@ func DetectLockfile(fs FileSystem) (lockfile string, err error) {
 	if err != nil {
 		return "", err
 	}
+	return DetectLockfileIn(cwd, fs)
+}
 
+// DetectLockfileIn searches for lock files in the specified target directory
+func DetectLockfileIn(targetDir string, fs FileSystem) (lockfile string, err error) {
 	for _, lockFile := range lockFiles {
-		// Use the injected FileSystem's Stat method
-		// fmt.Sprintf ensures correct path joining, especially for Windows if needed later.
-		_, err := fs.Stat(filepath.Join(cwd, lockFile))
+		// Check for lock file in the specified target directory
+		_, err := fs.Stat(filepath.Join(targetDir, lockFile))
 
 		if err == nil {
 			return lockFile, nil // Return the lockFile and nil error if found

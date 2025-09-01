@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -431,9 +432,9 @@ var _ = Describe("JPD Commands", func() {
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
 						},
-						DetectLockfile: func() (lockfile string, err error) {
-							return "", nil
-						},
+					DetectLockfile: func(targetDir string) (lockfile string, err error) {
+						return "", nil
+					},
 						NewDebugExecutor: func(bool) cmd.DebugExecutor {
 							return factory.DebugExecutor()
 						},
@@ -554,9 +555,9 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, err error) {
-						return "", nil
-					},
+				DetectLockfile: func(targetDir string) (lockfile string, err error) {
+					return "", nil
+				},
 					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return factory.DebugExecutor()
 					},
@@ -608,7 +609,141 @@ var _ = Describe("JPD Commands", func() {
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 		})
+		})
 
+		// Merged tests from root_cwd_integration_test.go
+		Context("--cwd Integration Tests", func() {
+			var (
+				tempDir     string
+				subDir      string
+				mockFS      *MockFileSystemCwd
+				mockLookup  *MockPathLookupCwd
+				fakeRunner  *FakeCommandRunnerCwd
+				deps        cmd.Dependencies
+			)
+
+			BeforeEach(func() {
+				var err error
+				tempDir, err = os.MkdirTemp("", "jpd-root-cwd-test")
+				assert.NoError(err)
+
+				subDir = filepath.Join(tempDir, "project")
+				err = os.MkdirAll(subDir, 0755)
+				assert.NoError(err)
+
+				mockFS = &MockFileSystemCwd{
+					files: make(map[string]bool),
+				}
+				mockLookup = &MockPathLookupCwd{
+					paths: map[string]bool{
+						"npm": true,
+					},
+				}
+				fakeRunner = &FakeCommandRunnerCwd{}
+
+				deps = cmd.Dependencies{
+					CommandRunnerGetter: func() cmd.CommandRunner {
+						return fakeRunner
+					},
+					DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
+						return detect.DetectJSPackageManagerBasedOnLockFile(detectedLockFile, mockLookup)
+					},
+					YarnCommandVersionOutputter: &MockYarnVersionOutputterCwd{version: "1.22.19"},
+					NewCommandTextUI:            newMockCommandTextUICwd,
+					DetectLockfile: func(targetDir string) (string, error) {
+						return detect.DetectLockfileIn(targetDir, mockFS)
+					},
+					DetectJSPackageManager: func() (string, error) {
+						return detect.DetectJSPackageManager(mockLookup)
+					},
+					DetectVolta: func() bool {
+						return detect.DetectVolta(mockLookup)
+					},
+					NewPackageMultiSelectUI:    newMockPackageMultiSelectUICwd,
+					NewTaskSelectorUI:          newMockTaskSelectorUICwd,
+					NewDependencyMultiSelectUI: newMockDependencyMultiSelectUICwd,
+					NewDebugExecutor:           newMockDebugExecutorCwd,
+				}
+			})
+
+			AfterEach(func() {
+				os.RemoveAll(tempDir)
+			})
+
+			It("should detect lockfile in the specified directory not current directory", func() {
+				// Setup: place package-lock.json in subDir only
+				packageLockPath := filepath.Join(subDir, "package-lock.json")
+				mockFS.files[packageLockPath] = true
+
+				// Create root command with dependencies
+				rootCmd := cmd.NewRootCmd(deps)
+
+				// Set the arguments to simulate --cwd flag
+				rootCmd.SetArgs([]string{
+					"--cwd", subDir + "/", // Add trailing slash for POSIX validation
+					"agent", // Run the agent command to trigger lockfile detection
+				})
+
+				err := rootCmd.Execute()
+				assert.NoError(err)
+
+				// Verify that the agent flag was set to npm (from package-lock.json detection)
+				agentFlag, err := rootCmd.PersistentFlags().GetString("agent")
+				assert.NoError(err)
+				assert.Equal("npm", agentFlag)
+			})
+
+			It("should not detect lockfile in current directory when --cwd points elsewhere", func() {
+				// Setup: place package-lock.json only in current directory (tempDir)
+				// but point --cwd to subDir which has no lockfiles
+				currentDirLockFile := filepath.Join(tempDir, "package-lock.json")
+				mockFS.files[currentDirLockFile] = true
+
+				// Mock fs.Getwd to return tempDir as current directory
+				mockFS.cwd = tempDir
+
+				// Create root command with dependencies
+				rootCmd := cmd.NewRootCmd(deps)
+
+				// Set the arguments to simulate --cwd flag pointing to subDir
+				rootCmd.SetArgs([]string{
+					"--cwd", subDir + "/", // Add trailing slash for POSIX validation
+					"agent",
+				})
+
+				err := rootCmd.Execute()
+				assert.NoError(err)
+
+				// Since no lockfile in subDir, it should fallback to detecting npm from PATH
+				agentFlag, err := rootCmd.PersistentFlags().GetString("agent")
+				assert.NoError(err)
+				assert.Equal("npm", agentFlag) // Should still be npm from PATH detection
+			})
+
+			It("should fallback to current directory when --cwd is not provided", func() {
+				// Setup: place yarn.lock in tempDir (current directory)
+				yarnLockPath := filepath.Join(tempDir, "yarn.lock")
+				mockFS.files[yarnLockPath] = true
+				mockLookup.paths["yarn"] = true
+
+				// Mock fs.Getwd to return tempDir as current directory
+				mockFS.cwd = tempDir
+
+				// Create root command with dependencies
+				rootCmd := cmd.NewRootCmd(deps)
+
+				// Don't set --cwd flag, should use current directory
+				rootCmd.SetArgs([]string{"agent"})
+
+				err := rootCmd.Execute()
+				assert.NoError(err)
+
+				// Verify that yarn was detected from the lockfile in current directory
+				agentFlag, err := rootCmd.PersistentFlags().GetString("agent")
+				assert.NoError(err)
+				assert.Equal("yarn", agentFlag)
+			})
+		})
 	})
 
 	const DLXCommand = "DLX Command"
@@ -1782,6 +1917,115 @@ var _ = Describe("JPD Commands", func() {
 			})
 		})
 
+		// CWD Integration Tests (moved from run_cwd_integration_test.go)
+		Context("--cwd Integration for Run Command", func() {
+			var originalWD string
+
+			BeforeEach(func() {
+				wd, _ := os.Getwd()
+				originalWD = wd
+			})
+
+			AfterEach(func() {
+				_ = os.Chdir(originalWD)
+			})
+
+			Describe("npm/package.json path", func() {
+				It("uses --cwd directory to discover scripts when no script is provided (interactive selection)", func() {
+					// Arrange: Create target directory with specific package.json
+					targetDir := GinkgoT().TempDir()
+
+					err := os.WriteFile(filepath.Join(targetDir, "package.json"), []byte(`{"scripts":{"from-target":"echo hi"}}`), 0644)
+					assert.NoError(err)
+
+					// Create a different working directory to prove --cwd is respected
+					workingDir := GinkgoT().TempDir()
+					err = os.WriteFile(filepath.Join(workingDir, "package.json"), []byte(`{"scripts":{"from-other":"echo wrong"}}`), 0644)
+					assert.NoError(err)
+
+					err = os.Chdir(workingDir)
+					assert.NoError(err)
+
+					// Use the factory to create a rootCmd with task selector UI that will select "from-target"
+					runTaskSelectorCmd := factory.CreateWithTaskSelectorUI("npm")
+					// Set expectations for no lockfile detection (using --agent)
+					DebugExecutorExpectationManager.ExpectNoLockfile()
+					DebugExecutorExpectationManager.ExpectPMDetectedFromPath("npm")
+					DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "run", "from-target")
+
+					// Act: Execute command with --cwd flag
+					_, err = executeCmd(runTaskSelectorCmd, "--agent", "npm", "--cwd", targetDir+"/", "run")
+
+					// Assert
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand("npm", "run", "from-target"))
+					assert.Equal(targetDir+"/", mockCommandRunner.WorkingDir)
+				})
+
+				It("honors --cwd for --if-present script lookup", func() {
+					// Arrange: Create target directory without the script
+					targetDir := GinkgoT().TempDir()
+					err := os.WriteFile(filepath.Join(targetDir, "package.json"), []byte(`{"scripts":{"other":"echo other"}}`), 0644)
+					assert.NoError(err)
+
+					// Create working directory with the script that should NOT be found
+					workingDir := GinkgoT().TempDir()
+					err = os.WriteFile(filepath.Join(workingDir, "package.json"), []byte(`{"scripts":{"foo":"echo wrong"}}`), 0644)
+					assert.NoError(err)
+
+					err = os.Chdir(workingDir)
+					assert.NoError(err)
+
+					// Use factory to create root command
+					runIfPresentCmd := factory.CreateNpmAsDefault(nil)
+					// Set expectations for no lockfile detection (using --agent)
+					DebugExecutorExpectationManager.ExpectNoLockfile()
+					DebugExecutorExpectationManager.ExpectPMDetectedFromPath("npm")
+
+					// Act: Execute command with --if-present and --cwd
+					_, err = executeCmd(runIfPresentCmd, "--agent", "npm", "--cwd", targetDir+"/", "run", "--if-present", "foo")
+
+					// Assert: Command should succeed but runner should NOT be called for non-existent script
+					assert.NoError(err)
+					assert.False(mockCommandRunner.HasBeenCalled)
+					assert.Equal(targetDir+"/", mockCommandRunner.WorkingDir)
+				})
+			})
+
+			Describe("deno/deno.json path", func() {
+				It("uses --cwd directory to discover tasks when no task is provided (interactive selection)", func() {
+					// Arrange: Create target directory with specific deno.json
+					targetDir := GinkgoT().TempDir()
+
+					err := os.WriteFile(filepath.Join(targetDir, "deno.json"), []byte(`{"tasks":{"from-target":"deno run mod.ts"}}`), 0644)
+					assert.NoError(err)
+
+					// Create a different working directory to prove --cwd is respected
+					workingDir := GinkgoT().TempDir()
+					err = os.WriteFile(filepath.Join(workingDir, "deno.json"), []byte(`{"tasks":{"from-other":"deno run wrong.ts"}}`), 0644)
+					assert.NoError(err)
+
+					err = os.Chdir(workingDir)
+					assert.NoError(err)
+
+					// Use factory to create deno root command with task selector UI
+					runDenoTaskSelectorCmd := factory.CreateWithTaskSelectorUI("deno")
+					// Set expectations for no lockfile detection (using --agent)
+					DebugExecutorExpectationManager.ExpectNoLockfile()
+					DebugExecutorExpectationManager.ExpectPMDetectedFromPath("deno")
+					DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "task", "from-target")
+
+					// Act: Execute command with --cwd flag
+					_, err = executeCmd(runDenoTaskSelectorCmd, "--agent", "deno", "--cwd", targetDir+"/", "run")
+
+					// Assert
+					assert.NoError(err)
+					assert.True(mockCommandRunner.HasCommand("deno", "task", "from-target"))
+					assert.Equal(targetDir+"/", mockCommandRunner.WorkingDir)
+				})
+			})
+		})
+
 		Context("Error Handling", func() {
 			It("should return error when command runner fails", func() {
 				rootCmd := factory.CreateNpmAsDefault(nil)
@@ -2494,9 +2738,9 @@ var _ = Describe("JPD Commands", func() {
 								NewDebugExecutor: func(bool) cmd.DebugExecutor {
 									return factory.DebugExecutor()
 								},
-								DetectLockfile: func() (lockfile string, err error) {
-									return "", os.ErrNotExist
-								},
+						DetectLockfile: func(targetDir string) (lockfile string, err error) {
+							return "", os.ErrNotExist
+						},
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("should not be called") },
 								DetectJSPackageManager:                func() (string, error) { return "npm", nil },
 								NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
@@ -2566,9 +2810,9 @@ var _ = Describe("JPD Commands", func() {
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
-								DetectLockfile: func() (lockfile string, err error) {
-									return detect.DENO_JSON, nil
-								},
+						DetectLockfile: func(targetDir string) (lockfile string, err error) {
+							return detect.DENO_JSON, nil
+						},
 								NewDebugExecutor: func(bool) cmd.DebugExecutor {
 									return factory.DebugExecutor()
 								},
@@ -3142,10 +3386,10 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, err error) {
-						// Found package-lock.json
-						return detect.PACKAGE_LOCK_JSON, nil
-					},
+				DetectLockfile: func(targetDir string) (lockfile string, err error) {
+					// Found package-lock.json
+					return detect.PACKAGE_LOCK_JSON, nil
+				},
 					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return factory.DebugExecutor()
 					},
@@ -3188,9 +3432,9 @@ var _ = Describe("JPD Commands", func() {
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return mockCommandRunner
 						},
-						DetectLockfile: func() (lockfile string, err error) {
-							return detect.YARN_LOCK, nil
-						},
+					DetectLockfile: func(targetDir string) (lockfile string, err error) {
+						return detect.YARN_LOCK, nil
+					},
 
 						NewDebugExecutor: func(bool) cmd.DebugExecutor {
 							return factory.DebugExecutor()
@@ -3232,9 +3476,9 @@ var _ = Describe("JPD Commands", func() {
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
-					DetectLockfile: func() (lockfile string, err error) {
-						return detect.DENO_JSON, nil
-					},
+				DetectLockfile: func(targetDir string) (lockfile string, err error) {
+					return detect.DENO_JSON, nil
+				},
 
 					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return factory.DebugExecutor()
@@ -4085,4 +4329,118 @@ func TestWriteToFile(t *testing.T) {
 		})
 	})
 
+}
+
+// Mock structures for --cwd integration tests (merged from root_cwd_integration_test.go)
+type MockFileSystemCwd struct {
+	files map[string]bool
+	cwd   string
+}
+
+func (m *MockFileSystemCwd) Exists(path string) bool {
+	return m.files[path]
+}
+
+func (m *MockFileSystemCwd) Getwd() (string, error) {
+	if m.cwd != "" {
+		return m.cwd, nil
+	}
+	return os.Getwd()
+}
+
+type MockPathLookupCwd struct {
+	paths map[string]bool
+}
+
+func (m *MockPathLookupCwd) LookPath(executable string) (string, error) {
+	if m.paths[executable] {
+		return "/usr/bin/" + executable, nil
+	}
+	return "", fmt.Errorf("executable file not found in $PATH")
+}
+
+type FakeCommandRunnerCwd struct {
+	command     *exec.Cmd
+	lastCommand string
+	lastArgs    []string
+	lastWorkDir string
+}
+
+func (f *FakeCommandRunnerCwd) Command(name string, arg ...string) cmd.CommandRunner {
+	f.lastCommand = name
+	f.lastArgs = arg
+	return f
+}
+
+func (f *FakeCommandRunnerCwd) SetWorkingDirectory(dir string) {
+	f.lastWorkDir = dir
+}
+
+func (f *FakeCommandRunnerCwd) Run() error {
+	return nil
+}
+
+type MockYarnVersionOutputterCwd struct {
+	version string
+}
+
+func (m *MockYarnVersionOutputterCwd) Output() ([]byte, error) {
+	return []byte(m.version), nil
+}
+
+type mockCommandTextUICwd struct {
+	lockfile string
+}
+
+func (m *mockCommandTextUICwd) Run() (string, error) {
+	return "npm install -g pnpm", nil // Default valid command
+}
+
+func newMockCommandTextUICwd(lockfile string) cmd.CommandUITexter {
+	return &mockCommandTextUICwd{lockfile: lockfile}
+}
+
+type mockPackageMultiSelectUICwd struct{}
+
+func (m *mockPackageMultiSelectUICwd) Run() ([]env.PackageJSON, error) {
+	return []env.PackageJSON{{Name: "test-package", Version: "1.0.0"}}, nil
+}
+
+func newMockPackageMultiSelectUICwd(packageManager, packageJSONSearchQuery string) cmd.PackageMultiSelectUI {
+	return &mockPackageMultiSelectUICwd{}
+}
+
+type mockTaskSelectorUICwd struct{}
+
+func (m *mockTaskSelectorUICwd) Run() (string, error) {
+	return "dev", nil // Default task selection
+}
+
+func newMockTaskSelectorUICwd(packageManager, fileName string, tasks map[string]string) cmd.TaskSelectorUI {
+	return &mockTaskSelectorUICwd{}
+}
+
+type mockDependencyMultiSelectUICwd struct{}
+
+func (m *mockDependencyMultiSelectUICwd) Run() ([]env.Dependency, error) {
+	return []env.Dependency{{Name: "lodash", Version: "4.17.21"}}, nil
+}
+
+func newMockDependencyMultiSelectUICwd(packageManager, packageJSONLocation string, dependencies []env.Dependency) cmd.DependencyMultiSelectUI {
+	return &mockDependencyMultiSelectUICwd{}
+}
+
+type mockDebugExecutorCwd struct{}
+
+func (m *mockDebugExecutorCwd) LogLockfileDetected(lockfile string) {}
+func (m *mockDebugExecutorCwd) LogNoLockfile()                          {}
+func (m *mockDebugExecutorCwd) LogPMDetectedFromLockfile(pm string)      {}
+func (m *mockDebugExecutorCwd) LogPMDetectedFromPath(pm string)          {}
+func (m *mockDebugExecutorCwd) LogNoPMFromPath()                         {}
+func (m *mockDebugExecutorCwd) LogAgentFlagSet(agent string)             {}
+func (m *mockDebugExecutorCwd) LogJPDAgentSet(agent string)              {}
+func (m *mockDebugExecutorCwd) LogJSCommandIfDebugIsTrue(name string, args ...string) {}
+
+func newMockDebugExecutorCwd(debug bool) cmd.DebugExecutor {
+	return &mockDebugExecutorCwd{}
 }

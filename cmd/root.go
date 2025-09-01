@@ -155,7 +155,7 @@ type Dependencies struct {
 	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, err error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
-	DetectLockfile                        func() (lockfile string, err error)
+	DetectLockfile                        func(targetDir string) (lockfile string, err error)
 	DetectJSPackageManager                func() (string, error)
 	DetectVolta                           func() bool
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
@@ -376,7 +376,17 @@ Available commands:
 
 			}
 
-			lockFile, err := deps.DetectLockfile()
+			// Determine the target directory from cwd flag or use current working directory
+			targetDir := cwdFlag.String()
+			if targetDir == "" {
+				cwd, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				targetDir = cwd
+			}
+
+			lockFile, err := deps.DetectLockfile(targetDir)
 			if err != nil {
 				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
 
@@ -528,8 +538,8 @@ func init() {
 			DetectVolta: func() bool {
 				return detect.DetectVolta(detect.RealPathLookup{})
 			},
-			DetectLockfile: func() (lockfile string, err error) {
-				return detect.DetectLockfile(detect.RealFileSystem{})
+			DetectLockfile: func(targetDir string) (lockfile string, err error) {
+				return detect.DetectLockfileIn(targetDir, detect.RealFileSystem{})
 			},
 			DetectJSPackageManager: func() (string, error) {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
