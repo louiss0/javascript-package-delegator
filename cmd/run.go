@@ -255,7 +255,6 @@ type PackageJSONScripts struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-
 // readPackageJSONAndUnmarshalScriptsFrom reads package.json from the specified directory
 func readPackageJSONAndUnmarshalScriptsFrom(baseDir string) (*PackageJSONScripts, error) {
 	packageJSONPath := filepath.Join(baseDir, "package.json")
@@ -275,7 +274,6 @@ func readPackageJSONAndUnmarshalScriptsFrom(baseDir string) (*PackageJSONScripts
 type DenoJSON struct {
 	Tasks map[string]string `json:"tasks"`
 }
-
 
 // readDenoJSONFrom reads deno.json from the specified directory
 func readDenoJSONFrom(baseDir string) (*DenoJSON, error) {

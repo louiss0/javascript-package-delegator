@@ -15,12 +15,12 @@ import (
 
 var _ = Describe("Root Command --cwd Integration", func() {
 	var (
-		tempDir     string
-		subDir      string
-		mockFS      *MockFileSystem
-		mockLookup  *MockPathLookup
-		fakeRunner  *FakeCommandRunner
-		deps        cmd.Dependencies
+		tempDir    string
+		subDir     string
+		mockFS     *MockFileSystem
+		mockLookup *MockPathLookup
+		fakeRunner *FakeCommandRunner
+		deps       cmd.Dependencies
 	)
 
 	BeforeEach(func() {
@@ -198,7 +198,7 @@ type MockCommandTextUI struct {
 	value string
 }
 
-func (m *MockCommandTextUI) Run() error  { return nil }
+func (m *MockCommandTextUI) Run() error    { return nil }
 func (m *MockCommandTextUI) Value() string { return m.value }
 
 func newMockPackageMultiSelectUI(packages []services.PackageInfo) cmd.MultiUISelecter {
@@ -234,9 +234,9 @@ func newMockDebugExecutor(debugFlag bool) cmd.DebugExecutor {
 
 type MockDebugExecutor struct{}
 
-func (m *MockDebugExecutor) ExecuteIfDebugIsTrue(cb func()) {}
+func (m *MockDebugExecutor) ExecuteIfDebugIsTrue(cb func())                                  {}
 func (m *MockDebugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {}
-func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(command string, args ...string) {}
+func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(command string, args ...string)        {}
 
 type MockYarnVersionOutputter struct {
 	version string
@@ -248,7 +248,7 @@ func (m *MockYarnVersionOutputter) Output() (string, error) {
 
 // FakeCommandRunner for testing command execution
 type FakeCommandRunner struct {
-	commands [][]string
+	commands  [][]string
 	targetDir string
 }
 
