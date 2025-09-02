@@ -80,14 +80,6 @@ var lockFiles = [9]string{
 	PACKAGE_LOCK_JSON,
 }
 
-func DetectLockfile(fs FileSystem) (lockfile string, err error) {
-	cwd, err := fs.Getwd() // Use the injected FileSystem
-	if err != nil {
-		return "", err
-	}
-	return DetectLockfileIn(cwd, fs)
-}
-
 // DetectLockfileIn searches for lock files in the specified target directory
 func DetectLockfileIn(targetDir string, fs FileSystem) (lockfile string, err error) {
 	for _, lockFile := range lockFiles {

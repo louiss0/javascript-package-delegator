@@ -134,15 +134,13 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 		})
 	})
 
-	Context("DetectLockfile", func() {
+	Context("DetectLockfileIn", func() {
 		var mockFs *mock.MockFileSystem
+		var testDir string
 
 		BeforeEach(func() {
 			mockFs = mock.NewMockFileSystem()
-			// Default GetwdFn for mockFs
-			mockFs.GetwdFn = func() (string, error) {
-				return "/mock/test/dir", nil
-			}
+			testDir = "/mock/test/dir"
 		})
 
 		It("should detect deno from deno.lock", func() {
@@ -152,7 +150,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.DENO_LOCK, lockfile)
 		})
@@ -164,7 +162,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.DENO_JSON, lockfile)
 		})
@@ -176,7 +174,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.DENO_JSONC, lockfile)
 		})
@@ -188,7 +186,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.BUN_LOCKB, lockfile)
 		})
@@ -200,7 +198,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.PNPM_LOCK_YAML, lockfile)
 		})
@@ -212,7 +210,7 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.YARN_LOCK, lockfile)
 		})
@@ -224,14 +222,14 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 				}
 				return nil, os.ErrNotExist
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.PACKAGE_LOCK_JSON, lockfile)
 		})
 
 		It("should return an error when no lock files found", func() {
 			// Default mockFs.StatFn (returns os.ErrNotExist) covers this
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.Error(err)
 			assert.Equal("", lockfile)
 			assert.Contains(err.Error(), "no lock file found") // Check for specific error message
@@ -251,19 +249,11 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 					return nil, os.ErrNotExist
 				}
 			}
-			lockfile, err := detect.DetectLockfile(mockFs)
+		lockfile, err := detect.DetectLockfileIn(testDir, mockFs)
 			assert.NoError(err)
 			assert.Equal(detect.DENO_JSON, lockfile) // Deno should be prioritized
 		})
 
-		It("should return an error if Getwd fails", func() {
-			mockFs.GetwdFn = func() (string, error) {
-				return "", fmt.Errorf("permission denied to get working directory")
-			}
-			_, err := detect.DetectLockfile(mockFs)
-			assert.Error(err)
-			assert.Contains(err.Error(), "permission denied")
-		})
 	})
 
 	Context("DetectJSPackageManagerBasedOnLockFile", func() {

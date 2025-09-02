@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -22,6 +22,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
+	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
 
@@ -562,9 +563,14 @@ var _ = Describe("JPD Commands", func() {
 						return factory.DebugExecutor()
 					},
 					// Make sure detector returns an error so JPD_AGENT logic in root.go is hit
-					DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
+					DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", detect.ErrNoPackageManager },
+					DetectJSPackageManager:                func() (string, error) { return "", detect.ErrNoPackageManager },
 					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:                      mock.NewMockCommandTextUI,
+					DetectVolta:                           func() bool { return false },
+					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
 				})
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
@@ -586,12 +592,15 @@ var _ = Describe("JPD Commands", func() {
 				// Directly call PersistentPreRunE and capture the error
 				err := currentRootCmd.PersistentPreRunE(currentRootCmd, []string{})
 				assert.Error(err)
-				assert.Contains(err.Error(), fmt.Sprintf("the %s variable is set the wrong way", cmd.JPD_AGENT_ENV_VAR))
+				assert.Contains(err.Error(), "the JPD_AGENT variable is set the wrong way")
 				// Verify that the command runner was not called for installation since an invalid agent was set
 				assert.False(mockCommandRunner.HasBeenCalled)
 			})
 
 			It("sets the package name when the agent is a valid value", func() {
+				// First, the root command will check for lockfile detection
+				DebugExecutorExpectationManager.ExpectLockfileDetected("")
+				// Then debug log the JPD_AGENT being set
 				DebugExecutorExpectationManager.ExpectJPDAgentSet("deno")
 				const expected = "deno"
 				_ = os.Setenv(cmd.JPD_AGENT_ENV_VAR, expected)
@@ -667,7 +676,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		AfterEach(func() {
-			os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		})
 
 		It("should detect lockfile in the specified directory not current directory", func() {
@@ -1977,9 +1986,8 @@ var _ = Describe("JPD Commands", func() {
 
 					// Use factory to create root command
 					runIfPresentCmd := factory.CreateNpmAsDefault(nil)
-					// Set expectations for no lockfile detection (using --agent)
-					DebugExecutorExpectationManager.ExpectNoLockfile()
-					DebugExecutorExpectationManager.ExpectPMDetectedFromPath("npm")
+					// Set expectations for agent flag (no detection should occur)
+					DebugExecutorExpectationManager.ExpectAgentFlagSet("npm")
 
 					// Act: Execute command with --if-present and --cwd
 					_, err = executeCmd(runIfPresentCmd, "--agent", "npm", "--cwd", targetDir+"/", "run", "--if-present", "foo")
@@ -4347,6 +4355,26 @@ func (m *MockFileSystemCwd) Getwd() (string, error) {
 	return os.Getwd()
 }
 
+func (m *MockFileSystemCwd) Stat(name string) (os.FileInfo, error) {
+	if m.files[name] {
+		// Return a mock FileInfo for existing files
+		return &mockFileInfo{name: filepath.Base(name)}, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+// mockFileInfo implements os.FileInfo for testing
+type mockFileInfo struct {
+	name string
+}
+
+func (m *mockFileInfo) Name() string       { return m.name }
+func (m *mockFileInfo) Size() int64        { return 0 }
+func (m *mockFileInfo) Mode() os.FileMode  { return 0644 }
+func (m *mockFileInfo) ModTime() time.Time { return time.Now() }
+func (m *mockFileInfo) IsDir() bool        { return false }
+func (m *mockFileInfo) Sys() interface{}   { return nil }
+
 type MockPathLookupCwd struct {
 	paths map[string]bool
 }
@@ -4359,20 +4387,19 @@ func (m *MockPathLookupCwd) LookPath(executable string) (string, error) {
 }
 
 type FakeCommandRunnerCwd struct {
-	command     *exec.Cmd
 	lastCommand string
 	lastArgs    []string
 	lastWorkDir string
 }
 
-func (f *FakeCommandRunnerCwd) Command(name string, arg ...string) cmd.CommandRunner {
+func (f *FakeCommandRunnerCwd) Command(name string, arg ...string) {
 	f.lastCommand = name
 	f.lastArgs = arg
-	return f
 }
 
-func (f *FakeCommandRunnerCwd) SetWorkingDirectory(dir string) {
+func (f *FakeCommandRunnerCwd) SetTargetDir(dir string) error {
 	f.lastWorkDir = dir
+	return nil
 }
 
 func (f *FakeCommandRunnerCwd) Run() error {
@@ -4383,16 +4410,22 @@ type MockYarnVersionOutputterCwd struct {
 	version string
 }
 
-func (m *MockYarnVersionOutputterCwd) Output() ([]byte, error) {
-	return []byte(m.version), nil
+func (m *MockYarnVersionOutputterCwd) Output() (string, error) {
+	return m.version, nil
 }
 
 type mockCommandTextUICwd struct {
 	lockfile string
+	value    string
 }
 
-func (m *mockCommandTextUICwd) Run() (string, error) {
-	return "npm install -g pnpm", nil // Default valid command
+func (m *mockCommandTextUICwd) Run() error {
+	m.value = "npm install -g pnpm" // Default valid command
+	return nil
+}
+
+func (m *mockCommandTextUICwd) Value() string {
+	return m.value
 }
 
 func newMockCommandTextUICwd(lockfile string) cmd.CommandUITexter {
@@ -4401,44 +4434,57 @@ func newMockCommandTextUICwd(lockfile string) cmd.CommandUITexter {
 
 type mockPackageMultiSelectUICwd struct{}
 
-func (m *mockPackageMultiSelectUICwd) Run() ([]env.PackageJSON, error) {
-	return []env.PackageJSON{{Name: "test-package", Version: "1.0.0"}}, nil
+func (m *mockPackageMultiSelectUICwd) Run() error {
+	return nil
 }
 
-func newMockPackageMultiSelectUICwd(packageManager, packageJSONSearchQuery string) cmd.PackageMultiSelectUI {
+func (m *mockPackageMultiSelectUICwd) Values() []string {
+	return []string{"test-package@1.0.0"}
+}
+
+func newMockPackageMultiSelectUICwd(packageInfos []services.PackageInfo) cmd.MultiUISelecter {
 	return &mockPackageMultiSelectUICwd{}
 }
 
-type mockTaskSelectorUICwd struct{}
-
-func (m *mockTaskSelectorUICwd) Run() (string, error) {
-	return "dev", nil // Default task selection
+type mockTaskSelectorUICwd struct {
+	value string
 }
 
-func newMockTaskSelectorUICwd(packageManager, fileName string, tasks map[string]string) cmd.TaskSelectorUI {
+func (m *mockTaskSelectorUICwd) Run() error {
+	m.value = "dev" // Default task selection
+	return nil
+}
+
+func (m *mockTaskSelectorUICwd) Value() string {
+	return m.value
+}
+
+func newMockTaskSelectorUICwd(options []string) cmd.TaskUISelector {
 	return &mockTaskSelectorUICwd{}
 }
 
-type mockDependencyMultiSelectUICwd struct{}
-
-func (m *mockDependencyMultiSelectUICwd) Run() ([]env.Dependency, error) {
-	return []env.Dependency{{Name: "lodash", Version: "4.17.21"}}, nil
+type mockDependencyMultiSelectUICwd struct {
+	values []string
 }
 
-func newMockDependencyMultiSelectUICwd(packageManager, packageJSONLocation string, dependencies []env.Dependency) cmd.DependencyMultiSelectUI {
+func (m *mockDependencyMultiSelectUICwd) Run() error {
+	m.values = []string{"lodash@4.17.21"} // Default dependency selection
+	return nil
+}
+
+func (m *mockDependencyMultiSelectUICwd) Values() []string {
+	return m.values
+}
+
+func newMockDependencyMultiSelectUICwd(options []string) cmd.DependencyUIMultiSelector {
 	return &mockDependencyMultiSelectUICwd{}
 }
 
 type mockDebugExecutorCwd struct{}
 
-func (m *mockDebugExecutorCwd) LogLockfileDetected(lockfile string)                   {}
-func (m *mockDebugExecutorCwd) LogNoLockfile()                                        {}
-func (m *mockDebugExecutorCwd) LogPMDetectedFromLockfile(pm string)                   {}
-func (m *mockDebugExecutorCwd) LogPMDetectedFromPath(pm string)                       {}
-func (m *mockDebugExecutorCwd) LogNoPMFromPath()                                      {}
-func (m *mockDebugExecutorCwd) LogAgentFlagSet(agent string)                          {}
-func (m *mockDebugExecutorCwd) LogJPDAgentSet(agent string)                           {}
-func (m *mockDebugExecutorCwd) LogJSCommandIfDebugIsTrue(name string, args ...string) {}
+func (m *mockDebugExecutorCwd) ExecuteIfDebugIsTrue(cb func())                                  {}
+func (m *mockDebugExecutorCwd) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {}
+func (m *mockDebugExecutorCwd) LogJSCommandIfDebugIsTrue(name string, args ...string)           {}
 
 func newMockDebugExecutorCwd(debug bool) cmd.DebugExecutor {
 	return &mockDebugExecutorCwd{}
