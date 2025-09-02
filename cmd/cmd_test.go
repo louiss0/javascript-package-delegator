@@ -676,7 +676,7 @@ var _ = Describe("JPD Commands", func() {
 		})
 
 		AfterEach(func() {
-		_ = os.RemoveAll(tempDir)
+			_ = os.RemoveAll(tempDir)
 		})
 
 		It("should detect lockfile in the specified directory not current directory", func() {
