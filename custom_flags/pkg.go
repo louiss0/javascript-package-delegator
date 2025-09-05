@@ -63,7 +63,7 @@ func validateWindowsFolderPath(value string) bool {
 		if lastSlash := strings.LastIndexAny(trimmed, "/\\"); lastSlash != -1 {
 			lastComponent = trimmed[lastSlash+1:]
 		}
-		
+
 		// Check if it has a file extension (and it's not . or ..)
 		if strings.Contains(lastComponent, ".") && lastComponent != "." && lastComponent != ".." {
 			// It looks like a file, reject it
@@ -79,29 +79,29 @@ func validateWindowsFolderPath(value string) bool {
 	if !match {
 		return false
 	}
-	
+
 	// In CI mode, accept all paths that match the basic regex
 	if build_info.InCI() {
 		return true
 	}
-	
+
 	// In non-CI mode, apply stricter rules for Windows paths without trailing separators
 	// Allow special cases: drive roots (C:), current dir (.), parent dir (..)
 	if value == "." || value == ".." {
 		return true
 	}
-	
+
 	// Allow drive roots like "C:" or "D:"
 	if matched, _ := regexp.MatchString(`^[a-zA-Z]:$`, value); matched {
 		return true
 	}
-	
+
 	// If path doesn't end with separator, it's invalid in strict mode
 	// unless it's one of the special cases above
 	if !strings.HasSuffix(value, "/") && !strings.HasSuffix(value, "\\") {
 		return false
 	}
-	
+
 	return true
 	return match
 }

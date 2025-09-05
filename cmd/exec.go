@@ -32,7 +32,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-// internal
+	// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
@@ -41,17 +41,17 @@ func ParseYarnMajor(version string) int {
 	if version == "" {
 		return 0
 	}
-	
+
 	// Handle simple cases like "3" or "berry-3.1.0"
 	if strings.HasPrefix(version, "berry-") {
 		version = strings.TrimPrefix(version, "berry-")
 	}
-	
+
 	// Extract first character and convert to int
 	if len(version) > 0 && version[0] >= '1' && version[0] <= '9' {
 		return int(version[0] - '0')
 	}
-	
+
 	return 0 // unknown
 }
 
@@ -65,7 +65,7 @@ func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program strin
 	if bin == "" {
 		return "", nil, fmt.Errorf("binary name is required for exec command")
 	}
-	
+
 	switch pm {
 	case "npm":
 		argv = append([]string{"exec", bin, "--"}, args...)
@@ -79,7 +79,7 @@ func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program strin
 	case "bun":
 		argv = append([]string{"x", bin}, args...)
 		return "bun", argv, nil
-case "deno":
+	case "deno":
 		argv = append([]string{"run", bin}, args...)
 		return "deno", argv, nil
 	default:

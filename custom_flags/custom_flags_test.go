@@ -45,7 +45,7 @@ var _ = Describe("FilePathFlag", func() {
 
 	Describe("S	zet method", func() {
 		Context("when provided valid file paths", func() {
-It("should accept valid absolute path", func() {
+			It("should accept valid absolute path", func() {
 				var path string
 				if runtime.GOOS == "windows" {
 					path = "C:\\path\\to\\file.txt"
@@ -95,7 +95,7 @@ It("should accept valid absolute path", func() {
 				assertT.Contains(err.Error(), "cannot be empty")
 			})
 
-It("should reject path with double slash", func() {
+			It("should reject path with double slash", func() {
 				err := flag.Set("path//file.txt")
 				assertT.Error(err)
 				if runtime.GOOS == "windows" {
@@ -105,7 +105,7 @@ It("should reject path with double slash", func() {
 				}
 			})
 
-It("should reject path with trailing slash", func() {
+			It("should reject path with trailing slash", func() {
 				err := flag.Set("path/")
 				assertT.Error(err)
 				if runtime.GOOS == "windows" {
@@ -146,7 +146,7 @@ var _ = Describe("FolderPathFlag", func() {
 
 	Describe("Set method", func() {
 		Context("when provided valid folder paths", func() {
-It("should accept valid absolute path with slash", func() {
+			It("should accept valid absolute path with slash", func() {
 				var path string
 				if runtime.GOOS == "windows" {
 					path = "C:\\path\\to\\dir\\"
@@ -158,7 +158,7 @@ It("should accept valid absolute path with slash", func() {
 				assertT.Equal(path, flag.String())
 			})
 
-It("should accept valid relative path with slash", func() {
+			It("should accept valid relative path with slash", func() {
 				var path string
 				if runtime.GOOS == "windows" {
 					path = "dir\\"
@@ -170,7 +170,7 @@ It("should accept valid relative path with slash", func() {
 				assertT.Equal(path, flag.String())
 			})
 
-It("should accept root path", func() {
+			It("should accept root path", func() {
 				var path string
 				if runtime.GOOS == "windows" {
 					path = "C:\\"
@@ -195,7 +195,7 @@ It("should accept root path", func() {
 			})
 
 			Context("when not in CI mode", func() {
-It("should reject path without trailing slash if InCI returns false", func() {
+				It("should reject path without trailing slash if InCI returns false", func() {
 					if !build_info.InCI() {
 						var path string
 						if runtime.GOOS == "windows" {
@@ -217,7 +217,7 @@ It("should reject path without trailing slash if InCI returns false", func() {
 		})
 
 		Context("when provided invalid folder paths", func() {
-It("should reject file-like paths", func() {
+			It("should reject file-like paths", func() {
 				var path string
 				if runtime.GOOS == "windows" {
 					path = "C:\\path\\to\\file.txt"

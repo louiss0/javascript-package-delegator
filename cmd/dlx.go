@@ -32,17 +32,16 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-// internal
+	// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
-
 
 // BuildDLXCommand builds command line for running temporary packages
 func BuildDLXCommand(pm, yarnVersion, pkgOrURL string, args []string) (program string, argv []string, err error) {
 	if pkgOrURL == "" {
 		return "", nil, fmt.Errorf("package name or URL is required for dlx command")
 	}
-	
+
 	switch pm {
 	case "npm":
 		argv = append([]string{pkgOrURL}, args...)
