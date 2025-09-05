@@ -37,18 +37,24 @@ import (
 )
 
 // BuildCreateCommand builds command line for running package create commands
-func BuildCreateCommand(pm, yarnVersion, name, url string, args []string) (program string, argv []string, err error) {
-	// Special handling for deno - requires URL
+func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program string, argv []string, err error) {
+	// Special handling for deno - requires URL as name
 	if pm == "deno" {
-		if !isURL(url) {
-			return "", nil, fmt.Errorf("deno create requires a valid URL")
+		if name == "" {
+			return "", nil, fmt.Errorf("deno create requires a URL as the first argument")
 		}
-		return "deno", append([]string{"run", url}, args...), nil
+		if !isURL(name) {
+			return "", nil, fmt.Errorf("deno create requires a valid URL, got: %s", name)
+		}
+		return "deno", append([]string{"run", name}, args...), nil
 	}
 
-	// For all other package managers, require name
+	// For all other package managers, require name and reject URLs
 	if name == "" {
 		return "", nil, fmt.Errorf("package name is required for create command")
+	}
+	if isURL(name) {
+		return "", nil, fmt.Errorf("URLs are not supported for %s, use deno instead", pm)
 	}
 
 	// Normalize create bin - add "create-" prefix if not already present
@@ -90,7 +96,7 @@ func BuildCreateCommand(pm, yarnVersion, name, url string, args []string) (progr
 // NewCreateCmd creates a new Cobra command for the "create" functionality
 func NewCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create [name] [args...]",
+		Use:   "create [name|url] [args...]",
 		Short: "Scaffold a new project using create runners",
 		Long: `Scaffold a new project using the appropriate package manager's create command.
 This command delegates to the package manager's create functionality to bootstrap new projects.
@@ -101,31 +107,18 @@ Package Manager Behavior:
 - yarn v1: Runs 'npx create-<name> <args>'
 - yarn v2+: Runs 'yarn dlx create-<name> <args>'
 - bun: Runs 'bunx create-<name> <args>'
-- deno: Runs 'deno run <url> <args>' (requires --url flag)
+- deno: Runs 'deno run <url> <args>' (expects URL as first argument)
 
 Examples:
   jpd create react-app my-app
   jpd create vite@latest my-app -- --template react-swc
   jpd create next-app myapp --typescript --tailwind
-  jpd create --url https://deno.land/x/fresh/init.ts my-fresh-app`,
+  jpd -a deno create https://deno.land/x/fresh/init.ts my-fresh-app`,
 		Aliases: []string{"c"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			// Get package manager to determine argument requirements
-			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
-			url, _ := cmd.Flags().GetString("url")
-
-			if pm == "deno" {
-				// For deno, URL is required, name argument is optional
-				if url == "" {
-					return fmt.Errorf("deno create requires --url flag with a valid URL")
-				}
-				// Args are optional for deno
-				return nil
-			}
-
-			// For all other package managers, require at least one argument (the name)
+			// All package managers (including deno) require at least one argument
 			if len(args) < 1 {
-				return fmt.Errorf("requires at least one argument (package name)")
+				return fmt.Errorf("requires at least one argument (package name or URL for deno)")
 			}
 			return nil
 		},
@@ -157,11 +150,8 @@ Examples:
 				packageArgs = args[1:]
 			}
 
-			// Get URL flag for deno
-			urlFlag, _ := cmd.Flags().GetString("url")
-
 			// Build command for creating projects
-			execCommand, cmdArgs, err := BuildCreateCommand(pm, yarnVersion, name, urlFlag, packageArgs)
+			execCommand, cmdArgs, err := BuildCreateCommand(pm, yarnVersion, name, packageArgs)
 			if err != nil {
 				return err
 			}
@@ -177,9 +167,6 @@ Examples:
 			return cmdRunner.Run()
 		},
 	}
-
-	// Add flags
-	cmd.Flags().String("url", "", "URL to deno script for project creation (required for deno)")
 
 	return cmd
 }

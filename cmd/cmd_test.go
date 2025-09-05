@@ -4503,17 +4503,17 @@ var _ = Describe("Commands Alias and Edge Test Coverage", func() {
 // BuildCreateCommand unit tests
 var _ = Describe("BuildCreateCommand", func() {
 	type testCase struct {
-		pm, yarnVersion, name, url string
-		args                       []string
-		wantProg                   string
-		wantArgs                   []string
-		wantErr                    bool
+		pm, yarnVersion, name string
+		args                  []string
+		wantProg              string
+		wantArgs              []string
+		wantErr               bool
 	}
 
 	DescribeTable("delegates to correct runner",
 		func(c testCase) {
 			r := require.New(GinkgoT())
-			prog, argv, err := cmd.BuildCreateCommand(c.pm, c.yarnVersion, c.name, c.url, c.args)
+			prog, argv, err := cmd.BuildCreateCommand(c.pm, c.yarnVersion, c.name, c.args)
 			if c.wantErr {
 				r.Error(err)
 				return
@@ -4574,24 +4574,27 @@ var _ = Describe("BuildCreateCommand", func() {
 			pm: "bun", name: "svelte",
 			wantProg: "bunx", wantArgs: []string{"create-svelte"},
 		}),
-		Entry("deno with url", testCase{
-			pm: "deno", url: "https://deno.land/x/fresh/init.ts", args: []string{"my-app"},
+		Entry("deno with https url", testCase{
+			pm: "deno", name: "https://deno.land/x/fresh/init.ts", args: []string{"my-app"},
 			wantProg: "deno", wantArgs: []string{"run", "https://deno.land/x/fresh/init.ts", "my-app"},
 		}),
 		Entry("deno with https url and no args", testCase{
-			pm: "deno", url: "https://raw.githubusercontent.com/denoland/fresh/main/init.ts",
+			pm: "deno", name: "https://raw.githubusercontent.com/denoland/fresh/main/init.ts",
 			wantProg: "deno", wantArgs: []string{"run", "https://raw.githubusercontent.com/denoland/fresh/main/init.ts"},
 		}),
 		Entry("deno with http url", testCase{
-			pm: "deno", url: "http://localhost:8000/init.ts", args: []string{"test-app"},
+			pm: "deno", name: "http://localhost:8000/init.ts", args: []string{"test-app"},
 			wantProg: "deno", wantArgs: []string{"run", "http://localhost:8000/init.ts", "test-app"},
 		}),
 		// Error cases
-		Entry("deno without url → error", testCase{
+		Entry("deno with invalid url → error", testCase{
+			pm: "deno", name: "not-a-url", args: []string{"my-app"}, wantErr: true,
+		}),
+		Entry("deno with package name instead of url → error", testCase{
 			pm: "deno", name: "vite", args: []string{"my-app"}, wantErr: true,
 		}),
-		Entry("deno with invalid url → error", testCase{
-			pm: "deno", url: "not-a-url", args: []string{"my-app"}, wantErr: true,
+		Entry("deno with empty name → error", testCase{
+			pm: "deno", name: "", args: []string{"my-app"}, wantErr: true,
 		}),
 		Entry("empty name on npm → error", testCase{
 			pm: "npm", name: "", wantErr: true,
@@ -4607,6 +4610,12 @@ var _ = Describe("BuildCreateCommand", func() {
 		}),
 		Entry("unsupported pm → error", testCase{
 			pm: "unknown-pm", name: "vite", wantErr: true,
+		}),
+		Entry("npm with URL as name → error", testCase{
+			pm: "npm", name: "https://example.com/script.js", args: []string{"my-app"}, wantErr: true,
+		}),
+		Entry("pnpm with URL as name → error", testCase{
+			pm: "pnpm", name: "http://localhost:8000/init.ts", args: []string{"my-app"}, wantErr: true,
 		}),
 		// Edge cases
 		Entry("already prefixed name (npm)", testCase{
