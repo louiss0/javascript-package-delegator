@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +25,105 @@ import (
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
+
+// Command Mapping Tests - Pure unit tests for command building logic
+// These tests directly test the command builder functions without executing commands
+
+// Test strategy and mapping rules:
+//
+// EXEC (local dependencies): Run local deps using package manager's exec feature
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm exec <bin> -- <args>                      |
+// | pnpm           | pnpm exec <bin> <args>                        |
+// | yarn (any)     | yarn <bin> <args>                             |
+// | bun            | bun x <bin> <args>                            |
+// | deno           | deno run <script> <args>                      |
+//
+// DLX (temporary packages): Run packages temporarily without install
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm dlx <package> <args>                      |
+// | pnpm           | pnpm dlx <package> <args>                     |
+// | yarn v1        | yarn <package> <args> (no dlx)               |
+// | yarn v2+       | yarn dlx <package> <args>                     |
+// | bun            | bunx <package> <args>                         |
+// | deno           | deno run <url> <args> (requires URL)          |
+
+// Test fixtures and helpers for command mapping tests
+// testingInterface defines the minimal interface needed by test helpers
+type testingInterface interface {
+	Helper()
+	Errorf(format string, args ...interface{})
+}
+
+// ginkgoTestingT wraps Ginkgo's FullGinkgoTInterface to work with testing.T
+type ginkgoTestingT struct {
+	ginkgo.FullGinkgoTInterface
+}
+
+func (g ginkgoTestingT) Helper() {}
+
+func (g ginkgoTestingT) Errorf(format string, args ...interface{}) {
+	g.FullGinkgoTInterface.Errorf(format, args...)
+}
+
+type pm string
+
+const (
+	npm  pm = "npm"
+	pnpm pm = "pnpm"
+	yarn pm = "yarn"
+	bun  pm = "bun"
+	deno pm = "deno"
+)
+
+type yarnInfo struct {
+	version string
+}
+
+type wantCmd struct {
+	program string
+	args    []string
+}
+
+type harness struct {
+	packageManager pm
+	yarnVersion    string
+}
+
+func newHarness(packageManager pm, yarnVersion string) harness {
+	return harness{
+		packageManager: packageManager,
+		yarnVersion:    yarnVersion,
+	}
+}
+
+func assertCmd(t testingInterface, gotProg string, gotArgs []string, want wantCmd) {
+	t.Helper()
+	if gotProg != want.program {
+		t.Errorf("program = %q, want %q", gotProg, want.program)
+	}
+	if len(gotArgs) != len(want.args) {
+		t.Errorf("args length = %d, want %d\nGot: %v\nWant: %v", len(gotArgs), len(want.args), gotArgs, want.args)
+		return
+	}
+	for i, gotArg := range gotArgs {
+		if gotArg != want.args[i] {
+			t.Errorf("args[%d] = %q, want %q", i, gotArg, want.args[i])
+		}
+	}
+}
+
+// buildExec wraps the shared function for testing
+func buildExec(h harness, bin string, args []string) (program string, argv []string, err error) {
+	return cmd.BuildExecCommand(string(h.packageManager), h.yarnVersion, bin, args)
+}
+
+// buildDLX wraps the shared function for testing
+func buildDLX(h harness, pkgOrURL string, args []string) (program string, argv []string, err error) {
+	return cmd.BuildDLXCommand(string(h.packageManager), h.yarnVersion, pkgOrURL, args)
+}
 
 // This function executes a cobra command with the given arguments and returns the output and error.
 // It sets the output and error buffers for the command, sets the arguments, and executes the command.
@@ -317,15 +418,36 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should reject a --cwd flag value that does not end with '/'", func() {
-				invalidPath := "/tmp/my-project" // Missing trailing slash
+				// Use platform-appropriate invalid path
+				var invalidPath string
+				if runtime.GOOS == "windows" {
+					// On Windows, use POSIX-style path which should be invalid
+					invalidPath = "/tmp/my-project"
+				} else {
+					// On POSIX, use path without trailing slash
+					invalidPath = "/tmp/my-project"
+				}
+				
 				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
 				if build_info.InCI() {
-					// In CI mode: paths without trailing slash are valid (relaxed validation)
-					assert.NoError(err)
+					// In CI mode: paths without trailing slash are valid on POSIX (relaxed validation)
+					if runtime.GOOS == "windows" {
+						// On Windows, POSIX paths should still be invalid even in CI
+						assert.Error(err)
+						assert.Contains(err.Error(), "is not a valid Windows folder path")
+						assert.Contains(err.Error(), "cwd")
+						assert.Contains(err.Error(), invalidPath)
+					} else {
+						assert.NoError(err)
+					}
 				} else {
-					// In non-CI mode: paths without trailing slash should cause validation errors
+					// In non-CI mode: should cause validation errors
 					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					if runtime.GOOS == "windows" {
+						assert.Contains(err.Error(), "is not a valid Windows folder path")
+					} else {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					}
 					assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
 					assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
 				}
@@ -334,19 +456,19 @@ var _ = Describe("JPD Commands", func() {
 			It("should reject a --cwd flag value that is a filename", func() {
 				invalidPath := "my-file.txt" // A file-like path
 				_, err := executeCmd(currentRootCmd, "-C", invalidPath)
-				if build_info.InCI() {
-					// In CI mode: file-like paths are still invalid even with relaxed validation
-					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-					assert.Contains(err.Error(), "cwd")
-					assert.Contains(err.Error(), invalidPath)
+				// File-like paths should always be invalid regardless of CI mode or platform
+				assert.Error(err)
+				if runtime.GOOS == "windows" {
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
 				} else {
-					// In non-CI mode: file-like paths should cause validation errors
-					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-					assert.Contains(err.Error(), "cwd")
-					assert.Contains(err.Error(), invalidPath)
+					if build_info.InCI() {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
+					} else {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					}
 				}
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
 			})
 
 			DescribeTable(
@@ -360,19 +482,45 @@ var _ = Describe("JPD Commands", func() {
 				},
 				Entry("an empty string", "", "the cwd flag cannot be empty or contain only whitespace"),
 				Entry("a string with only whitespace", "   ", "the cwd flag cannot be empty or contain only whitespace"),
-				Entry("a path with invalid characters", "/path/with:colon/", "is not a valid POSIX/UNIX folder path", "cwd", "/path/with:colon/"),
 			)
 
-			DescribeTable(
-				"should accept valid folder paths for --cwd",
-				func(validPath string) {
-					_, err := executeCmd(currentRootCmd, "--cwd", validPath)
-					assert.NoError(err)
-				},
-				Entry("a valid root path '/'", "/"),
-				Entry("a valid relative folder path './'", "./"),
-				Entry("a valid relative parent folder path '../'", "../"),
-			)
+			It("should reject a path with invalid characters", func() {
+				// Use platform-appropriate invalid path with illegal characters
+				var invalidPath string
+				if runtime.GOOS == "windows" {
+					// On Windows, POSIX paths with colons are invalid
+					invalidPath = "/path/with:colon/"
+				} else {
+					// On POSIX, paths with certain characters might be invalid
+					invalidPath = "/path/with:colon/"
+				}
+				
+				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
+				assert.Error(err)
+				if runtime.GOOS == "windows" {
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
+				} else {
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
+				}
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
+			})
+
+			Describe("should accept valid folder paths for --cwd", func() {
+				It("accepts platform-appropriate valid paths", func() {
+					var validPaths []string
+					if runtime.GOOS == "windows" {
+						// Use Windows-style valid paths
+						validPaths = []string{".", ".\\", "..\\", "C:", "C:/", "C:/Windows/"}
+					} else {
+						validPaths = []string{"/", "./", "../"}
+					}
+					for _, p := range validPaths {
+						_, err := executeCmd(currentRootCmd, "--cwd", p)
+						assert.NoError(err)
+					}
+				})
+			})
 
 			It("should run a command in the specified directory using -C", func() {
 				tempDir := GinkgoT().TempDir()
@@ -414,11 +562,24 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should handle a non-existent directory gracefully (likely fail at exec.Command level)", func() {
-				nonExistentDir := "/non/existent/path/for/jpd/test" // A path that should not exist
+				// Use platform-appropriate non-existent path
+				var nonExistentDir string
+				if runtime.GOOS == "windows" {
+					// On Windows, POSIX paths should be rejected at validation level
+					nonExistentDir = "/non/existent/path/for/jpd/test"
+				} else {
+					nonExistentDir = "/non/existent/path/for/jpd/test"
+				}
+				
 				_, err := executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", fmt.Sprintf("%s/", nonExistentDir))
-				// Expect an error because the directory doesn't exist. The error will come from os/exec.Command.
 				assert.Error(err)
-				assert.Contains(err.Error(), "no such file or directory") // Specific error message for non-existent path
+				if runtime.GOOS == "windows" {
+					// On Windows, should fail at path validation level
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
+				} else {
+					// On POSIX, should fail at exec.Command level for non-existent directory
+					assert.Contains(err.Error(), "no such file or directory")
+				}
 			})
 		})
 
@@ -618,7 +779,7 @@ var _ = Describe("JPD Commands", func() {
 			// Help doesn't need any additional expectations since it doesn't execute the business logic
 			output, err := executeCmd(rootCmd, "dlx", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages with package runner")
+			assert.Contains(output, "Execute packages temporarily without installing them first")
 			assert.Contains(output, "jpd dlx")
 		})
 
@@ -1835,7 +1996,7 @@ var _ = Describe("JPD Commands", func() {
 		It("should show help", func() {
 			output, err := executeCmd(rootCmd, "exec", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages")
+			assert.Contains(output, "Execute local dependencies")
 			assert.Contains(output, "jpd exec")
 		})
 
@@ -1851,26 +2012,26 @@ var _ = Describe("JPD Commands", func() {
 		It("should handle --help in arguments", func() {
 			output, err := executeCmd(rootCmd, "exec", "some-package", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages")
+			assert.Contains(output, "Execute local dependencies")
 		})
 
 		Context("npm", func() {
 			It("should execute npx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "create-react-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--")
 				_, err := executeCmd(rootCmd, "exec", "create-react-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("npx", "create-react-app"))
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--"))
 			})
 
 			It("should execute npx with package name and args", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app")
 				_, err := executeCmd(rootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("npx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--", "my-app"))
 
 			})
 		})
@@ -1884,10 +2045,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute yarn with package name (v2+)", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("yarn", "dlx", "create-react-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("yarn", "create-react-app")
 				_, err := executeCmd(yarnRootCmd, "exec", "create-react-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("yarn", "dlx", "create-react-app"))
+				assert.True(mockCommandRunner.HasCommand("yarn", "create-react-app"))
 			})
 
 			It("should handle yarn version detection error (fallback to v1)", func() {
@@ -1921,10 +2082,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute pnpm dlx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "exec", "create-react-app", "my-app")
 				_, err := executeCmd(pnpmRootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-react-app", "my-app"))
 			})
 		})
 
@@ -1938,10 +2099,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute bunx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("bunx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("bun", "x", "create-react-app", "my-app")
 				_, err := executeCmd(bunRootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("bunx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("bun", "x", "create-react-app", "my-app"))
 			})
 		})
 
@@ -1951,12 +2112,13 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() {
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
-			It("should handle deno exec error", func() {
+			It("should execute deno run with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "run", "some-package")
 				_, err := executeCmd(denoRootCmd, "exec", "some-package")
-				assert.Error(err)
-				assert.Contains(err.Error(), "deno does not have a dlx/x equivalent")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "run", "some-package"))
 			})
 		})
 
@@ -1971,14 +2133,14 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should return error when command runner fails", func() {
 				rootCmd := factory.CreateNpmAsDefault(nil)
-				mockCommandRunner.InvalidCommands = []string{"npx"}
+				mockCommandRunner.InvalidCommands = []string{"npm"}
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "test-command")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "test-command", "--")
 				_, err := executeCmd(rootCmd, "exec", "test-command")
 				assert.Error(err)
-				assert.Contains(err.Error(), "mock error: command 'npx' is configured to fail")
+				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
 			})
 
 			It("should return error for unsupported package manager", func() {
@@ -3360,16 +3522,445 @@ var _ = Describe("JPD Commands", func() {
 			err := testRunner.Run()
 			assert.Error(err)
 			assert.Contains(err.Error(), "no command set to run")
+	})
+	})
+
+		Describe("Command Aliases Tests", func() {
+			Describe("DLX Command", func() {
+				It("should have 'x' as an alias", func() {
+					dlxCmd := cmd.NewDlxCmd()
+					actualAliases := dlxCmd.Aliases
+					
+					// Should contain "x"
+					found := false
+					for _, alias := range actualAliases {
+						if alias == "x" {
+							found = true
+							break
+						}
+					}
+					assert.True(found, "NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
+				})
+			})
+
+			Describe("EXEC Command", func() {
+				It("should have 'e' as alias and NOT 'x'", func() {
+					execCmd := cmd.NewExecCmd()
+					actualAliases := execCmd.Aliases
+					expectedAliases := []string{"e"}
+
+					assert.Equal(len(expectedAliases), len(actualAliases), "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+
+					for i, alias := range actualAliases {
+						assert.Equal(expectedAliases[i], alias, "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+					}
+
+					// Also explicitly assert that "x" is NOT present
+					for _, alias := range actualAliases {
+						assert.NotEqual("x", alias, "NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
+					}
+				})
+			})
 		})
 
-		It("should return errors for invalid commands", func() {
-			testRunner := mock.NewMockCommandRunner()
-			testRunner.InvalidCommands = []string{"npm"}
-			testRunner.Command("npm", "install")
-			err := testRunner.Run()
-			assert.Error(err)
-			assert.Contains(err.Error(), "configured to fail")
+		Describe("Utility Functions Tests", func() {
+			Describe("Valid Install Command String Regex", func() {
+				var regex *regexp.Regexp
+
+				BeforeEach(func() {
+					regex = regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
+				})
+
+				Context("accepts valid commands with three or more words", func() {
+					validCommands := []string{
+						"npm install -g npm",
+						"yarn global add yarn",
+						"pnpm add -g pnpm",
+						"bun install -g bun",
+						"deno install --allow-net deno",
+						"sudo apt-get install nodejs",
+						"brew install pnpm",
+						"winget install Microsoft.VisualStudioCode",
+						"choco install nodejs",
+						"dnf install yarn",
+						"yum install nodejs",
+						"zypper install pnpm",
+						"apk add deno",
+						"nix-env -iA nixpkgs.nodejs",
+						"nix profile install nixpkgs#yarn",
+						"pacman -S git",
+						"apt install curl wget zip",
+						"brew cask install docker",
+					}
+
+					for _, command := range validCommands {
+						It(fmt.Sprintf("should match '%s'", command), func() {
+							assert.True(regex.MatchString(command), "Command '%s' should match the regex", command)
+						})
+					}
+				})
+
+				Context("rejects commands with insufficient words", func() {
+					invalidCommands := []string{
+						"npm install",  // only two words
+						"install yarn", // only two words
+						"deno",         // single word
+						"nix profile",  // only two words
+						"yarn",         // single word
+						"pnpm",         // single word
+						"brew install", // only two words
+						"sudo apt-get", // only two words
+						"",             // empty string
+					}
+
+					for _, command := range invalidCommands {
+						It(fmt.Sprintf("should NOT match '%s'", command), func() {
+							assert.False(regex.MatchString(command), "Command '%s' should not match the regex", command)
+						})
+					}
+				})
+
+				Context("accepts commands with complex arguments", func() {
+					complexCommands := []string{
+						"npm install --save-dev typescript @types/node",
+						"yarn add --dev jest @testing-library/react",
+						"pnpm install --global --force typescript",
+						"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
+						"sudo apt-get install --yes --quiet nodejs npm",
+						"brew install --cask --verbose docker",
+						"winget install --id Microsoft.VisualStudioCode --exact",
+						"nix-env --install --attr nixpkgs.nodejs",
+					}
+
+					for _, command := range complexCommands {
+						It(fmt.Sprintf("should match complex command '%s'", command), func() {
+							assert.True(regex.MatchString(command), "Complex command '%s' should match the regex", command)
+						})
+					}
+				})
+
+				Context("handles edge cases", func() {
+					It("should handle minimal three-word command", func() {
+						assert.True(regex.MatchString("a b c"), "minimal three-word command should match")
+					})
+
+					It("should handle command with extra spaces", func() {
+						assert.True(regex.MatchString("a   b   c"), "command with extra spaces should match")
+					})
+
+					It("should handle command with tabs", func() {
+						assert.True(regex.MatchString("npm\tinstall\tpackage"), "command with tabs should match")
+					})
+
+					It("should handle command with multiple spaces", func() {
+						assert.True(regex.MatchString("npm  install  package"), "command with multiple spaces should match")
+					})
+
+					It("should reject command with leading/trailing spaces", func() {
+						assert.False(regex.MatchString(" npm install package "), "command with leading/trailing spaces should fail")
+					})
+				})
+			})
+
+			Describe("WriteToFile Helper Function", func() {
+				var tempDir string
+
+				BeforeEach(func() {
+					tempDir = GinkgoT().TempDir()
+				})
+
+				It("should write content to file", func() {
+					filePath := filepath.Join(tempDir, "test.txt")
+					content := "test content\nline 2"
+
+					err := writeToFile(filePath, content)
+					assert.NoError(err)
+
+					// Verify file exists and has correct content
+					fileContent, err := os.ReadFile(filePath)
+					assert.NoError(err)
+					assert.Equal(content, string(fileContent))
+				})
+
+				It("should return error when trying to write to directory", func() {
+					// Try to write to the directory path itself
+					err := writeToFile(tempDir, "content")
+					assert.Error(err)
+					// Error should be about permissions or that it's a directory
+				})
+
+				It("should overwrite existing file", func() {
+					filePath := filepath.Join(tempDir, "test.txt")
+
+					// Write initial content
+					err := writeToFile(filePath, "initial")
+					assert.NoError(err)
+
+					// Overwrite with new content
+					newContent := "overwritten content"
+					err = writeToFile(filePath, newContent)
+					assert.NoError(err)
+
+					// Verify new content
+					fileContent, err := os.ReadFile(filePath)
+					assert.NoError(err)
+					assert.Equal(newContent, string(fileContent))
+				})
+			})
 		})
+
+		Describe("Command Mapping Tests", func() {
+			Describe("EXEC Command Mapping", func() {
+			It("should build npm exec with args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildExec(h, "ts-node", []string{"src/index.ts"})
+				assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"exec", "ts-node", "--", "src/index.ts"}})
+			})
+
+			It("should build npm exec without args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildExec(h, "eslint", []string{})
+				assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"exec", "eslint", "--"}})
+		})
+
+		It("should build pnpm exec with args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildExec(h, "eslint", []string{"--version"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"exec", "eslint", "--version"}})
+		})
+
+		It("should build pnpm exec without args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildExec(h, "vite", []string{})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"exec", "vite"}})
+		})
+
+		It("should build yarn v1 exec correctly", func() {
+			h := newHarness(yarn, "1.22.19")
+			prog, argv, err := buildExec(h, "vite", []string{"--help"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"vite", "--help"}})
+		})
+
+		It("should build yarn v3 exec correctly", func() {
+			h := newHarness(yarn, "3.6.1")
+			prog, argv, err := buildExec(h, "vite", []string{"build"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"vite", "build"}})
+		})
+
+		It("should build bun exec correctly", func() {
+			h := newHarness(bun, "")
+			prog, argv, err := buildExec(h, "tsx", []string{"file.ts"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "bun", args: []string{"x", "tsx", "file.ts"}})
+		})
+
+		It("should build deno exec correctly", func() {
+			h := newHarness(deno, "")
+			prog, argv, err := buildExec(h, "main.ts", []string{"--allow-all"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "deno", args: []string{"run", "main.ts", "--allow-all"}})
+			})
+		})
+
+		Describe("DLX Command Mapping", func() {
+			It("should build npm dlx with args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildDLX(h, "create-vite@latest", []string{"my-app"})
+				assert.NoError(err)
+		assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npx", args: []string{"create-vite@latest", "my-app"}})
+		})
+
+		It("should build npm dlx without args correctly", func() {
+			h := newHarness(npm, "")
+			prog, argv, err := buildDLX(h, "@angular/cli", []string{})
+			assert.NoError(err)
+		assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npx", args: []string{"@angular/cli"}})
+		})
+
+		It("should build pnpm dlx with args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildDLX(h, "create-next-app", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"dlx", "create-next-app", "my-app"}})
+		})
+
+		It("should build yarn v1 dlx (no dlx subcommand) correctly", func() {
+			h := newHarness(yarn, "1.22.19")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"create-vite", "my-app"}})
+		})
+
+		It("should build yarn v3 dlx correctly", func() {
+			h := newHarness(yarn, "3.6.1")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"dlx", "create-vite", "my-app"}})
+		})
+
+		It("should build yarn berry dlx correctly", func() {
+			h := newHarness(yarn, "berry-3.1.0")
+			prog, argv, err := buildDLX(h, "create-vue", []string{})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"dlx", "create-vue"}})
+		})
+
+		It("should build bun dlx correctly", func() {
+			h := newHarness(bun, "")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "bunx", args: []string{"create-vite", "my-app"}})
+		})
+
+		It("should build deno dlx with URL correctly", func() {
+			h := newHarness(deno, "")
+			prog, argv, err := buildDLX(h, "https://deno.land/x/xyz/mod.ts", []string{"--help"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "deno", args: []string{"run", "https://deno.land/x/xyz/mod.ts", "--help"}})
+			})
+		})
+
+		Describe("Yarn Version Detection", func() {
+			It("should detect yarn v1 major version", func() {
+				got := cmd.ParseYarnMajor("1.22.19")
+				assert.Equal(1, got)
+			})
+
+			It("should detect yarn v2 major version", func() {
+				got := cmd.ParseYarnMajor("2.4.3")
+				assert.Equal(2, got)
+			})
+
+			It("should detect yarn v3 major version", func() {
+				got := cmd.ParseYarnMajor("3.6.1")
+				assert.Equal(3, got)
+			})
+
+			It("should detect yarn berry version as v3", func() {
+				got := cmd.ParseYarnMajor("berry-3.1.0")
+				assert.Equal(3, got)
+			})
+
+			It("should handle simple version numbers", func() {
+				got := cmd.ParseYarnMajor("3")
+				assert.Equal(3, got)
+			})
+
+			It("should return 0 for empty version", func() {
+				got := cmd.ParseYarnMajor("")
+				assert.Equal(0, got)
+			})
+
+			It("should return 0 for invalid version", func() {
+				got := cmd.ParseYarnMajor("invalid")
+				assert.Equal(0, got)
+			})
+
+			It("should return 0 for pre-1.0 versions", func() {
+				got := cmd.ParseYarnMajor("0.9.0")
+				assert.Equal(0, got)
+			})
+		})
+
+		Describe("Argument Validation", func() {
+			It("should error when exec binary is empty", func() {
+				h := newHarness(npm, "")
+				_, _, err := buildExec(h, "", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "binary name is required")
+			})
+
+			It("should error when dlx package is empty", func() {
+				h := newHarness(npm, "")
+				_, _, err := buildDLX(h, "", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "package name or URL is required")
+			})
+
+			It("should error when deno dlx requires URL", func() {
+				h := newHarness(deno, "")
+				_, _, err := buildDLX(h, "not-a-url", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "deno dlx requires a URL")
+			})
+
+			It("should error for unsupported package manager in exec", func() {
+				h := newHarness("unknown", "")
+				_, _, err := buildExec(h, "test", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager")
+			})
+
+			It("should error for unsupported package manager in dlx", func() {
+				h := newHarness("unknown", "")
+				_, _, err := buildDLX(h, "test", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager")
+			})
+		})
+
+		Describe("Windows Argument Passthrough", func() {
+			It("should handle args with spaces correctly", func() {
+				h := newHarness(npm, "")
+				args := []string{"--flag=a b", "c=d"}
+				_, argv, err := buildExec(h, "test-bin", args)
+				assert.NoError(err)
+
+				// Args should be passed through unchanged after the exec portion
+				expectedStart := []string{"exec", "test-bin", "--"}
+				assert.GreaterOrEqual(len(argv), len(expectedStart)+len(args))
+
+				for i, expected := range expectedStart {
+					assert.Equal(expected, argv[i])
+				}
+
+				// Check that the remaining args match exactly
+				actualArgs := argv[len(expectedStart):]
+				for i, expected := range args {
+					assert.Equal(expected, actualArgs[i])
+				}
+			})
+
+			It("should handle args with quotes correctly", func() {
+				h := newHarness(npm, "")
+				args := []string{"--message=\"hello world\"", "--path=C:\\Program Files\\test"}
+				_, argv, err := buildExec(h, "test-bin", args)
+				assert.NoError(err)
+
+				// Args should be passed through unchanged after the exec portion
+				expectedStart := []string{"exec", "test-bin", "--"}
+				assert.GreaterOrEqual(len(argv), len(expectedStart)+len(args))
+
+				for i, expected := range expectedStart {
+					assert.Equal(expected, argv[i])
+				}
+
+				// Check that the remaining args match exactly
+				actualArgs := argv[len(expectedStart):]
+				for i, expected := range args {
+					assert.Equal(expected, actualArgs[i])
+				}
+			})
+		})
+	})
+})
+
+var _ = Describe("MockCommandRunner Interface Tests", func() {
+	assert := assert.New(GinkgoT())
+	It("should return errors for invalid commands", func() {
+		testRunner := mock.NewMockCommandRunner()
+		testRunner.InvalidCommands = []string{"npm"}
+		testRunner.Command("npm", "install")
+		err := testRunner.Run()
+		assert.Error(err)
+		assert.Contains(err.Error(), "configured to fail")
+	})
 
 		It("should correctly check for command execution", func() {
 			testRunner := mock.NewMockCommandRunner()
@@ -3414,15 +4005,15 @@ var _ = Describe("JPD Commands", func() {
 
 			cmdCall, exists = testRunner.LastCommand()
 			assert.True(exists)
-			assert.Equal("yarn", cmdCall.Name)
-			assert.Equal([]string{"add", "react"}, cmdCall.Args)
-		})
+		assert.Equal("yarn", cmdCall.Name)
+		assert.Equal([]string{"add", "react"}, cmdCall.Args)
 	})
+})
 
-	// Additional consolidated test sections from other test files
+// Additional consolidated test sections from other test files
 
-	const CommandsAliasAndEdgeTests = "Commands Alias and Edge Test Coverage"
-	Describe(CommandsAliasAndEdgeTests, func() {
+var _ = Describe("Commands Alias and Edge Test Coverage", func() {
+	assert := assert.New(GinkgoT())
 
 		var rootCmd *cobra.Command
 		mockCommandRunner := mock.NewMockCommandRunner()
@@ -3667,12 +4258,9 @@ var _ = Describe("JPD Commands", func() {
 				})
 			})
 		})
-	})
 
-	// New tests for the 'integrate' command
-	//
-	const IntegrateCommand = "Integrate Command"
-	Describe(IntegrateCommand, func() {
+		// New tests for the 'integrate' command
+		Describe("Integrate Command", func() {
 		var (
 			tempDir         string
 			originalXDG     string
@@ -3745,6 +4333,8 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should generate Warp workflow files in the specified directory", func() {
+				// Add debug expectations for warp subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 				outputDir := filepath.Join(tempDir, "workflows", "/")
 
 				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", outputDir))
@@ -3763,6 +4353,8 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return an error if output directory cannot be created", func() {
+				// Add debug expectations for warp subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 				// Create a file where a directory should be, making os.MkdirAll fail
 				blockedPath := filepath.Join(tempDir, "a_file_not_a_dir")
 				err := os.WriteFile(blockedPath, []byte("i am a file"), 0644)
@@ -3772,7 +4364,13 @@ var _ = Describe("JPD Commands", func() {
 				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", invalidOutputDir))
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to generate Warp workflow files")
-				assert.Contains(err.Error(), "not a directory") // Specific error message for this case
+				// Error message varies by platform
+				if runtime.GOOS == "windows" {
+					// On Windows, the error might be different
+					assert.True(strings.Contains(err.Error(), "The system cannot find the path specified") || strings.Contains(err.Error(), "not a directory"))
+				} else {
+					assert.Contains(err.Error(), "not a directory")
+				}
 			})
 		})
 
@@ -3835,13 +4433,21 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should return an error if writing to a custom file fails", func() {
+				// Add debug expectations for carapace subcommand which executes business logic
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 				// Attempt to write to a directory, which will fail os.Create
 				invalidFilePath := tempDir // tempDir is a directory
 
 				_, err := executeCmd(rootCmd, "integrate", "carapace", "--output", invalidFilePath)
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to write Carapace spec to file")
-				assert.Contains(err.Error(), "is a directory") // Specific OS error for this case
+				// Error message varies by platform
+				if runtime.GOOS == "windows" {
+					// On Windows, the error might be different
+					assert.True(strings.Contains(err.Error(), "Access is denied") || strings.Contains(err.Error(), "is a directory"))
+				} else {
+					assert.Contains(err.Error(), "is a directory")
+				}
 			})
 
 			It("should return an error if default carapace specs directory cannot be created", func() {
@@ -3855,7 +4461,13 @@ var _ = Describe("JPD Commands", func() {
 				_, err = executeCmd(rootCmd, "integrate", "carapace")
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to create Carapace specs directory")
-				assert.Contains(err.Error(), "not a directory")
+				// Error message varies by platform
+				if runtime.GOOS == "windows" {
+					// On Windows, the error is about path not being found
+					assert.Contains(err.Error(), "The system cannot find the path specified")
+				} else {
+					assert.Contains(err.Error(), "not a directory")
+				}
 			})
 		})
 
@@ -3887,202 +4499,7 @@ var _ = Describe("JPD Commands", func() {
 
 // Additional test functions from separate test files (consolidated)
 
-func TestNewDlxCmd_Aliases(t *testing.T) {
-	// Arrange: Create the dlx command
-	dlxCmd := cmd.NewDlxCmd()
-
-	// Act: Get the aliases
-	actualAliases := dlxCmd.Aliases
-
-	// Assert: Should contain "x"
-	found := false
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Errorf("NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
-	}
-}
-
-func TestNewExecCmd_Aliases(t *testing.T) {
-	// Arrange: Create the exec command
-	execCmd := cmd.NewExecCmd()
-
-	// Act: Get the aliases
-	actualAliases := execCmd.Aliases
-
-	// Assert: Should only contain "e", NOT "x"
-	expectedAliases := []string{"e"}
-
-	if len(actualAliases) != len(expectedAliases) {
-		t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-		return
-	}
-
-	for i, alias := range actualAliases {
-		if alias != expectedAliases[i] {
-			t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-			return
-		}
-	}
-
-	// Also explicitly assert that "x" is NOT present
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			t.Errorf("NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
-		}
-	}
-}
-
 // writeToFile helper function for integration tests
 func writeToFile(filePath, content string) error {
 	return os.WriteFile(filePath, []byte(content), 0644)
-}
-
-func TestValidInstallCommandStringRegex(t *testing.T) {
-	regex := regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
-
-	t.Run("accepts valid commands with three or more words", func(t *testing.T) {
-		validCommands := []string{
-			"npm install -g npm",
-			"yarn global add yarn",
-			"pnpm add -g pnpm",
-			"bun install -g bun",
-			"deno install --allow-net deno",
-			"sudo apt-get install nodejs",
-			"brew install pnpm",
-			"winget install Microsoft.VisualStudioCode",
-			"choco install nodejs",
-			"dnf install yarn",
-			"yum install nodejs",
-			"zypper install pnpm",
-			"apk add deno",
-			"nix-env -iA nixpkgs.nodejs",
-			"nix profile install nixpkgs#yarn",
-			"pacman -S git",
-			"apt install curl wget zip",
-			"brew cask install docker",
-		}
-
-		for _, command := range validCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("rejects commands with insufficient words", func(t *testing.T) {
-		invalidCommands := []string{
-			"npm install",  // only two words
-			"install yarn", // only two words
-			"deno",         // single word
-			"nix profile",  // only two words
-			"yarn",         // single word
-			"pnpm",         // single word
-			"brew install", // only two words
-			"sudo apt-get", // only two words
-			"",             // empty string
-		}
-
-		for _, command := range invalidCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.False(t, regex.MatchString(command),
-					"Command '%s' should not match the regex", command)
-			})
-		}
-	})
-
-	t.Run("accepts commands with complex arguments", func(t *testing.T) {
-		complexCommands := []string{
-			"npm install --save-dev typescript @types/node",
-			"yarn add --dev jest @testing-library/react",
-			"pnpm install --global --force typescript",
-			"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
-			"sudo apt-get install --yes --quiet nodejs npm",
-			"brew install --cask --verbose docker",
-			"winget install --id Microsoft.VisualStudioCode --exact",
-			"nix-env --install --attr nixpkgs.nodejs",
-		}
-
-		for _, command := range complexCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Complex command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("handles edge cases", func(t *testing.T) {
-		testCases := []struct {
-			command  string
-			expected bool
-			reason   string
-		}{
-			{"a b c", true, "minimal three-word command"},
-			{"a   b   c", true, "command with extra spaces"},
-			{"npm\tinstall\tpackage", true, "command with tabs"},
-			{"npm  install  package", true, "command with multiple spaces"},
-			{" npm install package ", false, "command with leading/trailing spaces should fail"},
-		}
-
-		for _, testCase := range testCases {
-			t.Run(testCase.command, func(t *testing.T) {
-				result := regex.MatchString(testCase.command)
-				assert.Equal(t, testCase.expected, result,
-					"Command '%s' %s", testCase.command, testCase.reason)
-			})
-		}
-	})
-}
-
-func TestWriteToFile(t *testing.T) {
-	t.Run("writes content to file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-			content := "test content\nline 2"
-
-			err := writeToFile(filePath, content)
-			assert.NoError(t, err)
-
-			// Verify file exists and has correct content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, content, string(fileContent))
-		})
-	})
-
-	t.Run("returns error when trying to write to directory", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			// Try to write to the directory path itself
-			err := writeToFile(tempDir, "content")
-			assert.Error(t, err)
-			// Error should be about permissions or that it's a directory
-		})
-	})
-
-	t.Run("overwrites existing file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-
-			// Write initial content
-			err := writeToFile(filePath, "initial")
-			assert.NoError(t, err)
-
-			// Overwrite with new content
-			newContent := "overwritten content"
-			err = writeToFile(filePath, newContent)
-			assert.NoError(t, err)
-
-			// Verify new content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, newContent, string(fileContent))
-		})
-	})
-
 }

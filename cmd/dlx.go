@@ -32,16 +32,54 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-	// internal
+// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
+
+
+// BuildDLXCommand builds command line for running temporary packages
+func BuildDLXCommand(pm, yarnVersion, pkgOrURL string, args []string) (program string, argv []string, err error) {
+	if pkgOrURL == "" {
+		return "", nil, fmt.Errorf("package name or URL is required for dlx command")
+	}
+	
+	switch pm {
+	case "npm":
+		argv = append([]string{pkgOrURL}, args...)
+		return "npx", argv, nil
+	case "pnpm":
+		argv = append([]string{"dlx", pkgOrURL}, args...)
+		return "pnpm", argv, nil
+	case "yarn":
+		yarnMajor := ParseYarnMajor(yarnVersion)
+		if yarnMajor >= 2 {
+			// Yarn v2+
+			argv = append([]string{"dlx", pkgOrURL}, args...)
+		} else {
+			// Yarn v1 or unknown (default to v1)
+			argv = append([]string{pkgOrURL}, args...)
+		}
+		return "yarn", argv, nil
+	case "bun":
+		argv = append([]string{pkgOrURL}, args...)
+		return "bunx", argv, nil
+	case "deno":
+		if !isURL(pkgOrURL) {
+			return "", nil, fmt.Errorf("deno dlx requires a URL")
+		}
+		argv = append([]string{"run", pkgOrURL}, args...)
+		return "deno", argv, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported package manager: %s", pm)
+	}
+}
 
 func NewDlxCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dlx <package> [args...]",
-		Short: "Execute packages with package runner",
-		Long: `Execute packages with package runner tools without ambiguity.
-Always uses npx, pnpx dlx, yarn dlx, or bunx regardless of package manager version.
+		Short: "Execute temporary packages without installing",
+		Long: `Execute packages temporarily without installing them first.
+Downloads and runs packages on demand without permanent installation.
 
 Examples:
   javascript-package-delegator dlx create-react-app my-app
@@ -63,54 +101,20 @@ Examples:
 				log.Info("Using package manager", "pm", pm)
 			})
 
-			// Build command based on package manager - always use package-runner tools
-			var execCommand string
-			var cmdArgs []string
-
-			switch pm {
-			case "npm":
-				execCommand = "npx"
-				cmdArgs = []string{packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "yarn":
-				// Check if it's Yarn v1 or v2+
-				yarnVersion, err := detect.DetectYarnVersion(
+			// Get yarn version if needed
+			yarnVersion := ""
+			if pm == "yarn" {
+				if version, err := detect.DetectYarnVersion(
 					getYarnVersionRunnerCommandContext(cmd),
-				)
-
-				if err != nil {
-					// Fallback to yarn v1 style
-					execCommand = "yarn"
-					cmdArgs = []string{packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
-				} else if strings.HasPrefix(yarnVersion, "1.") {
-					// Yarn v1
-					execCommand = "yarn"
-					cmdArgs = []string{packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
-				} else {
-					// Yarn v2+
-					execCommand = "yarn"
-					cmdArgs = []string{"dlx", packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
+				); err == nil {
+					yarnVersion = version
 				}
+			}
 
-			case "pnpm":
-				execCommand = "pnpm"
-				cmdArgs = []string{"dlx", packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "bun":
-				execCommand = "bunx"
-				cmdArgs = []string{packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "deno":
-				return fmt.Errorf("deno does not have a dlx/x equivalent")
-
-			default:
-				return fmt.Errorf("unsupported package manager: %s", pm)
+			// Build command for running temporary packages
+			execCommand, cmdArgs, err := BuildDLXCommand(pm, yarnVersion, packageName, packageArgs)
+			if err != nil {
+				return err
 			}
 
 			// Execute the command
