@@ -3463,8 +3463,46 @@ var _ = Describe("JPD Commands", func() {
 	})
 	})
 
-	Describe("Command Mapping Tests", func() {
-		Describe("EXEC Command Mapping", func() {
+		Describe("Command Aliases Tests", func() {
+			Describe("DLX Command", func() {
+				It("should have 'x' as an alias", func() {
+					dlxCmd := cmd.NewDlxCmd()
+					actualAliases := dlxCmd.Aliases
+					
+					// Should contain "x"
+					found := false
+					for _, alias := range actualAliases {
+						if alias == "x" {
+							found = true
+							break
+						}
+					}
+					assert.True(found, "NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
+				})
+			})
+
+			Describe("EXEC Command", func() {
+				It("should have 'e' as alias and NOT 'x'", func() {
+					execCmd := cmd.NewExecCmd()
+					actualAliases := execCmd.Aliases
+					expectedAliases := []string{"e"}
+
+					assert.Equal(len(expectedAliases), len(actualAliases), "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+
+					for i, alias := range actualAliases {
+						assert.Equal(expectedAliases[i], alias, "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+					}
+
+					// Also explicitly assert that "x" is NOT present
+					for _, alias := range actualAliases {
+						assert.NotEqual("x", alias, "NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
+					}
+				})
+			})
+		})
+
+		Describe("Command Mapping Tests", func() {
+			Describe("EXEC Command Mapping", func() {
 			It("should build npm exec with args correctly", func() {
 				h := newHarness(npm, "")
 				prog, argv, err := buildExec(h, "ts-node", []string{"src/index.ts"})
@@ -4228,57 +4266,6 @@ var _ = Describe("Commands Alias and Edge Test Coverage", func() {
 })
 
 // Additional test functions from separate test files (consolidated)
-
-func TestNewDlxCmd_Aliases(t *testing.T) {
-	// Arrange: Create the dlx command
-	dlxCmd := cmd.NewDlxCmd()
-
-	// Act: Get the aliases
-	actualAliases := dlxCmd.Aliases
-
-	// Assert: Should contain "x"
-	found := false
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Errorf("NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
-	}
-}
-
-func TestNewExecCmd_Aliases(t *testing.T) {
-	// Arrange: Create the exec command
-	execCmd := cmd.NewExecCmd()
-
-	// Act: Get the aliases
-	actualAliases := execCmd.Aliases
-
-	// Assert: Should only contain "e", NOT "x"
-	expectedAliases := []string{"e"}
-
-	if len(actualAliases) != len(expectedAliases) {
-		t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-		return
-	}
-
-	for i, alias := range actualAliases {
-		if alias != expectedAliases[i] {
-			t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-			return
-		}
-	}
-
-	// Also explicitly assert that "x" is NOT present
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			t.Errorf("NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
-		}
-	}
-}
 
 // writeToFile helper function for integration tests
 func writeToFile(filePath, content string) error {
