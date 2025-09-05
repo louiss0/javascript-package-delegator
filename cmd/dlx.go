@@ -45,8 +45,8 @@ func BuildDLXCommand(pm, yarnVersion, pkgOrURL string, args []string) (program s
 	
 	switch pm {
 	case "npm":
-		argv = append([]string{"dlx", pkgOrURL}, args...)
-		return "npm", argv, nil
+		argv = append([]string{pkgOrURL}, args...)
+		return "npx", argv, nil
 	case "pnpm":
 		argv = append([]string{"dlx", pkgOrURL}, args...)
 		return "pnpm", argv, nil

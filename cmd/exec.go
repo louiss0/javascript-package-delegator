@@ -79,7 +79,7 @@ func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program strin
 	case "bun":
 		argv = append([]string{"x", bin}, args...)
 		return "bun", argv, nil
-	case "deno":
+case "deno":
 		argv = append([]string{"run", bin}, args...)
 		return "deno", argv, nil
 	default:
