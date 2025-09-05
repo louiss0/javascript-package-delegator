@@ -152,6 +152,10 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 				Description: "Execute packages with package runner (dedicated package-runner command)",
 				Completion:  "$carapace.packages.npm",
 			},
+			"create": {
+				Description: "Scaffold new projects (supports package names and URLs for deno)",
+				Completion:  "$carapace.packages.npm",
+			},
 			"update": {
 				Description: "Update packages (equivalent to 'nup')",
 				Completion:  "$carapace.packages.npm",

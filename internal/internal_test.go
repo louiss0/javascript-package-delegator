@@ -534,6 +534,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 				"JPD Run",
 				"JPD Exec",
 				"JPD DLX",
+				"JPD Create",
 				"JPD Update",
 				"JPD Uninstall",
 				"JPD Clean Install",
@@ -589,6 +590,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 				"jpd-run.yaml",
 				"jpd-exec.yaml",
 				"jpd-dlx.yaml",
+				"jpd-create.yaml",
 				"jpd-update.yaml",
 				"jpd-uninstall.yaml",
 				"jpd-clean-install.yaml",
@@ -704,8 +706,8 @@ var _ = Describe("Warp Workflow Generator", func() {
 
 			// Count document separators
 			separatorCount := strings.Count(result, "---")
-			// Should have separators between documents (8 workflows = 7 separators + 1 at start)
-			assert.True(GinkgoT(), separatorCount >= 7, "Expected at least 7 document separators, got %d", separatorCount)
+			// Should have separators between documents (9 workflows = 8 separators + 1 at start)
+			assert.True(GinkgoT(), separatorCount >= 8, "Expected at least 8 document separators, got %d", separatorCount)
 		})
 	})
 })
