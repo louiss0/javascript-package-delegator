@@ -25,15 +25,67 @@ package cmd
 
 import (
 	// standard library
+	"fmt"
 	"strings"
 
 	// external
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-	// internal
+// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
+
+// ParseYarnMajor extracts the major version number from a yarn version string
+func ParseYarnMajor(version string) int {
+	if version == "" {
+		return 0
+	}
+	
+	// Handle simple cases like "3" or "berry-3.1.0"
+	if strings.HasPrefix(version, "berry-") {
+		version = strings.TrimPrefix(version, "berry-")
+	}
+	
+	// Extract first character and convert to int
+	if len(version) > 0 && version[0] >= '1' && version[0] <= '9' {
+		return int(version[0] - '0')
+	}
+	
+	return 0 // unknown
+}
+
+// isURL checks if a string is a valid HTTP or HTTPS URL
+func isURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+// BuildExecCommand builds command line for running local dependencies
+func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program string, argv []string, err error) {
+	if bin == "" {
+		return "", nil, fmt.Errorf("binary name is required for exec command")
+	}
+	
+	switch pm {
+	case "npm":
+		argv = append([]string{"exec", bin, "--"}, args...)
+		return "npm", argv, nil
+	case "pnpm":
+		argv = append([]string{"exec", bin}, args...)
+		return "pnpm", argv, nil
+	case "yarn":
+		argv = append([]string{bin}, args...)
+		return "yarn", argv, nil
+	case "bun":
+		argv = append([]string{"x", bin}, args...)
+		return "bun", argv, nil
+	case "deno":
+		argv = append([]string{"run", bin}, args...)
+		return "deno", argv, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported package manager: %s", pm)
+	}
+}
 
 func NewExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -73,7 +125,7 @@ Examples:
 			}
 
 			// Build command for executing local dependencies
-			execCommand, cmdArgs, err := buildExecCommand(pm, yarnVersion, binaryName, binaryArgs)
+			execCommand, cmdArgs, err := BuildExecCommand(pm, yarnVersion, binaryName, binaryArgs)
 			if err != nil {
 				return err
 			}

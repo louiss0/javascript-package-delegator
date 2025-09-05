@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,105 @@ import (
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
+
+// Command Mapping Tests - Pure unit tests for command building logic
+// These tests directly test the command builder functions without executing commands
+
+// Test strategy and mapping rules:
+//
+// EXEC (local dependencies): Run local deps using package manager's exec feature
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm exec <bin> -- <args>                      |
+// | pnpm           | pnpm exec <bin> <args>                        |
+// | yarn (any)     | yarn <bin> <args>                             |
+// | bun            | bun x <bin> <args>                            |
+// | deno           | deno run <script> <args>                      |
+//
+// DLX (temporary packages): Run packages temporarily without install
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm dlx <package> <args>                      |
+// | pnpm           | pnpm dlx <package> <args>                     |
+// | yarn v1        | yarn <package> <args> (no dlx)               |
+// | yarn v2+       | yarn dlx <package> <args>                     |
+// | bun            | bunx <package> <args>                         |
+// | deno           | deno run <url> <args> (requires URL)          |
+
+// Test fixtures and helpers for command mapping tests
+// testingInterface defines the minimal interface needed by test helpers
+type testingInterface interface {
+	Helper()
+	Errorf(format string, args ...interface{})
+}
+
+// ginkgoTestingT wraps Ginkgo's FullGinkgoTInterface to work with testing.T
+type ginkgoTestingT struct {
+	ginkgo.FullGinkgoTInterface
+}
+
+func (g ginkgoTestingT) Helper() {}
+
+func (g ginkgoTestingT) Errorf(format string, args ...interface{}) {
+	g.FullGinkgoTInterface.Errorf(format, args...)
+}
+
+type pm string
+
+const (
+	npm  pm = "npm"
+	pnpm pm = "pnpm"
+	yarn pm = "yarn"
+	bun  pm = "bun"
+	deno pm = "deno"
+)
+
+type yarnInfo struct {
+	version string
+}
+
+type wantCmd struct {
+	program string
+	args    []string
+}
+
+type harness struct {
+	packageManager pm
+	yarnVersion    string
+}
+
+func newHarness(packageManager pm, yarnVersion string) harness {
+	return harness{
+		packageManager: packageManager,
+		yarnVersion:    yarnVersion,
+	}
+}
+
+func assertCmd(t testingInterface, gotProg string, gotArgs []string, want wantCmd) {
+	t.Helper()
+	if gotProg != want.program {
+		t.Errorf("program = %q, want %q", gotProg, want.program)
+	}
+	if len(gotArgs) != len(want.args) {
+		t.Errorf("args length = %d, want %d\nGot: %v\nWant: %v", len(gotArgs), len(want.args), gotArgs, want.args)
+		return
+	}
+	for i, gotArg := range gotArgs {
+		if gotArg != want.args[i] {
+			t.Errorf("args[%d] = %q, want %q", i, gotArg, want.args[i])
+		}
+	}
+}
+
+// buildExec wraps the shared function for testing
+func buildExec(h harness, bin string, args []string) (program string, argv []string, err error) {
+	return cmd.BuildExecCommand(string(h.packageManager), h.yarnVersion, bin, args)
+}
+
+// buildDLX wraps the shared function for testing
+func buildDLX(h harness, pkgOrURL string, args []string) (program string, argv []string, err error) {
+	return cmd.BuildDLXCommand(string(h.packageManager), h.yarnVersion, pkgOrURL, args)
+}
 
 // This function executes a cobra command with the given arguments and returns the output and error.
 // It sets the output and error buffers for the command, sets the arguments, and executes the command.
@@ -3360,16 +3460,261 @@ var _ = Describe("JPD Commands", func() {
 			err := testRunner.Run()
 			assert.Error(err)
 			assert.Contains(err.Error(), "no command set to run")
+	})
+	})
+
+	Describe("Command Mapping Tests", func() {
+		Describe("EXEC Command Mapping", func() {
+			It("should build npm exec with args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildExec(h, "ts-node", []string{"src/index.ts"})
+				assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"exec", "ts-node", "--", "src/index.ts"}})
+			})
+
+			It("should build npm exec without args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildExec(h, "eslint", []string{})
+				assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"exec", "eslint", "--"}})
 		})
 
-		It("should return errors for invalid commands", func() {
-			testRunner := mock.NewMockCommandRunner()
-			testRunner.InvalidCommands = []string{"npm"}
-			testRunner.Command("npm", "install")
-			err := testRunner.Run()
-			assert.Error(err)
-			assert.Contains(err.Error(), "configured to fail")
+		It("should build pnpm exec with args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildExec(h, "eslint", []string{"--version"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"exec", "eslint", "--version"}})
 		})
+
+		It("should build pnpm exec without args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildExec(h, "vite", []string{})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"exec", "vite"}})
+		})
+
+		It("should build yarn v1 exec correctly", func() {
+			h := newHarness(yarn, "1.22.19")
+			prog, argv, err := buildExec(h, "vite", []string{"--help"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"vite", "--help"}})
+		})
+
+		It("should build yarn v3 exec correctly", func() {
+			h := newHarness(yarn, "3.6.1")
+			prog, argv, err := buildExec(h, "vite", []string{"build"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"vite", "build"}})
+		})
+
+		It("should build bun exec correctly", func() {
+			h := newHarness(bun, "")
+			prog, argv, err := buildExec(h, "tsx", []string{"file.ts"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "bun", args: []string{"x", "tsx", "file.ts"}})
+		})
+
+		It("should build deno exec correctly", func() {
+			h := newHarness(deno, "")
+			prog, argv, err := buildExec(h, "main.ts", []string{"--allow-all"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "deno", args: []string{"run", "main.ts", "--allow-all"}})
+			})
+		})
+
+		Describe("DLX Command Mapping", func() {
+			It("should build npm dlx with args correctly", func() {
+				h := newHarness(npm, "")
+				prog, argv, err := buildDLX(h, "create-vite@latest", []string{"my-app"})
+				assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"dlx", "create-vite@latest", "my-app"}})
+		})
+
+		It("should build npm dlx without args correctly", func() {
+			h := newHarness(npm, "")
+			prog, argv, err := buildDLX(h, "@angular/cli", []string{})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "npm", args: []string{"dlx", "@angular/cli"}})
+		})
+
+		It("should build pnpm dlx with args correctly", func() {
+			h := newHarness(pnpm, "")
+			prog, argv, err := buildDLX(h, "create-next-app", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "pnpm", args: []string{"dlx", "create-next-app", "my-app"}})
+		})
+
+		It("should build yarn v1 dlx (no dlx subcommand) correctly", func() {
+			h := newHarness(yarn, "1.22.19")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"create-vite", "my-app"}})
+		})
+
+		It("should build yarn v3 dlx correctly", func() {
+			h := newHarness(yarn, "3.6.1")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"dlx", "create-vite", "my-app"}})
+		})
+
+		It("should build yarn berry dlx correctly", func() {
+			h := newHarness(yarn, "berry-3.1.0")
+			prog, argv, err := buildDLX(h, "create-vue", []string{})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "yarn", args: []string{"dlx", "create-vue"}})
+		})
+
+		It("should build bun dlx correctly", func() {
+			h := newHarness(bun, "")
+			prog, argv, err := buildDLX(h, "create-vite", []string{"my-app"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "bunx", args: []string{"create-vite", "my-app"}})
+		})
+
+		It("should build deno dlx with URL correctly", func() {
+			h := newHarness(deno, "")
+			prog, argv, err := buildDLX(h, "https://deno.land/x/xyz/mod.ts", []string{"--help"})
+			assert.NoError(err)
+			assertCmd(ginkgoTestingT{GinkgoT()}, prog, argv, wantCmd{program: "deno", args: []string{"run", "https://deno.land/x/xyz/mod.ts", "--help"}})
+			})
+		})
+
+		Describe("Yarn Version Detection", func() {
+			It("should detect yarn v1 major version", func() {
+				got := cmd.ParseYarnMajor("1.22.19")
+				assert.Equal(1, got)
+			})
+
+			It("should detect yarn v2 major version", func() {
+				got := cmd.ParseYarnMajor("2.4.3")
+				assert.Equal(2, got)
+			})
+
+			It("should detect yarn v3 major version", func() {
+				got := cmd.ParseYarnMajor("3.6.1")
+				assert.Equal(3, got)
+			})
+
+			It("should detect yarn berry version as v3", func() {
+				got := cmd.ParseYarnMajor("berry-3.1.0")
+				assert.Equal(3, got)
+			})
+
+			It("should handle simple version numbers", func() {
+				got := cmd.ParseYarnMajor("3")
+				assert.Equal(3, got)
+			})
+
+			It("should return 0 for empty version", func() {
+				got := cmd.ParseYarnMajor("")
+				assert.Equal(0, got)
+			})
+
+			It("should return 0 for invalid version", func() {
+				got := cmd.ParseYarnMajor("invalid")
+				assert.Equal(0, got)
+			})
+
+			It("should return 0 for pre-1.0 versions", func() {
+				got := cmd.ParseYarnMajor("0.9.0")
+				assert.Equal(0, got)
+			})
+		})
+
+		Describe("Argument Validation", func() {
+			It("should error when exec binary is empty", func() {
+				h := newHarness(npm, "")
+				_, _, err := buildExec(h, "", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "binary name is required")
+			})
+
+			It("should error when dlx package is empty", func() {
+				h := newHarness(npm, "")
+				_, _, err := buildDLX(h, "", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "package name or URL is required")
+			})
+
+			It("should error when deno dlx requires URL", func() {
+				h := newHarness(deno, "")
+				_, _, err := buildDLX(h, "not-a-url", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "deno dlx requires a URL")
+			})
+
+			It("should error for unsupported package manager in exec", func() {
+				h := newHarness("unknown", "")
+				_, _, err := buildExec(h, "test", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager")
+			})
+
+			It("should error for unsupported package manager in dlx", func() {
+				h := newHarness("unknown", "")
+				_, _, err := buildDLX(h, "test", []string{})
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager")
+			})
+		})
+
+		Describe("Windows Argument Passthrough", func() {
+			It("should handle args with spaces correctly", func() {
+				h := newHarness(npm, "")
+				args := []string{"--flag=a b", "c=d"}
+				_, argv, err := buildExec(h, "test-bin", args)
+				assert.NoError(err)
+
+				// Args should be passed through unchanged after the exec portion
+				expectedStart := []string{"exec", "test-bin", "--"}
+				assert.GreaterOrEqual(len(argv), len(expectedStart)+len(args))
+
+				for i, expected := range expectedStart {
+					assert.Equal(expected, argv[i])
+				}
+
+				// Check that the remaining args match exactly
+				actualArgs := argv[len(expectedStart):]
+				for i, expected := range args {
+					assert.Equal(expected, actualArgs[i])
+				}
+			})
+
+			It("should handle args with quotes correctly", func() {
+				h := newHarness(npm, "")
+				args := []string{"--message=\"hello world\"", "--path=C:\\Program Files\\test"}
+				_, argv, err := buildExec(h, "test-bin", args)
+				assert.NoError(err)
+
+				// Args should be passed through unchanged after the exec portion
+				expectedStart := []string{"exec", "test-bin", "--"}
+				assert.GreaterOrEqual(len(argv), len(expectedStart)+len(args))
+
+				for i, expected := range expectedStart {
+					assert.Equal(expected, argv[i])
+				}
+
+				// Check that the remaining args match exactly
+				actualArgs := argv[len(expectedStart):]
+				for i, expected := range args {
+					assert.Equal(expected, actualArgs[i])
+				}
+			})
+		})
+	})
+})
+
+var _ = Describe("MockCommandRunner Interface Tests", func() {
+	assert := assert.New(GinkgoT())
+	It("should return errors for invalid commands", func() {
+		testRunner := mock.NewMockCommandRunner()
+		testRunner.InvalidCommands = []string{"npm"}
+		testRunner.Command("npm", "install")
+		err := testRunner.Run()
+		assert.Error(err)
+		assert.Contains(err.Error(), "configured to fail")
+	})
 
 		It("should correctly check for command execution", func() {
 			testRunner := mock.NewMockCommandRunner()
@@ -3414,15 +3759,15 @@ var _ = Describe("JPD Commands", func() {
 
 			cmdCall, exists = testRunner.LastCommand()
 			assert.True(exists)
-			assert.Equal("yarn", cmdCall.Name)
-			assert.Equal([]string{"add", "react"}, cmdCall.Args)
-		})
+		assert.Equal("yarn", cmdCall.Name)
+		assert.Equal([]string{"add", "react"}, cmdCall.Args)
 	})
+})
 
-	// Additional consolidated test sections from other test files
+// Additional consolidated test sections from other test files
 
-	const CommandsAliasAndEdgeTests = "Commands Alias and Edge Test Coverage"
-	Describe(CommandsAliasAndEdgeTests, func() {
+var _ = Describe("Commands Alias and Edge Test Coverage", func() {
+	assert := assert.New(GinkgoT())
 
 		var rootCmd *cobra.Command
 		mockCommandRunner := mock.NewMockCommandRunner()
@@ -3667,12 +4012,9 @@ var _ = Describe("JPD Commands", func() {
 				})
 			})
 		})
-	})
 
-	// New tests for the 'integrate' command
-	//
-	const IntegrateCommand = "Integrate Command"
-	Describe(IntegrateCommand, func() {
+		// New tests for the 'integrate' command
+		Describe("Integrate Command", func() {
 		var (
 			tempDir         string
 			originalXDG     string
@@ -4084,5 +4426,4 @@ func TestWriteToFile(t *testing.T) {
 			assert.Equal(t, newContent, string(fileContent))
 		})
 	})
-
 }

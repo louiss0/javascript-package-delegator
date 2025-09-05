@@ -25,15 +25,54 @@ package cmd
 
 import (
 	// standard library
+	"fmt"
 	"strings"
 
 	// external
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
-	// internal
+// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
+
+
+// BuildDLXCommand builds command line for running temporary packages
+func BuildDLXCommand(pm, yarnVersion, pkgOrURL string, args []string) (program string, argv []string, err error) {
+	if pkgOrURL == "" {
+		return "", nil, fmt.Errorf("package name or URL is required for dlx command")
+	}
+	
+	switch pm {
+	case "npm":
+		argv = append([]string{"dlx", pkgOrURL}, args...)
+		return "npm", argv, nil
+	case "pnpm":
+		argv = append([]string{"dlx", pkgOrURL}, args...)
+		return "pnpm", argv, nil
+	case "yarn":
+		yarnMajor := ParseYarnMajor(yarnVersion)
+		if yarnMajor >= 2 {
+			// Yarn v2+
+			argv = append([]string{"dlx", pkgOrURL}, args...)
+		} else {
+			// Yarn v1 or unknown (default to v1)
+			argv = append([]string{pkgOrURL}, args...)
+		}
+		return "yarn", argv, nil
+	case "bun":
+		argv = append([]string{pkgOrURL}, args...)
+		return "bunx", argv, nil
+	case "deno":
+		if !isURL(pkgOrURL) {
+			return "", nil, fmt.Errorf("deno dlx requires a URL")
+		}
+		argv = append([]string{"run", pkgOrURL}, args...)
+		return "deno", argv, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported package manager: %s", pm)
+	}
+}
 
 func NewDlxCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -73,7 +112,7 @@ Examples:
 			}
 
 			// Build command for running temporary packages
-			execCommand, cmdArgs, err := buildDLXCommand(pm, yarnVersion, packageName, packageArgs)
+			execCommand, cmdArgs, err := BuildDLXCommand(pm, yarnVersion, packageName, packageArgs)
 			if err != nil {
 				return err
 			}
