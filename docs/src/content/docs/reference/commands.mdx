@@ -346,6 +346,114 @@ This command is functionally identical to `jpd exec` but provides a dedicated en
 
 ---
 
+## create <Badge text="Alias: c" variant="tip" />
+
+Scaffold new projects using create runners from various package managers.
+
+### Usage
+
+```bash
+jpd create <name|url> [args...]
+```
+
+### Package Manager Support
+
+- **npm, pnpm, yarn, bun**: Accepts package names (e.g., `react-app`, `vite`, `next-app`)
+- **deno**: Accepts URLs to TypeScript scripts (e.g., `https://deno.land/x/fresh/init.ts`)
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd create react-app my-app
+    npm exec create-react-app -- my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    npm exec create-vite@latest -- my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v1">
+    ```bash
+    # jpd create react-app my-app
+    npx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    npx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v2+">
+    ```bash
+    # jpd create react-app my-app
+    yarn dlx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    yarn dlx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd create react-app my-app
+    pnpm exec create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    pnpm exec create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd create react-app my-app
+    bunx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    bunx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="deno">
+    ```bash
+    # jpd create https://deno.land/x/fresh/init.ts my-app
+    deno run https://deno.land/x/fresh/init.ts my-app
+    
+    # jpd create https://raw.githubusercontent.com/denoland/fresh/main/init.ts my-fresh-app
+    deno run https://raw.githubusercontent.com/denoland/fresh/main/init.ts my-fresh-app
+    ```
+  </TabItem>
+</Tabs>
+
+### URL Validation for Deno
+
+When using jpd with deno, the first argument must be a valid HTTP or HTTPS URL:
+
+```bash
+# ✅ Valid - HTTPS URL
+jpd -a deno create https://deno.land/x/fresh/init.ts my-app
+
+# ✅ Valid - HTTP URL
+jpd -a deno create http://localhost:8000/init.ts my-app
+
+# ❌ Invalid - Package name not supported
+jpd -a deno create fresh my-app
+```
+
+For other package managers, URLs are not supported and will result in an error.
+
+### Automatic Create Prefix
+
+For npm, pnpm, yarn, and bun, jpd automatically adds the `create-` prefix if not already present:
+
+```bash
+# These are equivalent:
+jpd create react-app my-app
+jpd create create-react-app my-app
+```
+
+---
+
 ## update <Badge text="Aliases: u, up, upgrade" variant="tip" />
 
 Update packages to their latest compatible versions.
