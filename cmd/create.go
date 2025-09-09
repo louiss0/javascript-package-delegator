@@ -25,15 +25,20 @@ package cmd
 
 import (
 	// standard library
+	"errors"
 	"fmt"
 	"strings"
 
 	// external
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	// internal
+	"github.com/louiss0/javascript-package-delegator/custom_errors"
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/services"
 )
 
 // BuildCreateCommand builds command line for running package create commands
@@ -93,8 +98,52 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 	}
 }
 
+type CreateAppSelector interface {
+	~struct {
+		packageInfo []services.PackageInfo
+	}
+	Run(*string) error
+}
+
+func newCreateAppSelector(packageInfo []services.PackageInfo) createAppSelector {
+
+	return createAppSelector{packageInfo: packageInfo}
+
+}
+
+// NewCreateAppSelectorImpl is exported for testing
+func NewCreateAppSelectorImpl(packageInfo []services.PackageInfo) CreateAppSelectorImpl {
+	return newCreateAppSelector(packageInfo)
+}
+
+type createAppSelector struct {
+	packageInfo []services.PackageInfo
+}
+
+// CreateAppSelectorImpl is the exported alias for createAppSelector for testing
+type CreateAppSelectorImpl = createAppSelector
+
+func (s createAppSelector) Run(value *string) error {
+
+	return huh.NewSelect[string]().
+		Title("Select a package to create your app with").
+		Value(value).
+		Options(
+			lo.Map(
+				s.packageInfo,
+				func(item services.PackageInfo, index int) huh.Option[string] {
+
+					return huh.NewOption(
+						item.Name,
+						fmt.Sprintf("%s %s", item.Name, item.Description),
+					)
+				})...,
+		).Run()
+}
+
 // NewCreateCmd creates a new Cobra command for the "create" functionality
-func NewCreateCmd() *cobra.Command {
+func NewCreateCmd[T CreateAppSelector](
+	newCreateAppSelector func(packageInfo []services.PackageInfo) T) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name|url] [args...]",
 		Short: "Scaffold a new project using create runners",
@@ -115,13 +164,7 @@ Examples:
   jpd create next-app myapp --typescript --tailwind
   jpd -a deno create https://deno.land/x/fresh/init.ts my-fresh-app`,
 		Aliases: []string{"c"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			// All package managers (including deno) require at least one argument
-			if len(args) < 1 {
-				return fmt.Errorf("requires at least one argument (package name or URL for deno)")
-			}
-			return nil
-		},
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
@@ -131,6 +174,102 @@ Examples:
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
+
+			// Extract createAppQuery and args
+			createAppQuery := lo.TernaryF(
+				len(args) > 0,
+				func() string { return args[0] },
+				func() string { return "" },
+			)
+
+			packageArgs := []string{}
+
+			search, searchErr := cmd.Flags().GetBool(_SEARCH_FLAG)
+
+			size, sizeErr := cmd.Flags().GetInt("size")
+
+			err := errors.Join(searchErr, sizeErr)
+
+			if err != nil {
+				return err
+			}
+
+			if search {
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+					log.Info(
+						"Searching for create app packages based on your search",
+						"search",
+						createAppQuery,
+					)
+				})
+				packageInfo, err := services.
+					NewNpmRegistryService().
+					SearchCreateApps(createAppQuery, size)
+
+				if err != nil {
+					return err
+				}
+
+				if len(packageInfo) == 0 {
+					return custom_errors.CreateInvalidArgumentErrorWithMessage(
+						fmt.Sprintf("no packages found matching: %s", createAppQuery),
+					)
+				}
+
+				var value string
+
+				selectUI := newCreateAppSelector(packageInfo)
+
+				if err := selectUI.Run(&value); err != nil {
+
+					return err
+
+				}
+
+				createAppQuery = strings.Split(value, " ")[0]
+
+			}
+
+			if createAppQuery == "" {
+
+				goEnv.ExecuteIfModeIsProduction(func() {
+					log.Info(
+						"You have not provided a package to create from, searching for popular create app packages instead",
+					)
+				})
+
+				packageInfo, err := services.
+					NewNpmRegistryService().
+					SearchCreateApps(createAppQuery, size)
+
+				if err != nil {
+					return err
+				}
+
+				if len(packageInfo) == 0 {
+					return custom_errors.CreateInvalidArgumentErrorWithMessage(
+						fmt.Sprintf("no packages found matching: %s", createAppQuery),
+					)
+				}
+
+				var value string
+
+				selectUI := newCreateAppSelector(packageInfo)
+
+				if err := selectUI.Run(&value); err != nil {
+
+					return err
+
+				}
+
+				createAppQuery = strings.Split(value, " ")[0]
+			}
+
+			if len(args) > 1 || !search {
+
+				packageArgs = args[1:]
+			}
 
 			// Get yarn version if needed
 			yarnVersion := ""
@@ -142,16 +281,8 @@ Examples:
 				}
 			}
 
-			// Extract name and args
-			name := ""
-			packageArgs := []string{}
-			if len(args) > 0 {
-				name = args[0]
-				packageArgs = args[1:]
-			}
-
 			// Build command for creating projects
-			execCommand, cmdArgs, err := BuildCreateCommand(pm, yarnVersion, name, packageArgs)
+			execCommand, cmdArgs, err := BuildCreateCommand(pm, yarnVersion, createAppQuery, packageArgs)
 			if err != nil {
 				return err
 			}
@@ -167,6 +298,10 @@ Examples:
 			return cmdRunner.Run()
 		},
 	}
+
+	cmd.Flags().Bool(_SEARCH_FLAG, false, "Run in search mode (if supported by the package manager)")
+
+	cmd.Flags().Int("size", 0, "Set how many packages can be returned in the search (if supported by the package manager)")
 
 	return cmd
 }

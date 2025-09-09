@@ -183,6 +183,233 @@ var _ = Describe("NpmRegistryService", Label("slow", "integration"), func() {
 			})
 		})
 	})
+
+	// Tests for SearchCreateApps method
+	Describe("SearchCreateApps", func() {
+		Context("when the search is successful with default parameters", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assertT.Equal("/-/v1/search", r.URL.Path)
+					assertT.Equal("create-", r.URL.Query().Get("text"))
+					assertT.Equal("25", r.URL.Query().Get("size"))
+
+					w.WriteHeader(http.StatusOK)
+					_, err := w.Write([]byte(`
+					{
+						"objects": [
+							{
+								"package": {
+									"name": "create-react-app",
+									"description": "Create React apps with no build configuration.",
+									"links": {
+										"homepage": "https://create-react-app.dev/",
+										"repository": "https://github.com/facebook/create-react-app"
+									}
+								}
+							},
+							{
+								"package": {
+									"name": "create-next-app",
+									"description": "Create Next.js apps in one command.",
+									"links": {
+										"repository": "https://github.com/vercel/next.js"
+									}
+								}
+							}
+						]
+					}`))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should return a list of create apps with default query and size", func() {
+				packages, err := service.SearchCreateApps("", 0)
+				assertT.NoError(err)
+				assertT.Len(packages, 2)
+				assertT.Equal("create-react-app", packages[0].Name)
+				assertT.Equal("", packages[0].Version) // Note: SearchCreateApps doesn't include version
+				assertT.Contains(packages[0].Description, "Create React apps")
+				assertT.Equal("https://create-react-app.dev/", packages[0].Homepage)
+
+				assertT.Equal("create-next-app", packages[1].Name)
+				assertT.Equal("https://github.com/vercel/next.js", packages[1].Homepage) // Fallback to repository
+			})
+		})
+
+		Context("when the search is successful with custom parameters", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assertT.Equal("/-/v1/search", r.URL.Path)
+					assertT.Equal("create-vue", r.URL.Query().Get("text"))
+					assertT.Equal("10", r.URL.Query().Get("size"))
+
+					w.WriteHeader(http.StatusOK)
+					_, err := w.Write([]byte(`
+					{
+						"objects": [
+							{
+								"package": {
+									"name": "create-vue",
+									"description": "An easy way to start a Vue.js project.",
+									"links": {
+										"npm": "https://www.npmjs.com/package/create-vue"
+									}
+								}
+							}
+						]
+					}`))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should return a list of create apps with custom query and size", func() {
+				packages, err := service.SearchCreateApps("create-vue", 10)
+				assertT.NoError(err)
+				assertT.Len(packages, 1)
+				assertT.Equal("create-vue", packages[0].Name)
+				assertT.Contains(packages[0].Description, "Vue.js project")
+				assertT.Equal("https://www.npmjs.com/package/create-vue", packages[0].Homepage) // Fallback to npm link
+			})
+		})
+
+		Context("when the HTTP request fails", func() {
+			BeforeEach(func() {
+				service = services.NewNpmRegistryServiceWithClient(&http.Client{
+					Transport: mockRoundTripper(func(req *http.Request) (*http.Response, error) {
+						return nil, fmt.Errorf("network error")
+					}),
+				}, "http://localhost:12345/-/v1/search")
+			})
+
+			It("should return an error", func() {
+				packages, err := service.SearchCreateApps("create-fail", 10)
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "failed to make HTTP request")
+				assertT.Nil(packages)
+			})
+		})
+
+		Context("when the registry returns a non-200 status code", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusNotFound)
+					_, err := w.Write([]byte("Not Found"))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should return an error with status and body", func() {
+				packages, err := service.SearchCreateApps("create-notfound", 5)
+				assertT.Error(err)
+				assertT.Nil(packages)
+				assertT.Contains(err.Error(), "npm registry returned status 404: 404 Not Found (body: Not Found)")
+			})
+		})
+
+		Context("when the response body is invalid JSON", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, err := w.Write([]byte("invalid json"))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should return an error", func() {
+				packages, err := service.SearchCreateApps("create-badjson", 15)
+				assertT.Error(err)
+				assertT.Contains(err.Error(), "failed to parse npm registry response")
+				assertT.Nil(packages)
+			})
+		})
+
+		Context("when no packages are found", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, err := w.Write([]byte(`{"objects": []}`))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should return an empty slice", func() {
+				packages, err := service.SearchCreateApps("create-nonexistent", 20)
+				assertT.NoError(err)
+				assertT.Empty(packages)
+			})
+		})
+
+		Context("when testing homepage fallback logic", func() {
+			BeforeEach(func() {
+				mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, err := w.Write([]byte(`
+					{
+						"objects": [
+							{
+								"package": {
+									"name": "create-with-homepage",
+									"description": "Package with homepage",
+									"links": {
+										"homepage": "https://example.com",
+										"repository": "https://github.com/user/repo",
+										"npm": "https://www.npmjs.com/package/test"
+									}
+								}
+							},
+							{
+								"package": {
+									"name": "create-with-repo-only",
+									"description": "Package with repo only",
+									"links": {
+										"homepage": "",
+										"repository": "https://github.com/user/repo2",
+										"npm": "https://www.npmjs.com/package/test2"
+									}
+								}
+							},
+							{
+								"package": {
+									"name": "create-with-npm-only",
+									"description": "Package with npm only",
+									"links": {
+										"homepage": "",
+										"repository": "",
+										"npm": "https://www.npmjs.com/package/test3"
+									}
+								}
+							}
+						]
+					}`))
+					assertT.NoError(err)
+				}))
+				service = services.NewNpmRegistryServiceWithClient(mockServer.Client(), fmt.Sprintf("%s/-/v1/search", mockServer.URL))
+			})
+
+			It("should use homepage -> repository -> npm fallback logic correctly", func() {
+				packages, err := service.SearchCreateApps("create-fallback", 3)
+				assertT.NoError(err)
+				assertT.Len(packages, 3)
+
+				// First package should use homepage
+				assertT.Equal("create-with-homepage", packages[0].Name)
+				assertT.Equal("https://example.com", packages[0].Homepage)
+
+				// Second package should fallback to repository
+				assertT.Equal("create-with-repo-only", packages[1].Name)
+				assertT.Equal("https://github.com/user/repo2", packages[1].Homepage)
+
+				// Third package should fallback to npm
+				assertT.Equal("create-with-npm-only", packages[2].Name)
+				assertT.Equal("https://www.npmjs.com/package/test3", packages[2].Homepage)
+			})
+		})
+	})
 })
 
 // Standard Go Tests (from npm_registry_test.go)
@@ -423,4 +650,224 @@ func TestNewNpmRegistryServiceWithClient(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, packages)
 	assert.Contains(t, err.Error(), "search pattern cannot be empty")
+}
+
+// Standard Go Tests for SearchCreateApps method
+
+func TestNpmRegistryService_SearchCreateApps_HappyPath(t *testing.T) {
+	// Create a mock server that returns a valid npm registry response for create apps
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the request
+		assert.Equal(t, "/-/v1/search", r.URL.Path)
+		assert.Equal(t, "create-react", r.URL.Query().Get("text"))
+		assert.Equal(t, "15", r.URL.Query().Get("size"))
+
+		// Return a mock npm registry response
+		response := `{
+			"objects": [
+				{
+					"package": {
+						"name": "create-react-app",
+						"description": "Create React apps with no build configuration.",
+						"links": {
+							"repository": "https://github.com/facebook/create-react-app",
+							"homepage": "https://create-react-app.dev/",
+							"npm": "https://www.npmjs.com/package/create-react-app"
+						}
+					}
+				},
+				{
+					"package": {
+						"name": "create-react-library",
+						"description": "CLI for creating reusable React libraries.",
+						"links": {
+							"repository": "https://github.com/transitive-bullshit/create-react-library",
+							"homepage": "",
+							"npm": "https://www.npmjs.com/package/create-react-library"
+						}
+					}
+				}
+			]
+		}`
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	// Create service with the mock server
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	// Test the search
+	packages, err := service.SearchCreateApps("create-react", 15)
+
+	assert.NoError(t, err)
+	assert.Len(t, packages, 2)
+
+	// Verify first package
+	assert.Equal(t, "create-react-app", packages[0].Name)
+	assert.Equal(t, "", packages[0].Version) // SearchCreateApps doesn't include version
+	assert.Equal(t, "Create React apps with no build configuration.", packages[0].Description)
+	assert.Equal(t, "https://create-react-app.dev/", packages[0].Homepage)
+
+	// Verify second package (homepage fallback logic)
+	assert.Equal(t, "create-react-library", packages[1].Name)
+	assert.Equal(t, "", packages[1].Version) // SearchCreateApps doesn't include version
+	assert.Equal(t, "CLI for creating reusable React libraries.", packages[1].Description)
+	assert.Equal(t, "https://github.com/transitive-bullshit/create-react-library", packages[1].Homepage) // Should fallback to repository
+}
+
+func TestNpmRegistryService_SearchCreateApps_DefaultParameters(t *testing.T) {
+	// Create a mock server that verifies default parameters
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the default query and size are used
+		assert.Equal(t, "/-/v1/search", r.URL.Path)
+		assert.Equal(t, "create-", r.URL.Query().Get("text")) // Default query
+		assert.Equal(t, "25", r.URL.Query().Get("size"))      // Default size
+
+		response := `{"objects": []}`
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	// Call with empty query and zero size to test defaults
+	packages, err := service.SearchCreateApps("", 0)
+
+	assert.NoError(t, err)
+	assert.Len(t, packages, 0)
+}
+
+func TestNpmRegistryService_SearchCreateApps_EmptyResults(t *testing.T) {
+	// Create a mock server that returns empty results
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{"objects": []}`
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	packages, err := service.SearchCreateApps("create-nonexistent", 10)
+
+	assert.NoError(t, err)
+	assert.Len(t, packages, 0)
+}
+
+func TestNpmRegistryService_SearchCreateApps_MalformedJSON(t *testing.T) {
+	// Create a mock server that returns invalid JSON
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"objects": [invalid json`))
+	}))
+	defer server.Close()
+
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	packages, err := service.SearchCreateApps("create-test", 5)
+
+	assert.Error(t, err)
+	assert.Nil(t, packages)
+	assert.Contains(t, err.Error(), "failed to parse npm registry response")
+}
+
+func TestNpmRegistryService_SearchCreateApps_HTTPError(t *testing.T) {
+	// Create a mock server that returns HTTP 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("Internal Server Error"))
+	}))
+	defer server.Close()
+
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	packages, err := service.SearchCreateApps("create-test", 8)
+
+	assert.Error(t, err)
+	assert.Nil(t, packages)
+	assert.Contains(t, err.Error(), "npm registry returned status 500")
+	assert.Contains(t, err.Error(), "Internal Server Error")
+}
+
+func TestNpmRegistryService_SearchCreateApps_NetworkError(t *testing.T) {
+	// Use an invalid URL to simulate network error
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, "http://invalid-url-that-should-not-exist.local/-/v1/search")
+
+	packages, err := service.SearchCreateApps("create-test", 12)
+
+	assert.Error(t, err)
+	assert.Nil(t, packages)
+	assert.Contains(t, err.Error(), "failed to make HTTP request to npm registry")
+}
+
+func TestNpmRegistryService_SearchCreateApps_HomepageFallbackLogic(t *testing.T) {
+	// Test the homepage fallback logic: homepage -> repository -> npm
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := `{
+			"objects": [
+				{
+					"package": {
+						"name": "create-package-with-homepage",
+						"description": "Package with homepage",
+						"links": {
+							"repository": "https://github.com/user/repo",
+							"homepage": "https://example.com",
+							"npm": "https://www.npmjs.com/package/test"
+						}
+					}
+				},
+				{
+					"package": {
+						"name": "create-package-with-repo-only",
+						"description": "Package with repo only",
+						"links": {
+							"repository": "https://github.com/user/repo2",
+							"homepage": "",
+							"npm": "https://www.npmjs.com/package/test2"
+						}
+					}
+				},
+				{
+					"package": {
+						"name": "create-package-with-npm-only",
+						"description": "Package with npm only",
+						"links": {
+							"repository": "",
+							"homepage": "",
+							"npm": "https://www.npmjs.com/package/test3"
+						}
+					}
+				}
+			]
+		}`
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	service := services.NewNpmRegistryServiceWithClient(http.DefaultClient, server.URL+"/-/v1/search")
+
+	packages, err := service.SearchCreateApps("create-test", 3)
+
+	assert.NoError(t, err)
+	assert.Len(t, packages, 3)
+
+	// First package should use homepage
+	assert.Equal(t, "https://example.com", packages[0].Homepage)
+
+	// Second package should fallback to repository
+	assert.Equal(t, "https://github.com/user/repo2", packages[1].Homepage)
+
+	// Third package should fallback to npm
+	assert.Equal(t, "https://www.npmjs.com/package/test3", packages[2].Homepage)
 }
