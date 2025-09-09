@@ -25,14 +25,12 @@ package cmd
 
 import (
 	// standard library
-	"errors"
 	"fmt"
 	"strings"
 
 	// external
 
 	"github.com/charmbracelet/log"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	// internal
@@ -123,15 +121,66 @@ Examples:
   jpd create next-app myapp --typescript --tailwind
   jpd -a deno create https://deno.land/x/fresh/init.ts my-fresh-app`,
 		Aliases: []string{"c"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			// Allow no args if --search flag is used
-			search, _ := cmd.Flags().GetBool(_SEARCH_FLAG)
-			if search {
-				return nil // --search allows 0 or more args
-			}
-			return cobra.MinimumNArgs(1)(cmd, args) // Otherwise require at least 1
+		// Allow passing through unknown flags (e.g., flags intended for the underlying create tools)
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
 		},
+		DisableFlagParsing:   true,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Manually parse flags since we disabled flag parsing
+			search := false
+			size := 0
+			createAppQuery := ""
+			packageArgs := []string{}
+			
+			// Parse arguments manually to separate flags from create arguments
+			for i := 0; i < len(args); i++ {
+				arg := args[i]
+				switch {
+				case arg == "--search":
+					search = true
+				case arg == "--size":
+					if i+1 < len(args) {
+						i++
+						if s, err := fmt.Sscanf(args[i], "%d", &size); err != nil || s != 1 {
+							return fmt.Errorf("invalid size value: %s", args[i])
+						}
+					} else {
+						return fmt.Errorf("--size requires a value")
+					}
+				case arg == "-h" || arg == "--help":
+					return cmd.Help()
+				// Skip global flags - they're handled by the root command
+				case arg == "-a" || arg == "--agent":
+					if arg == "-a" || arg == "--agent" {
+						i++ // skip the value
+					}
+				case arg == "-C" || arg == "--cwd":
+					if arg == "-C" || arg == "--cwd" {
+						i++ // skip the value
+					}
+				case arg == "-d" || arg == "--debug":
+					// skip debug flag
+				case strings.HasPrefix(arg, "-a=") || strings.HasPrefix(arg, "--agent="):
+					// skip combined flag=value
+				case strings.HasPrefix(arg, "-C=") || strings.HasPrefix(arg, "--cwd="):
+					// skip combined flag=value
+				default:
+					// This is either the package name or arguments to pass through
+					if createAppQuery == "" {
+						createAppQuery = arg
+					} else {
+						packageArgs = append(packageArgs, arg)
+					}
+				}
+			}
+			
+			// Validate arguments
+			if !search && createAppQuery == "" {
+				return fmt.Errorf("requires at least 1 arg(s), only received 0")
+			}
+			
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
@@ -141,24 +190,7 @@ Examples:
 				log.Info("Using package manager", "pm", pm)
 			})
 
-			// Extract createAppQuery and args
-			createAppQuery := lo.TernaryF(
-				len(args) > 0,
-				func() string { return args[0] },
-				func() string { return "" },
-			)
-
-			packageArgs := []string{}
-
-			search, searchErr := cmd.Flags().GetBool(_SEARCH_FLAG)
-
-			size, sizeErr := cmd.Flags().GetInt("size")
-
-			err := errors.Join(searchErr, sizeErr)
-
-			if err != nil {
-				return err
-			}
+			// Variables are already parsed above
 
 			if search {
 
@@ -234,10 +266,6 @@ Examples:
 				createAppQuery = strings.Split(chosen, " ")[0]
 			}
 
-			if len(args) > 1 || !search {
-
-				packageArgs = args[1:]
-			}
 
 			// Get yarn version if needed
 			yarnVersion := ""
@@ -267,9 +295,6 @@ Examples:
 		},
 	}
 
-	cmd.Flags().Bool(_SEARCH_FLAG, false, "Run in search mode (if supported by the package manager)")
-
-	cmd.Flags().Int("size", 0, "Set how many packages can be returned in the search (if supported by the package manager)")
 
 	return cmd
 }
