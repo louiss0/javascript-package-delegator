@@ -123,7 +123,14 @@ Examples:
   jpd create next-app myapp --typescript --tailwind
   jpd -a deno create https://deno.land/x/fresh/init.ts my-fresh-app`,
 		Aliases: []string{"c"},
-		Args:    cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// Allow no args if --search flag is used
+			search, _ := cmd.Flags().GetBool(_SEARCH_FLAG)
+			if search {
+				return nil // --search allows 0 or more args
+			}
+			return cobra.MinimumNArgs(1)(cmd, args) // Otherwise require at least 1
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
