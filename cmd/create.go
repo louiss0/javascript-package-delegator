@@ -116,15 +116,79 @@ func NewCreateAppSelectorImpl(packageInfo []services.PackageInfo) CreateAppSelec
 	return newCreateAppSelector(packageInfo)
 }
 
+
 type createAppSelector struct {
 	packageInfo []services.PackageInfo
+}
+
+// testModeEnabled can be set during testing to avoid interactive UI
+var testModeEnabled = false
+
+// SetTestMode enables or disables test mode
+func SetTestMode(enabled bool) {
+	testModeEnabled = enabled
+}
+
+// isTestMode checks if we're in test mode
+func isTestMode() bool {
+	return testModeEnabled
+}
+
+// Test behavior control - only used during testing
+var testCreateAppSelectorBehavior struct {
+	SelectedValue string
+	ShouldError   bool
+	ErrorMessage  string
+}
+
+// SetCreateAppSelectorTestBehavior configures how the CreateAppSelector should behave in test mode
+// This allows tests to control what value is returned or whether an error should occur
+func SetCreateAppSelectorTestBehavior(selectedValue string, shouldError bool, errorMessage string) {
+	testCreateAppSelectorBehavior.SelectedValue = selectedValue
+	testCreateAppSelectorBehavior.ShouldError = shouldError
+	testCreateAppSelectorBehavior.ErrorMessage = errorMessage
+}
+
+// ResetCreateAppSelectorTestBehavior resets the test behavior to defaults
+func ResetCreateAppSelectorTestBehavior() {
+	testCreateAppSelectorBehavior.SelectedValue = ""
+	testCreateAppSelectorBehavior.ShouldError = false
+	testCreateAppSelectorBehavior.ErrorMessage = ""
 }
 
 // CreateAppSelectorImpl is the exported alias for createAppSelector for testing
 type CreateAppSelectorImpl = createAppSelector
 
 func (s createAppSelector) Run(value *string) error {
-
+	// In test mode, avoid interactive UI and use configured behavior
+	if isTestMode() {
+		// Return configured error if requested
+		if testCreateAppSelectorBehavior.ShouldError {
+			errorMsg := testCreateAppSelectorBehavior.ErrorMessage
+			if errorMsg == "" {
+				errorMsg = "test create app selector error"
+			}
+			return fmt.Errorf(errorMsg)
+		}
+		
+		// Check for available packages
+		if len(s.packageInfo) == 0 {
+			return fmt.Errorf("no packages available for selection")
+		}
+		
+		// Set output value based on configured behavior
+		if value != nil {
+			if testCreateAppSelectorBehavior.SelectedValue != "" {
+				*value = testCreateAppSelectorBehavior.SelectedValue
+			} else {
+				// Default to first package name
+				*value = s.packageInfo[0].Name
+			}
+		}
+		return nil
+	}
+	
+	// Production mode: use interactive UI
 	return huh.NewSelect[string]().
 		Title("Select a package to create your app with").
 		Value(value).

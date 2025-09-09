@@ -118,44 +118,6 @@ func (m *debugExecutorExpectationManager) ExpectCommonPathDetectionFlow(pm strin
 	m.ExpectPMDetectedFromPath(pm)
 }
 
-// mockCreateAppSelector implements cmd.CreateAppSelector for testing
-// It matches the type constraint structure and provides mockable behavior
-type mockCreateAppSelector struct {
-	packageInfo []services.PackageInfo
-	SelectedValue string // What gets selected in mock
-	ShouldError bool     // Whether Run should return error
-}
-
-// Run implements the CreateAppSelector interface with mock behavior
-func (m mockCreateAppSelector) Run(value *string) error {
-	if m.ShouldError {
-		return fmt.Errorf("mock error in create app selector")
-	}
-	
-	if len(m.packageInfo) == 0 {
-		return fmt.Errorf("no packages available")
-	}
-	
-	// Set the value to the selected value or first package name
-	if value != nil {
-		if m.SelectedValue != "" {
-			*value = m.SelectedValue
-		} else {
-			// Default to first package name
-			*value = m.packageInfo[0].Name
-		}
-	}
-	return nil
-}
-
-// newMockCreateAppSelector creates a new mockCreateAppSelector
-func newMockCreateAppSelector(packages []services.PackageInfo) mockCreateAppSelector {
-	return mockCreateAppSelector{
-		packageInfo: packages,
-		ShouldError: false,
-		SelectedValue: "",
-	}
-}
 
 // RootCommandFactory is a helper struct for creating cobra.Command instances
 // with various mocked dependencies for testing purposes.

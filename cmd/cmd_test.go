@@ -211,6 +211,11 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	BeforeEach(func() {
+		// Enable test mode to avoid interactive UI
+		cmd.SetTestMode(true)
+		// Reset test behavior to defaults
+		cmd.ResetCreateAppSelectorTestBehavior()
+		
 		// Clear any state from previous tests to prevent cross-contamination
 		mockCommandRunner.InvalidCommands = []string{}
 		mockCommandRunner.ResetHasBeenCalled()
@@ -230,6 +235,9 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	AfterEach(func() {
+		// Disable test mode after each test
+		cmd.SetTestMode(false)
+		
 		// Assert that all expectations were met
 		mockCommandRunner.AssertExpectations(GinkgoT())
 		factory.DebugExecutor().AssertExpectations(GinkgoT())
@@ -607,7 +615,7 @@ var _ = Describe("JPD Commands", func() {
 
 			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
 
-		return cmd.NewRootCmdForTesting(
+	return cmd.NewRootCmdForTesting(
 			cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
@@ -736,7 +744,7 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() { // Default mock for yarn version
 
 				// Create the root command with *all* necessary dependencies
-				currentRootCmd = cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+			currentRootCmd = cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -3748,7 +3756,7 @@ var _ = Describe("JPD Commands", func() {
 						NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
 						NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
 						NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-						NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
+					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
 					})
 
 				currentRootCmd.SetContext(context.Background())

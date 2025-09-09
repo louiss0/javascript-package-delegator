@@ -472,43 +472,60 @@ func NewMockPathLookup() *MockPathLookup {
 	}
 }
 
-// MockCreateAppSelector implements the cmd.CreateAppSelector interface constraint
-// It matches the required struct format with packageInfo field
-type MockCreateAppSelector struct {
-	packageInfo []services.PackageInfo
-	SelectedValue string // For testing - what gets selected
-	ShouldError bool     // For testing - whether Run should return an error
+// mockCreateAppSelectorImpl defines the same struct as cmd.createAppSelector
+// This must have exactly the same underlying type to satisfy Go's strict ~struct constraint
+type mockCreateAppSelectorImpl struct {
+	packageInfo []services.PackageInfo // Must match exactly: []services.PackageInfo
 }
 
-// Run executes the create app selection UI (mock implementation)
-func (m MockCreateAppSelector) Run(value *string) error {
-	if m.ShouldError {
-		return fmt.Errorf("mock error in create app selector")
+// MockCreateAppSelectorBehavior controls mock behavior globally
+type MockCreateAppSelectorBehavior struct {
+	SelectedValue string
+	ShouldError   bool
+	ErrorMessage  string
+}
+
+var mockBehavior = MockCreateAppSelectorBehavior{}
+
+// SetMockCreateAppSelectorBehavior controls how the mock responds
+func SetMockCreateAppSelectorBehavior(selectedValue string, shouldError bool, errorMessage string) {
+	mockBehavior.SelectedValue = selectedValue
+	mockBehavior.ShouldError = shouldError
+	mockBehavior.ErrorMessage = errorMessage
+}
+
+// ResetMockCreateAppSelectorBehavior resets to default behavior
+func ResetMockCreateAppSelectorBehavior() {
+	mockBehavior = MockCreateAppSelectorBehavior{}
+}
+
+// Run implements the interface without interactive UI
+func (m mockCreateAppSelectorImpl) Run(value *string) error {
+	if mockBehavior.ShouldError {
+		errorMsg := mockBehavior.ErrorMessage
+		if errorMsg == "" {
+			errorMsg = "mock create app selector error"
+		}
+		return fmt.Errorf(errorMsg)
 	}
 	
 	if len(m.packageInfo) == 0 {
-		return fmt.Errorf("no packages available")
+		return fmt.Errorf("no packages available for selection")
 	}
 	
-	// Set the value to the selected value or first package name
 	if value != nil {
-		if m.SelectedValue != "" {
-			*value = m.SelectedValue
+		if mockBehavior.SelectedValue != "" {
+			*value = mockBehavior.SelectedValue
 		} else {
-			// Default to first package name
 			*value = m.packageInfo[0].Name
 		}
 	}
 	return nil
 }
 
-// NewMockCreateAppSelector creates a new MockCreateAppSelector with default behavior
-func NewMockCreateAppSelector(packages []services.PackageInfo) MockCreateAppSelector {
-	return MockCreateAppSelector{
-		packageInfo: packages,
-		ShouldError: false,
-		SelectedValue: "", // Will use first package by default
-	}
+// CreateMockCreateAppSelectorImpl creates the mock with exact type matching
+func CreateMockCreateAppSelectorImpl(packages []services.PackageInfo) mockCreateAppSelectorImpl {
+	return mockCreateAppSelectorImpl{packageInfo: packages}
 }
 
 // MockFileSystem implements the detect.FileSystem interface using testify/mock
