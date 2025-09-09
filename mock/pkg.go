@@ -472,6 +472,45 @@ func NewMockPathLookup() *MockPathLookup {
 	}
 }
 
+// MockCreateAppSelector implements the cmd.CreateAppSelector interface constraint
+// It matches the required struct format with packageInfo field
+type MockCreateAppSelector struct {
+	packageInfo []services.PackageInfo
+	SelectedValue string // For testing - what gets selected
+	ShouldError bool     // For testing - whether Run should return an error
+}
+
+// Run executes the create app selection UI (mock implementation)
+func (m MockCreateAppSelector) Run(value *string) error {
+	if m.ShouldError {
+		return fmt.Errorf("mock error in create app selector")
+	}
+	
+	if len(m.packageInfo) == 0 {
+		return fmt.Errorf("no packages available")
+	}
+	
+	// Set the value to the selected value or first package name
+	if value != nil {
+		if m.SelectedValue != "" {
+			*value = m.SelectedValue
+		} else {
+			// Default to first package name
+			*value = m.packageInfo[0].Name
+		}
+	}
+	return nil
+}
+
+// NewMockCreateAppSelector creates a new MockCreateAppSelector with default behavior
+func NewMockCreateAppSelector(packages []services.PackageInfo) MockCreateAppSelector {
+	return MockCreateAppSelector{
+		packageInfo: packages,
+		ShouldError: false,
+		SelectedValue: "", // Will use first package by default
+	}
+}
+
 // MockFileSystem implements the detect.FileSystem interface using testify/mock
 type MockFileSystem struct {
 	mock.Mock
