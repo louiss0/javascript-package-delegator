@@ -30,7 +30,7 @@ import (
 	"strings"
 
 	// external
-	"github.com/charmbracelet/huh"
+
 	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -40,6 +40,9 @@ import (
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/services"
 )
+
+// Package-level seam for testability (non-test-specific, normal DI seam)
+var newCreateAppSelector = NewCreateAppSelector
 
 // BuildCreateCommand builds command line for running package create commands
 func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program string, argv []string, err error) {
@@ -98,116 +101,8 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 	}
 }
 
-type CreateAppSelector interface {
-	~struct {
-		packageInfo []services.PackageInfo
-	}
-	Run(*string) error
-}
-
-func newCreateAppSelector(packageInfo []services.PackageInfo) createAppSelector {
-
-	return createAppSelector{packageInfo: packageInfo}
-
-}
-
-// NewCreateAppSelectorImpl is exported for testing
-func NewCreateAppSelectorImpl(packageInfo []services.PackageInfo) CreateAppSelectorImpl {
-	return newCreateAppSelector(packageInfo)
-}
-
-
-type createAppSelector struct {
-	packageInfo []services.PackageInfo
-}
-
-// testModeEnabled can be set during testing to avoid interactive UI
-var testModeEnabled = false
-
-// SetTestMode enables or disables test mode
-func SetTestMode(enabled bool) {
-	testModeEnabled = enabled
-}
-
-// isTestMode checks if we're in test mode
-func isTestMode() bool {
-	return testModeEnabled
-}
-
-// Test behavior control - only used during testing
-var testCreateAppSelectorBehavior struct {
-	SelectedValue string
-	ShouldError   bool
-	ErrorMessage  string
-}
-
-// SetCreateAppSelectorTestBehavior configures how the CreateAppSelector should behave in test mode
-// This allows tests to control what value is returned or whether an error should occur
-func SetCreateAppSelectorTestBehavior(selectedValue string, shouldError bool, errorMessage string) {
-	testCreateAppSelectorBehavior.SelectedValue = selectedValue
-	testCreateAppSelectorBehavior.ShouldError = shouldError
-	testCreateAppSelectorBehavior.ErrorMessage = errorMessage
-}
-
-// ResetCreateAppSelectorTestBehavior resets the test behavior to defaults
-func ResetCreateAppSelectorTestBehavior() {
-	testCreateAppSelectorBehavior.SelectedValue = ""
-	testCreateAppSelectorBehavior.ShouldError = false
-	testCreateAppSelectorBehavior.ErrorMessage = ""
-}
-
-// CreateAppSelectorImpl is the exported alias for createAppSelector for testing
-type CreateAppSelectorImpl = createAppSelector
-
-func (s createAppSelector) Run(value *string) error {
-	// In test mode, avoid interactive UI and use configured behavior
-	if isTestMode() {
-		// Return configured error if requested
-		if testCreateAppSelectorBehavior.ShouldError {
-			errorMsg := testCreateAppSelectorBehavior.ErrorMessage
-			if errorMsg == "" {
-				errorMsg = "test create app selector error"
-			}
-			return fmt.Errorf(errorMsg)
-		}
-		
-		// Check for available packages
-		if len(s.packageInfo) == 0 {
-			return fmt.Errorf("no packages available for selection")
-		}
-		
-		// Set output value based on configured behavior
-		if value != nil {
-			if testCreateAppSelectorBehavior.SelectedValue != "" {
-				*value = testCreateAppSelectorBehavior.SelectedValue
-			} else {
-				// Default to first package name
-				*value = s.packageInfo[0].Name
-			}
-		}
-		return nil
-	}
-	
-	// Production mode: use interactive UI
-	return huh.NewSelect[string]().
-		Title("Select a package to create your app with").
-		Value(value).
-		Options(
-			lo.Map(
-				s.packageInfo,
-				func(item services.PackageInfo, index int) huh.Option[string] {
-
-					return huh.NewOption(
-						item.Name,
-						fmt.Sprintf("%s %s", item.Name, item.Description),
-					)
-				})...,
-		).Run()
-}
-
 // NewCreateCmd creates a new Cobra command for the "create" functionality
-func NewCreateCmd[T CreateAppSelector](
-	newCreateAppSelector func(packageInfo []services.PackageInfo) T) *cobra.Command {
+func NewCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name|url] [args...]",
 		Short: "Scaffold a new project using create runners",
@@ -281,17 +176,18 @@ Examples:
 					)
 				}
 
-				var value string
-
-				selectUI := newCreateAppSelector(packageInfo)
-
-				if err := selectUI.Run(&value); err != nil {
-
+				// Use new CreateAppSelector implementation
+				selector, err := newCreateAppSelector(packageInfo, "Select a package to create your app with")
+				if err != nil {
 					return err
-
 				}
 
-				createAppQuery = strings.Split(value, " ")[0]
+				if err := selector.Run(); err != nil {
+					return err
+				}
+
+				chosen := selector.Value()
+				createAppQuery = strings.Split(chosen, " ")[0]
 
 			}
 
@@ -317,17 +213,18 @@ Examples:
 					)
 				}
 
-				var value string
-
-				selectUI := newCreateAppSelector(packageInfo)
-
-				if err := selectUI.Run(&value); err != nil {
-
+				// Use new CreateAppSelector implementation
+				selector, err := newCreateAppSelector(packageInfo, "Select a package to create your app with")
+				if err != nil {
 					return err
-
 				}
 
-				createAppQuery = strings.Split(value, " ")[0]
+				if err := selector.Run(); err != nil {
+					return err
+				}
+
+				chosen := selector.Value()
+				createAppQuery = strings.Split(chosen, " ")[0]
 			}
 
 			if len(args) > 1 || !search {

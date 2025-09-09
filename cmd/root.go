@@ -150,7 +150,7 @@ type DependencyUIMultiSelector interface {
 	Run() error
 }
 
-type Dependencies[T CreateAppSelector] struct {
+type Dependencies struct {
 	CommandRunnerGetter                   func() CommandRunner
 	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, err error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
@@ -162,7 +162,6 @@ type Dependencies[T CreateAppSelector] struct {
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
 	NewDependencyMultiSelectUI            func(options []string) DependencyUIMultiSelector
 	NewDebugExecutor                      func(bool) DebugExecutor
-	NewCreateAppSelector                  func([]services.PackageInfo) T
 }
 
 type CommandUITexter interface {
@@ -260,34 +259,17 @@ func (d debugExecutor) LogJSCommandIfDebugIsTrue(command string, args ...string)
 }
 
 // NewRootCmd creates a new root command with injectable dependencies.
-func NewRootCmd(deps Dependencies[createAppSelector]) *cobra.Command {
+func NewRootCmd(deps Dependencies) *cobra.Command {
 	return newRootCmdImpl(deps)
 }
 
 // NewRootCmdForTesting creates a new root command for testing with exported types
-func NewRootCmdForTesting(deps Dependencies[CreateAppSelectorImpl]) *cobra.Command {
-	// Convert the exported type to the internal type
-	internalDeps := Dependencies[createAppSelector]{
-		CommandRunnerGetter:                   deps.CommandRunnerGetter,
-		DetectJSPackageManagerBasedOnLockFile: deps.DetectJSPackageManagerBasedOnLockFile,
-		YarnCommandVersionOutputter:           deps.YarnCommandVersionOutputter,
-		NewCommandTextUI:                      deps.NewCommandTextUI,
-		DetectLockfile:                        deps.DetectLockfile,
-		DetectJSPackageManager:                deps.DetectJSPackageManager,
-		DetectVolta:                           deps.DetectVolta,
-		NewPackageMultiSelectUI:               deps.NewPackageMultiSelectUI,
-		NewTaskSelectorUI:                     deps.NewTaskSelectorUI,
-		NewDependencyMultiSelectUI:            deps.NewDependencyMultiSelectUI,
-		NewDebugExecutor:                      deps.NewDebugExecutor,
-		NewCreateAppSelector:                  func(packages []services.PackageInfo) createAppSelector {
-			return createAppSelector(deps.NewCreateAppSelector(packages))
-		},
-	}
-	return newRootCmdImpl(internalDeps)
+func NewRootCmdForTesting(deps Dependencies) *cobra.Command {
+	return newRootCmdImpl(deps)
 }
 
 // newRootCmdImpl is the internal implementation
-func newRootCmdImpl(deps Dependencies[createAppSelector]) *cobra.Command {
+func newRootCmdImpl(deps Dependencies) *cobra.Command {
 	cwdFlag := custom_flags.NewFolderPathFlag(_CWD_FLAG)
 
 	cmd := &cobra.Command{
@@ -518,7 +500,7 @@ Available commands:
 	cmd.AddCommand(NewRunCmd(deps.NewTaskSelectorUI))
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewDlxCmd())
-	cmd.AddCommand(NewCreateCmd(deps.NewCreateAppSelector))
+	cmd.AddCommand(NewCreateCmd())
 	cmd.AddCommand(NewUpdateCmd())
 	cmd.AddCommand(NewUninstallCmd(deps.NewDependencyMultiSelectUI))
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
@@ -546,7 +528,7 @@ var rootCmd *cobra.Command
 func init() {
 	// Initialize the global rootCmd with real implementations of its dependencies
 	rootCmd = NewRootCmd(
-		Dependencies[createAppSelector]{
+		Dependencies{
 			CommandRunnerGetter: func() CommandRunner {
 				return newCommandRunner(exec.Command)
 			}, // Use the newExecutor constructor
@@ -568,7 +550,6 @@ func init() {
 			NewTaskSelectorUI:          newTaskSelectorUI,
 			NewDependencyMultiSelectUI: newDependencySelectorUI,
 			NewDebugExecutor:           newDebugExecutor,
-			NewCreateAppSelector:       newCreateAppSelector,
 		},
 	)
 }

@@ -211,11 +211,7 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	BeforeEach(func() {
-		// Enable test mode to avoid interactive UI
-		cmd.SetTestMode(true)
-		// Reset test behavior to defaults
-		cmd.ResetCreateAppSelectorTestBehavior()
-		
+
 		// Clear any state from previous tests to prevent cross-contamination
 		mockCommandRunner.InvalidCommands = []string{}
 		mockCommandRunner.ResetHasBeenCalled()
@@ -235,9 +231,7 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	AfterEach(func() {
-		// Disable test mode after each test
-		cmd.SetTestMode(false)
-		
+
 		// Assert that all expectations were met
 		mockCommandRunner.AssertExpectations(GinkgoT())
 		factory.DebugExecutor().AssertExpectations(GinkgoT())
@@ -615,8 +609,8 @@ var _ = Describe("JPD Commands", func() {
 
 			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
 
-	return cmd.NewRootCmdForTesting(
-			cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+				return cmd.NewRootCmdForTesting(
+					cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
 						},
@@ -633,20 +627,20 @@ var _ = Describe("JPD Commands", func() {
 						DetectJSPackageManager: func() (string, error) {
 							return "", fmt.Errorf("format string")
 						},
-					NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
+						NewCommandTextUI: func(lockfile string) cmd.CommandUITexter {
 
-						commandTextUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
+							commandTextUI := mock.NewMockCommandTextUI(lockfile).(*mock.MockCommandTextUI)
 
-						commandTextUI.SetValue(value)
+							commandTextUI.SetValue(value)
 
-						return commandTextUI
+							return commandTextUI
+						},
+						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+						NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
 					},
-					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
-				},
 				)
 
 			}
@@ -744,7 +738,7 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() { // Default mock for yarn version
 
 				// Create the root command with *all* necessary dependencies
-			currentRootCmd = cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+				currentRootCmd = cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -762,10 +756,10 @@ var _ = Describe("JPD Commands", func() {
 					DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
 					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:                      mock.NewMockCommandTextUI,
-					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
+					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
+					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
 				})
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
@@ -3019,8 +3013,8 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for path-based detection
 						DebugExecutorExpectationManager.ExpectNoLockfile()
 						DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
-			rootCmdForSelection := cmd.NewRootCmdForTesting(
-				cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
+							cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
@@ -3032,15 +3026,15 @@ var _ = Describe("JPD Commands", func() {
 								},
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("should not be called") },
 								DetectJSPackageManager:                func() (string, error) { return "npm", nil },
-					DetectVolta: func() bool {
-						return false
-					},
-					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
-				})
+								DetectVolta: func() bool {
+									return false
+								},
+								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+								NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
+							})
 
 						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
 
@@ -3098,8 +3092,8 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for lockfile-based detection of deno
 						DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 						DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
-			rootCmdForSelection := cmd.NewRootCmdForTesting(
-				cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
+							cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
@@ -3112,15 +3106,15 @@ var _ = Describe("JPD Commands", func() {
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 									return "deno", nil // Assume deno for the test
 								},
-					DetectVolta: func() bool {
-						return false
-					},
-					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
-				},
+								DetectVolta: func() bool {
+									return false
+								},
+								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+								NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
+							},
 						)
 
 						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
@@ -3679,7 +3673,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				// PM from path will be attempted after lockfile-based detection fails
 
-			currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+				currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -3701,10 +3695,10 @@ var _ = Describe("JPD Commands", func() {
 					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:            mock.NewMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
-					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
+					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+					NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
 				})
 
 				currentRootCmd.SetContext(context.Background())
@@ -3728,8 +3722,8 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
 
-			currentRootCmd := cmd.NewRootCmdForTesting(
-				cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+				currentRootCmd := cmd.NewRootCmdForTesting(
+					cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return mockCommandRunner
 						},
@@ -3753,10 +3747,10 @@ var _ = Describe("JPD Commands", func() {
 						},
 						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 						DetectVolta:                 func() bool { return false },
-						NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-						NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-						NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
+						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+						NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
 					})
 
 				currentRootCmd.SetContext(context.Background())
@@ -3777,7 +3771,7 @@ var _ = Describe("JPD Commands", func() {
 				// Setup: deno.json exists but deno is not installed, npm is available
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 
-			currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+				currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies[cmd.CreateAppSelectorImpl]{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -3800,10 +3794,10 @@ var _ = Describe("JPD Commands", func() {
 					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:            mock.NewMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
-					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
-					NewCreateAppSelector:                  cmd.NewCreateAppSelectorImpl,
+					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+					NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
 				})
 
 				currentRootCmd.SetContext(context.Background())
@@ -4083,4 +4077,3 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 })
-

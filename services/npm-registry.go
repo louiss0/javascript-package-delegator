@@ -179,31 +179,28 @@ func (s *npmRegistryServiceImpl) SearchCreateApps(query string, size int) ([]Pac
 		return nil, fmt.Errorf("failed to read response body from npm registry: %w", err)
 	}
 
-
 	type CreateAppPackageInfo = struct {
-			Package struct {
-				Name        string `json:"name"`
-				Description string `json:"description"`
-				Links       struct {
-					Homepage   string `json:"homepage"`
-					Repository string `json:"repository"`
-					Npm        string `json:"npm"`
-				} `json:"links"`
-			} `json:"package"`
-		} 
+		Package struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Links       struct {
+				Homepage   string `json:"homepage"`
+				Repository string `json:"repository"`
+				Npm        string `json:"npm"`
+			} `json:"links"`
+		} `json:"package"`
+	}
 
 	var raw struct {
 		Objects []CreateAppPackageInfo `json:"objects"`
 	}
-	
+
 	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse npm registry response: %w", err)
 	}
 
-	
- 
 	pkgs := lo.Map(raw.Objects, func(obj CreateAppPackageInfo,
-	  _ int) PackageInfo {
+		_ int) PackageInfo {
 		p := obj.Package
 
 		homepage := p.Links.Homepage

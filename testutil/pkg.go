@@ -118,7 +118,6 @@ func (m *debugExecutorExpectationManager) ExpectCommonPathDetectionFlow(pm strin
 	m.ExpectPMDetectedFromPath(pm)
 }
 
-
 // RootCommandFactory is a helper struct for creating cobra.Command instances
 // with various mocked dependencies for testing purposes.
 type RootCommandFactory struct {
@@ -178,8 +177,8 @@ func (f *RootCommandFactory) SetupBasicDebugExecutorExpectations() {
 }
 
 // baseDependencies returns a set of common mocked dependencies that can be overridden.
-func (f *RootCommandFactory) baseDependencies() cmd.Dependencies[cmd.CreateAppSelectorImpl] {
-	return cmd.Dependencies[cmd.CreateAppSelectorImpl]{
+func (f *RootCommandFactory) baseDependencies() cmd.Dependencies {
+	return cmd.Dependencies{
 		CommandRunnerGetter: func() cmd.CommandRunner {
 			return f.MockCommandRunner()
 		},
@@ -192,7 +191,6 @@ func (f *RootCommandFactory) baseDependencies() cmd.Dependencies[cmd.CreateAppSe
 		NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 		NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
 		NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
-		NewCreateAppSelector:        cmd.NewCreateAppSelectorImpl,
 	}
 }
 
