@@ -116,7 +116,7 @@ var _ = Describe("Integrate Warp Command", func() {
 				// Check that files exist
 				files, err := os.ReadDir(nestedDir)
 				assert.NoError(GinkgoT(), err)
-				assert.Len(GinkgoT(), files, 8, "Should have 8 workflow files")
+assert.Len(GinkgoT(), files, 9, "Should have 9 workflow files")
 			})
 		})
 	})
