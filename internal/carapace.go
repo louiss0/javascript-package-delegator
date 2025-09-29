@@ -154,6 +154,15 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 			},
 			"create": {
 				Description: "Scaffold new projects (supports package names and URLs for deno)",
+				Flags: map[string]FlagSpec{
+					"search": {
+						Shorthand:   "s",
+						Description: "Interactive search for create packages",
+					},
+					"size": {
+						Description: "Number of results to show",
+					},
+				},
 				Completion:  "$carapace.packages.npm",
 			},
 			"update": {
