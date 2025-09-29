@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- create: support scoped initializers without auto-prefixing `create-` for scoped packages
+- create: optimize pnpm mapping to use `pnpm dlx` for scaffolding
+
+### Changed
+- docs: update examples to reflect pnpm dlx usage
+- tests: add unit tests for create mapping across npm/yarn/pnpm/bun/deno and align integration tests
+
 ## [2.0.1] - 2025-09-01
 
 ### Bug Fixes
