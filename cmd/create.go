@@ -30,7 +30,9 @@ import (
 
 	// external
 
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	// internal
@@ -38,9 +40,6 @@ import (
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/services"
 )
-
-// Package-level seam for testability (non-test-specific, normal DI seam)
-var newCreateAppSelector = NewCreateAppSelector
 
 // BuildCreateCommand builds command line for running package create commands
 func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program string, argv []string, err error) {
@@ -99,8 +98,55 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 	}
 }
 
+// CreateAppSelector provides an interface for selecting a create app package.
+// It follows Go Writing Philosophy: defined at point of use, with clean methods.
+type CreateAppSelector interface {
+	Run() error
+	Value() string
+}
+
+// createAppSelector is a private struct implementing CreateAppSelector.
+// All fields are unexported to comply with Go Writing Philosophy.
+type createAppSelector struct {
+	sel   *huh.Select[string]
+	value string
+}
+
+// NewCreateAppSelector creates a new CreateAppSelector with pre-fetched packages and title.
+// Constructor returns the interface (struct stays private) following Go Writing Philosophy.
+func NewCreateAppSelector(packageInfo []services.PackageInfo) CreateAppSelector {
+
+	// Map []services.PackageInfo to []huh.Option[string] using lo.Map
+	opts := lo.Map(packageInfo, func(p services.PackageInfo, _ int) huh.Option[string] {
+		// Use Name for both label and value; add description for better UX
+		return huh.NewOption(p.Name, fmt.Sprintf("%s %s", p.Name, p.Description))
+	})
+
+	// Build the huh.Select with Title and Options
+	sel := huh.NewSelect[string]().
+		Title("Select app package").
+		Options(opts...)
+
+	// Return createAppSelector as CreateAppSelector interface
+	return &createAppSelector{sel: sel}
+}
+
+// Run executes the interactive UI and stores the selected value.
+// Uses pointer receiver since Run mutates internal state via s.value.
+func (s *createAppSelector) Run() error {
+	// Bind the pointer - huh.Select.Value takes *string
+	s.sel.Value(&s.value)
+	return s.sel.Run()
+}
+
+// Value returns the selected package name.
+// No Get prefix - follows Go naming conventions.
+func (s createAppSelector) Value() string {
+	return s.value
+}
+
 // NewCreateCmd creates a new Cobra command for the "create" functionality
-func NewCreateCmd() *cobra.Command {
+func NewCreateCmd(newCreateAppSelector func([]services.PackageInfo) CreateAppSelector) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name|url] [args...]",
 		Short: "Scaffold a new project using create runners",
@@ -115,6 +161,17 @@ Package Manager Behavior:
 - bun: Runs 'bunx create-<name> <args>'
 - deno: Runs 'deno run <url> <args>' (expects URL as first argument)
 
+JPD flags (for this command):
+  --search, -s    Search npm for popular "create-*" packages and select interactively
+  --size <n>      Number of results to show when using --search (default: 25)
+
+Passing flags to scaffolding tools:
+- npm: JPD automatically inserts the -- separator before the app name so flags go to the scaffolder.
+       Do not add another -- yourself; if you do, JPD will normalize it.
+- pnpm / yarn v2+ / bun: pass flags directly after your app name.
+- yarn v1: uses npx under the hood; pass flags directly after your app name.
+- deno: pass arguments directly after the URL.
+
 Examples:
   jpd create react-app my-app
   jpd create vite@latest my-app -- --template react-swc
@@ -125,20 +182,20 @@ Examples:
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
 		},
-		DisableFlagParsing:   true,
-		Args: cobra.ArbitraryArgs,
+		DisableFlagParsing: true,
+		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Manually parse flags since we disabled flag parsing
 			search := false
 			size := 0
 			createAppQuery := ""
 			packageArgs := []string{}
-			
+
 			// Parse arguments manually to separate flags from create arguments
 			for i := 0; i < len(args); i++ {
 				arg := args[i]
 				switch {
-				case arg == "--search":
+				case arg == "--search" || arg == "-s":
 					search = true
 				case arg == "--size":
 					if i+1 < len(args) {
@@ -175,12 +232,12 @@ Examples:
 					}
 				}
 			}
-			
+
 			// Validate arguments
 			if !search && createAppQuery == "" {
 				return fmt.Errorf("requires at least 1 arg(s), only received 0")
 			}
-			
+
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			goEnv := getGoEnvFromCommandContext(cmd)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
@@ -216,10 +273,7 @@ Examples:
 				}
 
 				// Use new CreateAppSelector implementation
-				selector, err := newCreateAppSelector(packageInfo, "Select a package to create your app with")
-				if err != nil {
-					return err
-				}
+				selector := newCreateAppSelector(packageInfo)
 
 				if err := selector.Run(); err != nil {
 					return err
@@ -253,10 +307,7 @@ Examples:
 				}
 
 				// Use new CreateAppSelector implementation
-				selector, err := newCreateAppSelector(packageInfo, "Select a package to create your app with")
-				if err != nil {
-					return err
-				}
+				selector := newCreateAppSelector(packageInfo)
 
 				if err := selector.Run(); err != nil {
 					return err
@@ -266,7 +317,6 @@ Examples:
 				createAppQuery = strings.Split(chosen, " ")[0]
 			}
 
-
 			// Get yarn version if needed
 			yarnVersion := ""
 			if pm == "yarn" {
@@ -275,6 +325,12 @@ Examples:
 				); err == nil {
 					yarnVersion = version
 				}
+			}
+
+			// Normalize extra "--" for npm (users sometimes add it themselves).
+			// npm mapping already injects "--" internally, so drop a leading user-provided one.
+			if pm == "npm" && len(packageArgs) > 0 && packageArgs[0] == "--" {
+				packageArgs = packageArgs[1:]
 			}
 
 			// Build command for creating projects
@@ -295,6 +351,9 @@ Examples:
 		},
 	}
 
+	// Add help-visible flags (parsing remains manual to allow passthrough)
+	cmd.Flags().BoolP("search", "s", false, "Search npm for create packages (interactive)")
+	cmd.Flags().Int("size", 25, "Number of results to show with --search")
 
 	return cmd
 }
