@@ -25,6 +25,7 @@ This eliminates the need to remember different commands or continuously switch b
     ** `jpd install` (`i`, `add`):** Installs project dependencies.
     ** `jpd run` (`r`):** Executes scripts defined in `package.json` or tasks in `deno.json`.
     ** `jpd exec` (`x`):** Executes packages (e.g., `npx`, `yarn dlx`, `pnpm dlx`, `bunx`).
+    ** `jpd create` (`c`):** Scaffolds new projects using create runners (supports package names for npm/pnpm/yarn/bun and URLs for deno).
     ** `jpd update` (`u`, `up`, `upgrade`):** Updates installed packages to their latest compatible versions.
     ** `jpd uninstall` (`un`, `remove`, `rm`):** Removes specified packages from your project.
     ** `jpd clean-install` (`ci`):** Performs a clean installation with a frozen lockfile, ideal for CI/CD environments and production builds.
@@ -71,6 +72,27 @@ nix profile install github:nix-community/nur#repos.the-code-fixer-23-nur.jpd
 ----
 
 == Usage
+
+[NOTE]
+====
+jpd create flags and flag passing:
+
+- `--search`, `-s`: Search npm for popular `create-*` packages and pick interactively.
+- `--size <n>`: Number of results to show when using `--search` (default: 25).
+- Passing flags to scaffolding tools:
+  - npm: jpd auto-inserts `--`; do not add your own. If you do, jpd normalizes it.
+  - pnpm / yarn v2+ / bun: pass flags directly after your app name.
+  - yarn v1: uses npx; pass flags directly.
+  - deno: pass arguments directly after the URL.
+
+Example (npm):
+
+[source,bash]
+----
+jpd create vite@latest my-app -- --template react
+# executes: npm exec create-vite@latest -- my-app --template react
+----
+====
 
 === CI build flag behavior
 
@@ -123,6 +145,11 @@ A compact overview of `jpd` commands. For detailed usage, flags, and examples, s
 
 .Package execution:
 * `jpd exec create-react-app my-app` - Execute packages
+* `jpd dlx create-react-app my-app` - Execute packages with dedicated package runner
+
+.Project scaffolding:
+* `jpd create react-app my-app` - Scaffold new projects with package names
+* `jpd -a deno create https://deno.land/x/fresh/init.ts my-app` - Scaffold with deno URLs
 
 .Maintenance:
 * `jpd update` - Update packages
@@ -192,6 +219,8 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   ├── agent.go        // 'agent' command logic
 │   ├── clean-install.go// 'clean-install' command logic
 │   ├── completion.go   // 'completion' command logic, including all shell completions
+│   ├── create.go       // 'create' command logic (project scaffolding)
+│   ├── dlx.go          // 'dlx' command logic (dedicated package runner)
 │   ├── exec.go         // 'exec' command logic
 │   ├── install.go      // 'install' command logic
 │   ├── integrate.go    // 'integrate' command logic (warp, carapace)

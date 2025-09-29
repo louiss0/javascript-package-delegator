@@ -63,7 +63,7 @@ func NewIntegrateWarpCmd() *cobra.Command {
 		Long: `Generate Warp terminal workflow files for JPD commands.
 
 This generates individual .yaml workflow files for each JPD command (install, run, exec, dlx,
-update, uninstall, clean-install, agent) that can be used with Warp terminal.
+create, update, uninstall, clean-install, agent) that can be used with Warp terminal.
 
 By default, workflow files are installed to:
   ${XDG_DATA_HOME:-$HOME/.local/share}/warp-terminal/workflows

@@ -3,6 +3,7 @@ package testutil
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	tmock "github.com/stretchr/testify/mock"
@@ -191,6 +192,21 @@ func (f *RootCommandFactory) baseDependencies() cmd.Dependencies {
 		NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 		NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
 		NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+		NewCreateAppSelector: func(packageInfo []services.PackageInfo) cmd.CreateAppSelector {
+
+			mockSelector := &mock.CreateAppSelectorMock{}
+			// Default mock behavior: select the first package
+			selectedPackage := packageInfo[0].Name
+			mockSelector.On("Run").Return(nil).Maybe()
+			mockSelector.On("Value").Return(selectedPackage).Maybe()
+			return mockSelector
+		},
+		NewCreateAppSearcher: func() cmd.CreateAppSearcher {
+			m := &mock.CreateAppSearcherMock{}
+			m.On("SearchCreateApps", tmock.Anything, tmock.Anything).
+				Return([]services.PackageInfo{{Name: "create-vite@latest", Description: "Vite"}}, nil).Maybe()
+			return m
+		},
 	}
 }
 
@@ -221,7 +237,7 @@ func (f *RootCommandFactory) CreateRootCmdWithLockfileDetected(pm string, lockfi
 	deps.DetectVolta = func() bool {
 		return volta
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateRootCmdWithPathDetected creates a root command simulating package manager
@@ -245,7 +261,7 @@ func (f *RootCommandFactory) CreateRootCmdWithPathDetected(pm string, pmDetectio
 	deps.DetectVolta = func() bool {
 		return volta
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
@@ -291,7 +307,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	}
 	// Override specific dependency for Yarn version output
 	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("2.0.0")
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager,
@@ -314,7 +330,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 	}
 	// Override specific dependency for Yarn version output
 	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("1.0.0")
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateNoYarnVersion creates a root command simulating no yarn version detection,
@@ -360,14 +376,12 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 		}
 		return mockUI
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager
 // detection via PATH and multi-select UI.
 func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
-	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile: "npm", nil.
-	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func() (lockfile string, error error) {
 		return "", os.ErrNotExist
@@ -378,7 +392,18 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 	deps.NewPackageMultiSelectUI = func(pi []services.PackageInfo) cmd.MultiUISelecter {
 		return mock.NewMockPackageMultiSelectUI(pi)
 	}
-	return cmd.NewRootCmd(deps)
+	// Provide a searcher that returns empty for queries containing "nonexistent"
+	deps.NewCreateAppSearcher = func() cmd.CreateAppSearcher {
+	m := &mock.CreateAppSearcherMock{}
+	// Register specific matcher first so it has priority over the generic one
+	m.On("SearchCreateApps", tmock.MatchedBy(func(q string) bool { return strings.Contains(q, "nonexistent") }), tmock.Anything).
+		Return([]services.PackageInfo{}, nil).Maybe()
+	m.On("SearchCreateApps", tmock.Anything, tmock.Anything).Return([]services.PackageInfo{
+		{Name: "create-vite@latest", Description: "Vite"},
+	}, nil).Maybe()
+	return m
+	}
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithTaskSelectorUI creates a root command configured for task selection UI based on a
@@ -394,7 +419,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 		return packageManager, nil
 	}
 	deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithDependencySelectUI creates a root command configured for dependency selection UI based on a
@@ -408,5 +433,5 @@ func (f *RootCommandFactory) CreateWithDependencySelectUI(packageManager string)
 		return packageManager, nil
 	}
 	deps.NewDependencyMultiSelectUI = mock.NewMockDependencySelectUI
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }

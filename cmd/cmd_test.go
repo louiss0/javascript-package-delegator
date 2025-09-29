@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -23,6 +24,50 @@ import (
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
+
+// Helper function to write content to file (copied from integrate.go for testing)
+func writeToFile(filename, content string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			if err == nil {
+				err = cerr
+			} else {
+				err = fmt.Errorf("%w; %w", err, cerr)
+			}
+		}
+	}()
+
+	_, err = file.WriteString(content)
+	return err
+}
+
+// Command Mapping Tests - Pure unit tests for command building logic
+// These tests directly test the command builder functions without executing commands
+
+// Test strategy and mapping rules:
+//
+// EXEC (local dependencies): Run local deps using package manager's exec feature
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm exec <bin> -- <args>                      |
+// | pnpm           | pnpm exec <bin> <args>                        |
+// | yarn (any)     | yarn <bin> <args>                             |
+// | bun            | bun x <bin> <args>                            |
+// | deno           | deno run <script> <args>                      |
+//
+// DLX (temporary packages): Run packages temporarily without install
+// | Tool           | Command                                        |
+// | -------------- | ---------------------------------------------- |
+// | npm            | npm dlx <package> <args>                      |
+// | pnpm           | pnpm dlx <package> <args>                     |
+// | yarn v1        | yarn <package> <args> (no dlx)               |
+// | yarn v2+       | yarn dlx <package> <args>                     |
+// | bun            | bunx <package> <args>                         |
+// | deno           | deno run <url> <args> (requires URL)          |
 
 // This function executes a cobra command with the given arguments and returns the output and error.
 // It sets the output and error buffers for the command, sets the arguments, and executes the command.
@@ -90,6 +135,7 @@ var _ = Describe("JPD Commands", func() {
 	}
 
 	BeforeEach(func() {
+
 		// Clear any state from previous tests to prevent cross-contamination
 		mockCommandRunner.InvalidCommands = []string{}
 		mockCommandRunner.ResetHasBeenCalled()
@@ -109,6 +155,7 @@ var _ = Describe("JPD Commands", func() {
 	})
 
 	AfterEach(func() {
+
 		// Assert that all expectations were met
 		mockCommandRunner.AssertExpectations(GinkgoT())
 		factory.DebugExecutor().AssertExpectations(GinkgoT())
@@ -317,15 +364,36 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should reject a --cwd flag value that does not end with '/'", func() {
-				invalidPath := "/tmp/my-project" // Missing trailing slash
+				// Use platform-appropriate invalid path
+				var invalidPath string
+				if runtime.GOOS == "windows" {
+					// On Windows, use POSIX-style path which should be invalid
+					invalidPath = "/tmp/my-project"
+				} else {
+					// On POSIX, use path without trailing slash
+					invalidPath = "/tmp/my-project"
+				}
+
 				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
 				if build_info.InCI() {
-					// In CI mode: paths without trailing slash are valid (relaxed validation)
-					assert.NoError(err)
+					// In CI mode: paths without trailing slash are valid on POSIX (relaxed validation)
+					if runtime.GOOS == "windows" {
+						// On Windows, POSIX paths should still be invalid even in CI
+						assert.Error(err)
+						assert.Contains(err.Error(), "is not a valid Windows folder path")
+						assert.Contains(err.Error(), "cwd")
+						assert.Contains(err.Error(), invalidPath)
+					} else {
+						assert.NoError(err)
+					}
 				} else {
-					// In non-CI mode: paths without trailing slash should cause validation errors
+					// In non-CI mode: should cause validation errors
 					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					if runtime.GOOS == "windows" {
+						assert.Contains(err.Error(), "is not a valid Windows folder path")
+					} else {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					}
 					assert.Contains(err.Error(), "cwd")       // Check that the flag name is mentioned
 					assert.Contains(err.Error(), invalidPath) // Check that the invalid path is mentioned
 				}
@@ -334,19 +402,19 @@ var _ = Describe("JPD Commands", func() {
 			It("should reject a --cwd flag value that is a filename", func() {
 				invalidPath := "my-file.txt" // A file-like path
 				_, err := executeCmd(currentRootCmd, "-C", invalidPath)
-				if build_info.InCI() {
-					// In CI mode: file-like paths are still invalid even with relaxed validation
-					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-					assert.Contains(err.Error(), "cwd")
-					assert.Contains(err.Error(), invalidPath)
+				// File-like paths should always be invalid regardless of CI mode or platform
+				assert.Error(err)
+				if runtime.GOOS == "windows" {
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
 				} else {
-					// In non-CI mode: file-like paths should cause validation errors
-					assert.Error(err)
-					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
-					assert.Contains(err.Error(), "cwd")
-					assert.Contains(err.Error(), invalidPath)
+					if build_info.InCI() {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
+					} else {
+						assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')")
+					}
 				}
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
 			})
 
 			DescribeTable(
@@ -360,19 +428,45 @@ var _ = Describe("JPD Commands", func() {
 				},
 				Entry("an empty string", "", "the cwd flag cannot be empty or contain only whitespace"),
 				Entry("a string with only whitespace", "   ", "the cwd flag cannot be empty or contain only whitespace"),
-				Entry("a path with invalid characters", "/path/with:colon/", "is not a valid POSIX/UNIX folder path", "cwd", "/path/with:colon/"),
 			)
 
-			DescribeTable(
-				"should accept valid folder paths for --cwd",
-				func(validPath string) {
-					_, err := executeCmd(currentRootCmd, "--cwd", validPath)
-					assert.NoError(err)
-				},
-				Entry("a valid root path '/'", "/"),
-				Entry("a valid relative folder path './'", "./"),
-				Entry("a valid relative parent folder path '../'", "../"),
-			)
+			It("should reject a path with invalid characters", func() {
+				// Use platform-appropriate invalid path with illegal characters
+				var invalidPath string
+				if runtime.GOOS == "windows" {
+					// On Windows, POSIX paths with colons are invalid
+					invalidPath = "/path/with:colon/"
+				} else {
+					// On POSIX, paths with certain characters might be invalid
+					invalidPath = "/path/with:colon/"
+				}
+
+				_, err := executeCmd(currentRootCmd, "--cwd", invalidPath)
+				assert.Error(err)
+				if runtime.GOOS == "windows" {
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
+				} else {
+					assert.Contains(err.Error(), "is not a valid POSIX/UNIX folder path")
+				}
+				assert.Contains(err.Error(), "cwd")
+				assert.Contains(err.Error(), invalidPath)
+			})
+
+			Describe("should accept valid folder paths for --cwd", func() {
+				It("accepts platform-appropriate valid paths", func() {
+					var validPaths []string
+					if runtime.GOOS == "windows" {
+						// Use Windows-style valid paths
+						validPaths = []string{".", ".\\", "..\\", "C:", "C:/", "C:/Windows/"}
+					} else {
+						validPaths = []string{"/", "./", "../"}
+					}
+					for _, p := range validPaths {
+						_, err := executeCmd(currentRootCmd, "--cwd", p)
+						assert.NoError(err)
+					}
+				})
+			})
 
 			It("should run a command in the specified directory using -C", func() {
 				tempDir := GinkgoT().TempDir()
@@ -414,11 +508,24 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			It("should handle a non-existent directory gracefully (likely fail at exec.Command level)", func() {
-				nonExistentDir := "/non/existent/path/for/jpd/test" // A path that should not exist
+				// Use platform-appropriate non-existent path
+				var nonExistentDir string
+				if runtime.GOOS == "windows" {
+					// On Windows, POSIX paths should be rejected at validation level
+					nonExistentDir = "/non/existent/path/for/jpd/test"
+				} else {
+					nonExistentDir = "/non/existent/path/for/jpd/test"
+				}
+
 				_, err := executeCmd(currentRootCmd, "install", "--agent", "npm", "-C", fmt.Sprintf("%s/", nonExistentDir))
-				// Expect an error because the directory doesn't exist. The error will come from os/exec.Command.
 				assert.Error(err)
-				assert.Contains(err.Error(), "no such file or directory") // Specific error message for non-existent path
+				if runtime.GOOS == "windows" {
+					// On Windows, should fail at path validation level
+					assert.Contains(err.Error(), "is not a valid Windows folder path")
+				} else {
+					// On POSIX, should fail at exec.Command level for non-existent directory
+					assert.Contains(err.Error(), "no such file or directory")
+				}
 			})
 		})
 
@@ -426,7 +533,7 @@ var _ = Describe("JPD Commands", func() {
 
 			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
 
-				return cmd.NewRootCmd(
+				return cmd.NewRootCmdForTesting(
 					cmd.Dependencies{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
@@ -452,6 +559,10 @@ var _ = Describe("JPD Commands", func() {
 
 							return commandTextUI
 						},
+						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 					},
 				)
 
@@ -550,13 +661,17 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() { // Default mock for yarn version
 
 				// Create the root command with *all* necessary dependencies
-				currentRootCmd = cmd.NewRootCmd(cmd.Dependencies{
+				currentRootCmd = cmd.NewRootCmdForTesting(cmd.Dependencies{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
 					DetectLockfile: func() (lockfile string, err error) {
 						return "", nil
 					},
+					DetectJSPackageManager: func() (string, error) {
+						return "", fmt.Errorf("not detected")
+					},
+					DetectVolta: func() bool { return false },
 					NewDebugExecutor: func(bool) cmd.DebugExecutor {
 						return factory.DebugExecutor()
 					},
@@ -564,6 +679,9 @@ var _ = Describe("JPD Commands", func() {
 					DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("not detected") },
 					YarnCommandVersionOutputter:           mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:                      mock.NewMockCommandTextUI,
+					NewPackageMultiSelectUI:               mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:                     mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
 				})
 				// Must set context because the background isn't activated.
 				currentRootCmd.SetContext(context.Background())
@@ -618,7 +736,7 @@ var _ = Describe("JPD Commands", func() {
 			// Help doesn't need any additional expectations since it doesn't execute the business logic
 			output, err := executeCmd(rootCmd, "dlx", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages with package runner")
+			assert.Contains(output, "Execute packages temporarily without installing them first")
 			assert.Contains(output, "jpd dlx")
 		})
 
@@ -1347,6 +1465,360 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
+	const CreateCommand = "Create Command"
+	Describe(CreateCommand, func() {
+
+		var createCmd *cobra.Command
+		BeforeEach(func() {
+			createCmd, _ = getSubCommandWithName(rootCmd, "create")
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(rootCmd, "create", "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Scaffold a new project using the appropriate package manager's create command")
+			assert.Contains(output, "jpd create")
+			// Create-specific flags are visible in help
+			assert.Contains(output, "--search")
+			assert.Contains(output, "-s")
+			assert.Contains(output, "--size")
+			// Guidance about npm separator normalization
+			assert.Contains(output, "JPD automatically inserts the -- separator")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(createCmd.Aliases, "c")
+		})
+
+		It("should require at least one argument", func() {
+			_, err := executeCmd(rootCmd, "create")
+			assert.Error(err)
+			assert.Contains(err.Error(), "requires at least 1 arg(s)")
+		})
+
+		// BuildCreateCommand Unit Tests
+		Describe("BuildCreateCommand function tests", func() {
+			Describe("npm create command", func() {
+				It("should build npm exec create-react-app command", func() {
+					program, args, err := cmd.BuildCreateCommand("npm", "", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("npm", program)
+					assert.Equal([]string{"exec", "create-react-app", "--", "my-app"}, args)
+				})
+
+				It("should handle package already prefixed with create-", func() {
+					program, args, err := cmd.BuildCreateCommand("npm", "", "create-react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("npm", program)
+					assert.Equal([]string{"exec", "create-react-app", "--", "my-app"}, args)
+				})
+
+				It("should handle version specifiers", func() {
+					program, args, err := cmd.BuildCreateCommand("npm", "", "vite@latest", []string{"my-app", "--template", "react"})
+					assert.NoError(err)
+					assert.Equal("npm", program)
+					assert.Equal([]string{"exec", "create-vite@latest", "--", "my-app", "--template", "react"}, args)
+				})
+
+				It("should handle scoped packages", func() {
+					program, args, err := cmd.BuildCreateCommand("npm", "", "@org/starter", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("npm", program)
+assert.Equal([]string{"exec", "@org/starter", "--", "my-app"}, args)
+				})
+
+				It("should return error when no name provided", func() {
+					_, _, err := cmd.BuildCreateCommand("npm", "", "", []string{})
+					assert.Error(err)
+					assert.Contains(err.Error(), "package name is required")
+				})
+
+				It("should reject URLs", func() {
+					_, _, err := cmd.BuildCreateCommand("npm", "", "https://example.com/create.js", []string{})
+					assert.Error(err)
+					assert.Contains(err.Error(), "URLs are not supported for npm")
+				})
+			})
+
+			Describe("pnpm create command", func() {
+				It("should build pnpm exec command", func() {
+					program, args, err := cmd.BuildCreateCommand("pnpm", "", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("pnpm", program)
+assert.Equal([]string{"dlx", "create-react-app", "my-app"}, args)
+				})
+
+				It("should handle version specifiers", func() {
+					program, args, err := cmd.BuildCreateCommand("pnpm", "", "vite@4", []string{"my-app", "--template", "vue"})
+					assert.NoError(err)
+					assert.Equal("pnpm", program)
+assert.Equal([]string{"dlx", "create-vite@4", "my-app", "--template", "vue"}, args)
+				})
+			})
+
+			Describe("yarn create command", func() {
+				It("should use npx for yarn v1", func() {
+					program, args, err := cmd.BuildCreateCommand("yarn", "1.22.0", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("npx", program)
+					assert.Equal([]string{"create-react-app", "my-app"}, args)
+				})
+
+				It("should use yarn dlx for yarn v2+", func() {
+					program, args, err := cmd.BuildCreateCommand("yarn", "2.0.0", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("yarn", program)
+					assert.Equal([]string{"dlx", "create-react-app", "my-app"}, args)
+				})
+
+				It("should use yarn dlx for yarn berry", func() {
+					program, args, err := cmd.BuildCreateCommand("yarn", "berry-3.1.0", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("yarn", program)
+					assert.Equal([]string{"dlx", "create-react-app", "my-app"}, args)
+				})
+			})
+
+			Describe("bun create command", func() {
+				It("should use bunx", func() {
+					program, args, err := cmd.BuildCreateCommand("bun", "", "react-app", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("bunx", program)
+					assert.Equal([]string{"create-react-app", "my-app"}, args)
+				})
+			})
+
+			Describe("deno create command", func() {
+				It("should use deno run with valid URL", func() {
+					program, args, err := cmd.BuildCreateCommand("deno", "", "https://deno.land/x/fresh/init.ts", []string{"my-app"})
+					assert.NoError(err)
+					assert.Equal("deno", program)
+					assert.Equal([]string{"run", "https://deno.land/x/fresh/init.ts", "my-app"}, args)
+				})
+
+				It("should reject invalid URL", func() {
+					_, _, err := cmd.BuildCreateCommand("deno", "", "not-a-url", []string{})
+					assert.Error(err)
+					assert.Contains(err.Error(), "deno create requires a valid URL")
+				})
+
+				It("should reject empty URL", func() {
+					_, _, err := cmd.BuildCreateCommand("deno", "", "", []string{})
+					assert.Error(err)
+					assert.Contains(err.Error(), "deno create requires a URL")
+				})
+			})
+
+			Describe("error cases", func() {
+				It("should reject unsupported package manager", func() {
+					_, _, err := cmd.BuildCreateCommand("unsupported", "", "react-app", []string{})
+					assert.Error(err)
+					assert.Contains(err.Error(), "unsupported package manager")
+				})
+			})
+		})
+
+		Context("npm", func() {
+			It("should execute npm exec create-react-app", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app")
+				_, err := executeCmd(rootCmd, "create", "react-app", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--", "my-app"))
+			})
+
+			It("should execute npm exec create-react-app with additional args", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app", "--template", "typescript")
+				_, err := executeCmd(rootCmd, "create", "react-app", "my-app", "--template", "typescript")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--", "my-app", "--template", "typescript"))
+			})
+
+			It("should handle create prefix already present", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app")
+				_, err := executeCmd(rootCmd, "create", "create-react-app", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--", "my-app"))
+			})
+
+			It("should handle version specifiers", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-vite@latest", "--", "my-app")
+				_, err := executeCmd(rootCmd, "create", "vite@latest", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-vite@latest", "--", "my-app"))
+			})
+
+			It("normalizes an extra user-provided -- for npm", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				// We only assert the executed command; allow any debug JS command log
+				DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+				_, err := executeCmd(rootCmd, "create", "vite@latest", "my-app", "--", "--template", "react")
+				assert.NoError(err)
+				// Ensure only a single -- is present in the executed command
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-vite@latest", "--", "my-app", "--template", "react"))
+			})
+		})
+
+		Context("pnpm", func() {
+			var pnpmRootCmd *cobra.Command
+
+			BeforeEach(func() {
+				pnpmRootCmd = factory.CreatePnpmAsDefault(nil)
+			})
+
+			It("should execute pnpm exec create-react-app", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.PNPM, detect.PNPM_LOCK_YAML)
+DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-react-app", "my-app")
+				_, err := executeCmd(pnpmRootCmd, "create", "react-app", "my-app")
+				assert.NoError(err)
+assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
+			})
+
+			It("does not strip a user-provided -- for pnpm", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.PNPM, detect.PNPM_LOCK_YAML)
+DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-vite@latest", "my-app", "--", "--template", "react")
+				_, err := executeCmd(pnpmRootCmd, "create", "vite@latest", "my-app", "--", "--template", "react")
+				assert.NoError(err)
+assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-vite@latest", "my-app", "--", "--template", "react"))
+			})
+		})
+
+		Context("yarn", func() {
+			It("should execute npx create-react-app for yarn v1", func() {
+				yarnRootCmd := factory.CreateYarnOneAsDefault(nil)
+				DebugExecutorExpectationManager.ExpectCommonPathDetectionFlow(detect.YARN)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "create-react-app", "my-app")
+				_, err := executeCmd(yarnRootCmd, "create", "react-app", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("npx", "create-react-app", "my-app"))
+			})
+
+			It("should execute yarn dlx create-react-app for yarn v2+", func() {
+				yarnRootCmd := factory.CreateYarnTwoAsDefault(nil)
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.YARN, detect.YARN_LOCK)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("yarn", "dlx", "create-react-app", "my-app")
+				_, err := executeCmd(yarnRootCmd, "create", "react-app", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("yarn", "dlx", "create-react-app", "my-app"))
+			})
+		})
+
+		Context("bun", func() {
+			var bunRootCmd *cobra.Command
+
+			BeforeEach(func() {
+				bunRootCmd = factory.CreateBunAsDefault(nil)
+			})
+
+			It("should execute bunx create-react-app", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.BUN, detect.BUN_LOCKB)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("bunx", "create-react-app", "my-app")
+				_, err := executeCmd(bunRootCmd, "create", "react-app", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("bunx", "create-react-app", "my-app"))
+			})
+		})
+
+		Context("deno", func() {
+			var denoRootCmd *cobra.Command
+
+			BeforeEach(func() {
+				denoRootCmd = factory.CreateDenoAsDefault(nil)
+			})
+
+			It("should execute deno run with URL", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "run", "https://deno.land/x/fresh/init.ts", "my-app")
+				_, err := executeCmd(denoRootCmd, "create", "https://deno.land/x/fresh/init.ts", "my-app")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "run", "https://deno.land/x/fresh/init.ts", "my-app"))
+			})
+
+			It("should reject non-URL for deno", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				_, err := executeCmd(denoRootCmd, "create", "react-app", "my-app")
+				assert.Error(err)
+				assert.Contains(err.Error(), "deno create requires a valid URL")
+			})
+		})
+
+		Context("Error Handling", func() {
+			It("should return error when command runner fails", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				mockCommandRunner.InvalidCommands = []string{"npm"}
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app")
+				_, err := executeCmd(rootCmd, "create", "react-app", "my-app")
+				assert.Error(err)
+				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
+			})
+
+			It("should return error for unsupported package manager", func() {
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile("unknown")
+				rootCmd := factory.GenerateWithPackageManagerDetector("unknown", nil)
+				_, err := executeCmd(rootCmd, "create", "react-app", "my-app")
+				assert.Error(err)
+				assert.Contains(err.Error(), "unsupported package manager: unknown")
+			})
+		})
+
+		Context("Search functionality", func() {
+			var rootCmdWithSearch *cobra.Command
+
+			BeforeEach(func() {
+				// Use the factory with search UI capability
+				rootCmdWithSearch = factory.CreateWithPackageManagerAndMultiSelectUI()
+			})
+
+			It("should search for packages when --search flag is used without arguments", func() {
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
+				// Search functionality returns packages, so expect some random command
+				DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+				_, err := executeCmd(rootCmdWithSearch, "create", "--search")
+				assert.NoError(err)
+				// Command should have executed with npm exec and create- prefixed package
+				assert.Equal("npm", mockCommandRunner.CommandCall.Name)
+				assert.Contains(mockCommandRunner.CommandCall.Args, "exec")
+			})
+
+			It("should search for specific packages when --search flag is used with query", func() {
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
+				DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+				_, err := executeCmd(rootCmdWithSearch, "create", "react", "--search")
+				assert.NoError(err)
+				// Should execute a command with npm exec
+				assert.Equal("npm", mockCommandRunner.CommandCall.Name)
+				assert.Contains(mockCommandRunner.CommandCall.Args, "exec")
+			})
+
+			It("should set custom size when --size flag is used", func() {
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
+				DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+				_, err := executeCmd(rootCmdWithSearch, "create", "--search", "--size", "10")
+				assert.NoError(err)
+				assert.Equal("npm", mockCommandRunner.CommandCall.Name)
+			})
+
+			It("should return error when no packages are found in search", func() {
+				DebugExecutorExpectationManager.ExpectNoLockfile()
+				DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
+				_, err := executeCmd(rootCmdWithSearch, "create", "nonexistentpackage12345", "--search")
+				assert.Error(err)
+				assert.Contains(err.Error(), "no packages found matching")
+			})
+		})
+
+	})
+
 	const RunCommand = "Run Command"
 	Describe(RunCommand, func() {
 
@@ -1835,7 +2307,7 @@ var _ = Describe("JPD Commands", func() {
 		It("should show help", func() {
 			output, err := executeCmd(rootCmd, "exec", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages")
+			assert.Contains(output, "Execute local dependencies")
 			assert.Contains(output, "jpd exec")
 		})
 
@@ -1851,26 +2323,26 @@ var _ = Describe("JPD Commands", func() {
 		It("should handle --help in arguments", func() {
 			output, err := executeCmd(rootCmd, "exec", "some-package", "--help")
 			assert.NoError(err)
-			assert.Contains(output, "Execute packages")
+			assert.Contains(output, "Execute local dependencies")
 		})
 
 		Context("npm", func() {
 			It("should execute npx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "create-react-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--")
 				_, err := executeCmd(rootCmd, "exec", "create-react-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("npx", "create-react-app"))
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--"))
 			})
 
 			It("should execute npx with package name and args", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "create-react-app", "--", "my-app")
 				_, err := executeCmd(rootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("npx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-react-app", "--", "my-app"))
 
 			})
 		})
@@ -1884,10 +2356,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute yarn with package name (v2+)", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("yarn", "dlx", "create-react-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("yarn", "create-react-app")
 				_, err := executeCmd(yarnRootCmd, "exec", "create-react-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("yarn", "dlx", "create-react-app"))
+				assert.True(mockCommandRunner.HasCommand("yarn", "create-react-app"))
 			})
 
 			It("should handle yarn version detection error (fallback to v1)", func() {
@@ -1921,10 +2393,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute pnpm dlx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "exec", "create-react-app", "my-app")
 				_, err := executeCmd(pnpmRootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-react-app", "my-app"))
 			})
 		})
 
@@ -1938,10 +2410,10 @@ var _ = Describe("JPD Commands", func() {
 			It("should execute bunx with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("bunx", "create-react-app", "my-app")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("bun", "x", "create-react-app", "my-app")
 				_, err := executeCmd(bunRootCmd, "exec", "create-react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("bunx", "create-react-app", "my-app"))
+				assert.True(mockCommandRunner.HasCommand("bun", "x", "create-react-app", "my-app"))
 			})
 		})
 
@@ -1951,12 +2423,13 @@ var _ = Describe("JPD Commands", func() {
 			BeforeEach(func() {
 				denoRootCmd = factory.CreateDenoAsDefault(nil)
 			})
-			It("should handle deno exec error", func() {
+			It("should execute deno run with package name", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "run", "some-package")
 				_, err := executeCmd(denoRootCmd, "exec", "some-package")
-				assert.Error(err)
-				assert.Contains(err.Error(), "deno does not have a dlx/x equivalent")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "run", "some-package"))
 			})
 		})
 
@@ -1971,14 +2444,14 @@ var _ = Describe("JPD Commands", func() {
 
 			It("should return error when command runner fails", func() {
 				rootCmd := factory.CreateNpmAsDefault(nil)
-				mockCommandRunner.InvalidCommands = []string{"npx"}
+				mockCommandRunner.InvalidCommands = []string{"npm"}
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("npx", "test-command")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "exec", "test-command", "--")
 				_, err := executeCmd(rootCmd, "exec", "test-command")
 				assert.Error(err)
-				assert.Contains(err.Error(), "mock error: command 'npx' is configured to fail")
+				assert.Contains(err.Error(), "mock error: command 'npm' is configured to fail")
 			})
 
 			It("should return error for unsupported package manager", func() {
@@ -2486,7 +2959,7 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for path-based detection
 						DebugExecutorExpectationManager.ExpectNoLockfile()
 						DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
-						rootCmdForSelection := cmd.NewRootCmd(
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
 							cmd.Dependencies{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
@@ -2499,10 +2972,13 @@ var _ = Describe("JPD Commands", func() {
 								},
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) { return "", fmt.Errorf("should not be called") },
 								DetectJSPackageManager:                func() (string, error) { return "npm", nil },
-								NewDependencyMultiSelectUI:            mock.NewMockDependencySelectUI,
 								DetectVolta: func() bool {
 									return false
 								},
+								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 							})
 
 						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
@@ -2561,7 +3037,7 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for lockfile-based detection of deno
 						DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 						DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
-						rootCmdForSelection := cmd.NewRootCmd(
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
 							cmd.Dependencies{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
@@ -2575,10 +3051,13 @@ var _ = Describe("JPD Commands", func() {
 								DetectJSPackageManagerBasedOnLockFile: func(detectedLockFile string) (string, error) {
 									return "deno", nil // Assume deno for the test
 								},
-								NewDependencyMultiSelectUI: mock.NewMockDependencySelectUI,
 								DetectVolta: func() bool {
 									return false
 								},
+								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 							},
 						)
 
@@ -3138,7 +3617,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				// PM from path will be attempted after lockfile-based detection fails
 
-				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+				currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -3160,6 +3639,9 @@ var _ = Describe("JPD Commands", func() {
 					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:            mock.NewMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
+					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 				})
 
 				currentRootCmd.SetContext(context.Background())
@@ -3183,7 +3665,7 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
 
-				currentRootCmd := cmd.NewRootCmd(
+				currentRootCmd := cmd.NewRootCmdForTesting(
 					cmd.Dependencies{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return mockCommandRunner
@@ -3208,6 +3690,9 @@ var _ = Describe("JPD Commands", func() {
 						},
 						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 						DetectVolta:                 func() bool { return false },
+						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 					})
 
 				currentRootCmd.SetContext(context.Background())
@@ -3228,7 +3713,7 @@ var _ = Describe("JPD Commands", func() {
 				// Setup: deno.json exists but deno is not installed, npm is available
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 
-				currentRootCmd := cmd.NewRootCmd(cmd.Dependencies{
+				currentRootCmd := cmd.NewRootCmdForTesting(cmd.Dependencies{
 					CommandRunnerGetter: func() cmd.CommandRunner {
 						return mockCommandRunner
 					},
@@ -3251,6 +3736,9 @@ var _ = Describe("JPD Commands", func() {
 					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 					NewCommandTextUI:            mock.NewMockCommandTextUI,
 					DetectVolta:                 func() bool { return false },
+					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 				})
 
 				currentRootCmd.SetContext(context.Background())
@@ -3325,6 +3813,8 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(commandNames, "install")
 			assert.Contains(commandNames, "run")
 			assert.Contains(commandNames, "exec")
+			assert.Contains(commandNames, "dlx")
+			assert.Contains(commandNames, "create")
 			assert.Contains(commandNames, "update")
 			assert.Contains(commandNames, "uninstall")
 			assert.Contains(commandNames, "clean-install")
@@ -3340,7 +3830,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(9, userCommands)
+			assert.Equal(10, userCommands)
 		})
 	})
 
@@ -3361,728 +3851,170 @@ var _ = Describe("JPD Commands", func() {
 			assert.Error(err)
 			assert.Contains(err.Error(), "no command set to run")
 		})
-
-		It("should return errors for invalid commands", func() {
-			testRunner := mock.NewMockCommandRunner()
-			testRunner.InvalidCommands = []string{"npm"}
-			testRunner.Command("npm", "install")
-			err := testRunner.Run()
-			assert.Error(err)
-			assert.Contains(err.Error(), "configured to fail")
-		})
-
-		It("should correctly check for command execution", func() {
-			testRunner := mock.NewMockCommandRunner()
-			testRunner.Command("npm", "install", "lodash")
-			_ = testRunner.Run()
-
-			assert.True(testRunner.HasCommand("npm", "install", "lodash"))
-			assert.False(testRunner.HasCommand("yarn", "add", "react")) // Should be false as only one command is stored
-		})
-
-		It("should properly reset all state", func() {
-			testRunner := mock.NewMockCommandRunner()
-			testRunner.Command("npm", "install", "lodash")
-			_ = testRunner.Run()
-			testRunner.InvalidCommands = []string{"yarn"}
-
-			testRunner.Reset()
-
-			assert.False(testRunner.HasBeenCalled)
-			assert.Equal(0, len(testRunner.InvalidCommands))
-			assert.Equal(mock.CommandCall{}, testRunner.CommandCall)
-		})
-
-		It("should return the last executed command", func() {
-			testRunner := mock.NewMockCommandRunner()
-
-			cmdCall, exists := testRunner.LastCommand()
-			assert.False(exists)
-			assert.Equal(mock.CommandCall{}, cmdCall)
-
-			testRunner.Command("npm", "install")
-			_ = testRunner.Run()
-
-			cmdCall, exists = testRunner.LastCommand()
-			assert.True(exists)
-			assert.Equal("npm", cmdCall.Name)
-			assert.Equal([]string{"install"}, cmdCall.Args)
-
-			// Running another command overwrites the previous one
-			testRunner.Command("yarn", "add", "react")
-			_ = testRunner.Run()
-
-			cmdCall, exists = testRunner.LastCommand()
-			assert.True(exists)
-			assert.Equal("yarn", cmdCall.Name)
-			assert.Equal([]string{"add", "react"}, cmdCall.Args)
-		})
 	})
 
-	// Additional consolidated test sections from other test files
+	Describe("Command Aliases Tests", func() {
+		Describe("DLX Command", func() {
+			It("should have 'x' as an alias", func() {
+				dlxCmd := cmd.NewDlxCmd()
+				actualAliases := dlxCmd.Aliases
 
-	const CommandsAliasAndEdgeTests = "Commands Alias and Edge Test Coverage"
-	Describe(CommandsAliasAndEdgeTests, func() {
-
-		var rootCmd *cobra.Command
-		mockCommandRunner := mock.NewMockCommandRunner()
-		factory := testutil.NewRootCommandFactory(mockCommandRunner)
-		var DebugExecutorExpectationManager = testutil.DebugExecutorExpectationManager
-
-		BeforeEach(func() {
-			rootCmd = factory.CreateNpmAsDefault(nil)
-			rootCmd.SetArgs([]string{})
-			factory.ResetDebugExecutor()
-			DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
-		})
-
-		AfterEach(func() {
-			mockCommandRunner.Reset()
-			factory.DebugExecutor().AssertExpectations(GinkgoT())
-		})
-
-		Describe("Agent aliases", func() {
-			Context("jpd a runs and uses detected PM", func() {
-				It("should execute with npm when detected", func() {
-					// Set expectations for npm detection via lockfile
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM)
-
-					_, err := executeCmd(rootCmd, "a")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM))
-				})
-
-				It("should execute with yarn when detected", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN)
-
-					_, err := executeCmd(rootCmd, "a")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.YARN))
-				})
-
-				It("should execute with pnpm when detected", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM)
-
-					_, err := executeCmd(rootCmd, "a")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.PNPM))
-				})
+				// Should contain "x"
+				found := false
+				for _, alias := range actualAliases {
+					if alias == "x" {
+						found = true
+						break
+					}
+				}
+				assert.True(found, "NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
 			})
 		})
 
-		Describe("Update aliases", func() {
-			Context("jpd up and jpd u map to update", func() {
-				It("should execute npm update via 'up' alias", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "update")
+		Describe("EXEC Command", func() {
+			It("should have 'e' as alias and NOT 'x'", func() {
+				execCmd := cmd.NewExecCmd()
+				actualAliases := execCmd.Aliases
+				expectedAliases := []string{"e"}
 
-					_, err := executeCmd(rootCmd, "up")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM, "update"))
-				})
+				assert.Equal(len(expectedAliases), len(actualAliases), "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
 
-				It("should execute yarn upgrade via 'u' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
+				for i, alias := range actualAliases {
+					assert.Equal(expectedAliases[i], alias, "NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
+				}
 
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN, "upgrade")
-
-					_, err := executeCmd(rootCmd, "u")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.YARN, "upgrade"))
-				})
-
-				It("should execute pnpm update via 'up' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "update")
-
-					_, err := executeCmd(rootCmd, "up")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "update"))
-				})
-			})
-
-			Context("update command with specific packages", func() {
-				It("should handle package names correctly with npm", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "update", "lodash", "react")
-
-					_, err := executeCmd(rootCmd, "update", "lodash", "react")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM, "update", "lodash", "react"))
-				})
-			})
-		})
-
-		Describe("Uninstall aliases", func() {
-			Context("jpd rm and jpd remove map correctly", func() {
-				It("should execute npm uninstall via 'rm' alias", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "uninstall", "lodash")
-
-					_, err := executeCmd(rootCmd, "rm", "lodash")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM, "uninstall", "lodash"))
-				})
-
-				It("should execute yarn remove via 'remove' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.YARN, detect.YARN_LOCK, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.YARN_LOCK)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.YARN)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.YARN, "remove", "react")
-
-					_, err := executeCmd(rootCmd, "remove", "react")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.YARN, "remove", "react"))
-				})
-
-				It("should execute pnpm remove via 'rm' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "remove", "typescript")
-
-					_, err := executeCmd(rootCmd, "rm", "typescript")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "remove", "typescript"))
-				})
-
-				It("should execute bun remove via 'remove' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.BUN, detect.BUN_LOCKB, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.BUN, "remove", "eslint")
-
-					_, err := executeCmd(rootCmd, "remove", "eslint")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.BUN, "remove", "eslint"))
-				})
-			})
-		})
-
-		Describe("Clean-install alias", func() {
-			Context("jpd ci already covered", func() {
-				It("should execute npm ci via 'ci' alias", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "ci")
-
-					_, err := executeCmd(rootCmd, "ci")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM, "ci"))
-				})
-
-				It("should execute pnpm install --frozen-lockfile via 'ci' alias", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.PNPM, detect.PNPM_LOCK_YAML, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.PNPM, "install", "--frozen-lockfile")
-
-					_, err := executeCmd(rootCmd, "ci")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.PNPM, "install", "--frozen-lockfile"))
-				})
-			})
-		})
-
-		Describe("Additional edge flags", func() {
-			Context("Mutual exclusivity errors", func() {
-				It("should handle conflicting flags on uninstall command", func() {
-					// The uninstall command has mutually exclusive --global and --interactive flags
-					// This should produce an error, but we still need debug expectations for the root command pre-run
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-
-					_, err := executeCmd(rootCmd, "uninstall", "--global", "--interactive")
-					assert.Error(err)
-					// The actual cobra error message for mutual exclusivity
-					assert.Contains(err.Error(), "were all set")
-				})
-			})
-
-			Context("Update command edge cases", func() {
-				It("should handle interactive flag with npm (should error)", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-
-					_, err := executeCmd(rootCmd, "update", "--interactive")
-					assert.Error(err)
-					assert.Contains(err.Error(), "npm does not support interactive updates")
-				})
-
-				It("should handle interactive flag with bun (should error)", func() {
-					rootCmd = factory.CreateRootCmdWithLockfileDetected(detect.BUN, detect.BUN_LOCKB, nil, false)
-
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.BUN_LOCKB)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.BUN)
-
-					_, err := executeCmd(rootCmd, "update", "--interactive")
-					assert.Error(err)
-					assert.Contains(err.Error(), "bun does not support interactive updates")
-				})
-			})
-
-			Context("Agent command edge cases", func() {
-				It("should handle --version flag passthrough", func() {
-					DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-					DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-					DebugExecutorExpectationManager.ExpectJSCommandLog(detect.NPM, "--version")
-
-					_, err := executeCmd(rootCmd, "agent", "--version")
-					assert.NoError(err)
-					assert.True(mockCommandRunner.HasCommand(detect.NPM, "--version"))
-				})
-
-				It("should error when no package manager is detected", func() {
-					rootCmd = factory.GenerateNoDetectionAtAll("")
-
-					DebugExecutorExpectationManager.ExpectNoLockfile()
-					DebugExecutorExpectationManager.ExpectNoPMFromPath()
-
-					_, err := executeCmd(rootCmd, "agent")
-					assert.Error(err)
-					// The actual error is about a command for installing a package when no PM is detected
-					assert.Contains(err.Error(), "A command for installing a package is at least three words")
-				})
+				// Also explicitly assert that "x" is NOT present
+				for _, alias := range actualAliases {
+					assert.NotEqual("x", alias, "NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
+				}
 			})
 		})
 	})
 
-	// New tests for the 'integrate' command
-	//
-	const IntegrateCommand = "Integrate Command"
-	Describe(IntegrateCommand, func() {
-		var (
-			tempDir         string
-			originalXDG     string
-			originalAppdata string
-		)
+	Describe("Utility Functions Tests", func() {
+		Describe("Valid Install Command String Regex", func() {
+			var regex *regexp.Regexp
 
-		BeforeEach(func() {
-			// Create a fresh root command for each test to avoid state leakage
-
-			var err error
-			tempDir, err = os.MkdirTemp("", "jpd-integrate-test-*")
-			assert.NoError(err)
-
-			// Backup and set XDG_DATA_HOME/APPDATA for Carapace global tests to redirect to tempDir
-			originalXDG = os.Getenv("XDG_DATA_HOME")
-			err = os.Setenv("XDG_DATA_HOME", tempDir)
-			assert.NoError(err)
-			originalAppdata = os.Getenv("APPDATA")
-			err = os.Setenv("APPDATA", tempDir)
-			assert.NoError(err)
-			assert.NoError(err)
-			// No easy way to mock os.UserConfigDir directly, relying on XDG_DATA_HOME override.
-			// If on Windows, %APPDATA% is primary. On Unix, XDG_DATA_HOME or ~/.local/share.
-			// Setting XDG_DATA_HOME covers most Unix-like systems.
-
-			// Note: Debug expectations are set up individually in each test as needed
-			// Help commands don't trigger PM detection, so we don't set global expectations
-
-		})
-
-		AfterEach(func() {
-			if tempDir != "" {
-				_ = os.RemoveAll(tempDir)
-			}
-			// Restore original environment variables
-			_ = os.Setenv("XDG_DATA_HOME", originalXDG)
-			_ = os.Setenv("APPDATA", originalAppdata)
-			// Restore original user config dir (less critical if XDG_DATA_HOME is set)
-
-		})
-
-		Context("warp subcommand", func() {
-			It("should install Warp workflows to default directory if no output-dir flag", func() {
-				// Add debug expectations for warp subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-
-				// The actual path will be within tempDir because of XDG_DATA_HOME override
-				warpWorkflowsDir := filepath.Join(tempDir, "warp-terminal", "workflows")
-
-				output, err := executeCmd(rootCmd, "integrate", "warp")
-				assert.NoError(err)
-				assert.Empty(output) // Should not print to stdout, now installs to default dir
-
-				// Verify workflow files were created in default directory
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-install.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-run.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-exec.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-dlx.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-update.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-uninstall.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-clean-install.yaml"))
-				assert.FileExists(filepath.Join(warpWorkflowsDir, "jpd-agent.yaml"))
+			BeforeEach(func() {
+				regex = regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
 			})
 
-			It("should throw error for empty output-dir flag", func() {
-				// Add debug expectations for warp subcommand which executes business logic
-				_, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", "")
-				assert.Error(err)
+			Context("accepts valid commands with three or more words", func() {
+				validCommands := []string{
+					"npm install -g npm",
+					"yarn global add yarn",
+					"pnpm add -g pnpm",
+					"bun install -g bun",
+					"deno install --allow-net deno",
+					"sudo apt-get install nodejs",
+					"brew install pnpm",
+					"winget install Microsoft.VisualStudioCode",
+					"choco install nodejs",
+					"dnf install yarn",
+					"yum install nodejs",
+					"zypper install pnpm",
+					"apk add deno",
+					"nix-env -iA nixpkgs.nodejs",
+					"nix profile install nixpkgs#yarn",
+					"pacman -S git",
+					"apt install curl wget zip",
+					"brew cask install docker",
+				}
 
+				for _, command := range validCommands {
+					It(fmt.Sprintf("should match '%s'", command), func() {
+						assert.True(regex.MatchString(command), "Command '%s' should match the regex", command)
+					})
+				}
 			})
 
-			It("should generate Warp workflow files in the specified directory", func() {
-				outputDir := filepath.Join(tempDir, "workflows", "/")
+			Context("rejects commands with insufficient words", func() {
+				invalidCommands := []string{
+					"npm install",  // only two words
+					"install yarn", // only two words
+					"deno",         // single word
+					"nix profile",  // only two words
+					"yarn",         // single word
+					"pnpm",         // single word
+					"brew install", // only two words
+					"sudo apt-get", // only two words
+					"",             // empty string
+				}
 
-				output, err := executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", outputDir))
-				assert.NoError(err)
-				assert.Empty(output) // Should not print to stdout when output-dir is set
-
-				// Verify some files exist
-				assert.FileExists(filepath.Join(outputDir, "jpd-install.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-run.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-exec.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-dlx.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-update.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-uninstall.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-clean-install.yaml"))
-				assert.FileExists(filepath.Join(outputDir, "jpd-agent.yaml"))
+				for _, command := range invalidCommands {
+					It(fmt.Sprintf("should NOT match '%s'", command), func() {
+						assert.False(regex.MatchString(command), "Command '%s' should not match the regex", command)
+					})
+				}
 			})
 
-			It("should return an error if output directory cannot be created", func() {
-				// Create a file where a directory should be, making os.MkdirAll fail
-				blockedPath := filepath.Join(tempDir, "a_file_not_a_dir")
-				err := os.WriteFile(blockedPath, []byte("i am a file"), 0644)
-				assert.NoError(err)
+			Context("accepts commands with complex arguments", func() {
+				complexCommands := []string{
+					"npm install --save-dev typescript @types/node",
+					"yarn add --dev jest @testing-library/react",
+					"pnpm install --global --force typescript",
+					"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
+					"sudo apt-get install --yes --quiet nodejs npm",
+					"brew install --cask --verbose docker",
+					"winget install --id Microsoft.VisualStudioCode --exact",
+					"nix-env --install --attr nixpkgs.nodejs",
+				}
 
-				invalidOutputDir := filepath.Join(blockedPath, "sub-dir") // This path will fail MkdirAll
-				_, err = executeCmd(rootCmd, "integrate", "warp", "--output-dir", fmt.Sprintf("%s/", invalidOutputDir))
-				assert.Error(err)
-				assert.Contains(err.Error(), "failed to generate Warp workflow files")
-				assert.Contains(err.Error(), "not a directory") // Specific error message for this case
+				for _, command := range complexCommands {
+					It(fmt.Sprintf("should match complex command '%s'", command), func() {
+						assert.True(regex.MatchString(command), "Complex command '%s' should match the regex", command)
+					})
+				}
+			})
+
+			Context("handles edge cases", func() {
+				It("should handle minimal three-word command", func() {
+					assert.True(regex.MatchString("a b c"), "minimal three-word command should match")
+				})
+
+				It("should handle command with extra spaces", func() {
+					assert.True(regex.MatchString("a   b   c"), "command with extra spaces should match")
+				})
+
+				It("should handle command with tabs", func() {
+					assert.True(regex.MatchString("npm\tinstall\tpackage"), "command with tabs should match")
+				})
+
+				It("should handle command with multiple spaces", func() {
+					assert.True(regex.MatchString("npm  install  package"), "command with multiple spaces should match")
+				})
+
+				It("should reject command with leading/trailing spaces", func() {
+					assert.False(regex.MatchString(" npm install package "), "command with leading/trailing spaces should fail")
+				})
 			})
 		})
 
-		Context("carapace subcommand", func() {
-			It("should install Carapace spec to the default global directory if no flags are specified", func() {
-				// Add debug expectations for carapace subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				// The actual path will be within tempDir because of XDG_DATA_HOME/APPDATA override
-				carapaceSpecPath := filepath.Join(tempDir, "carapace", "specs", "javascript-package-delegator.yaml")
+		Describe("WriteToFile Helper Function", func() {
+			var tempDir string
 
-				output, err := executeCmd(rootCmd, "integrate", "carapace")
-				assert.NoError(err)
-				assert.Empty(output)
-
-				assert.FileExists(carapaceSpecPath)
-				content, err := os.ReadFile(carapaceSpecPath)
-				assert.NoError(err)
-				assert.Contains(string(content), "Name: javascript-package-delegator")
-				assert.Contains(string(content), "Commands:")
+			BeforeEach(func() {
+				tempDir = GinkgoT().TempDir()
 			})
 
-			It("should print Carapace spec to stdout with --stdout flag", func() {
-				// Add debug expectations for carapace subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				output, err := executeCmd(rootCmd, "integrate", "carapace", "--stdout")
+			It("should write content to file", func() {
+				filePath := filepath.Join(tempDir, "test.txt")
+				content := "test content\nline 2"
+
+				err := writeToFile(filePath, content)
 				assert.NoError(err)
-				assert.Contains(output, "Name: javascript-package-delegator")
-				assert.Contains(output, "Commands:")
+
+				// Verify file exists and has correct content
+				fileContent, err := os.ReadFile(filePath)
+				assert.NoError(err)
+				assert.Equal(content, string(fileContent))
 			})
 
-			It("should write Carapace spec to a custom file with --output flag", func() {
-				// Add debug expectations for carapace subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				customFilePath := filepath.Join(tempDir, "jpd.yaml")
-
-				output, err := executeCmd(rootCmd, "integrate", "carapace", "--output", customFilePath)
-				assert.NoError(err)
-				assert.Empty(output)
-
-				assert.FileExists(customFilePath)
-				content, err := os.ReadFile(customFilePath)
-				assert.NoError(err)
-				assert.Contains(string(content), "Name: javascript-package-delegator")
-				assert.Contains(string(content), "Commands:")
-			})
-
-			It("should prioritize --output over --stdout if both are present", func() {
-				// Add debug expectations for carapace subcommand which executes business logic
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-				customFilePath := filepath.Join(tempDir, "jpd-output-stdout.yaml")
-
-				output, err := executeCmd(rootCmd, "integrate", "carapace", "--output", customFilePath, "--stdout")
-				assert.NoError(err)
-				assert.Empty(output) // Should not print to stdout
-
-				assert.FileExists(customFilePath)
-				content, err := os.ReadFile(customFilePath)
-				assert.NoError(err)
-				assert.Contains(string(content), "Name: javascript-package-delegator")
-			})
-
-			It("should return an error if writing to a custom file fails", func() {
-				// Attempt to write to a directory, which will fail os.Create
-				invalidFilePath := tempDir // tempDir is a directory
-
-				_, err := executeCmd(rootCmd, "integrate", "carapace", "--output", invalidFilePath)
+			It("should return error when trying to write to directory", func() {
+				// Try to write to the directory path itself
+				err := writeToFile(tempDir, "content")
 				assert.Error(err)
-				assert.Contains(err.Error(), "failed to write Carapace spec to file")
-				assert.Contains(err.Error(), "is a directory") // Specific OS error for this case
-			})
-
-			It("should return an error if default carapace specs directory cannot be created", func() {
-				// Ensure tempDir is a file, not a directory, so MkdirAll for "tempDir/carapace/specs" fails
-				err := os.RemoveAll(tempDir) // Remove the directory created in BeforeEach
-				assert.NoError(err)
-				err = os.WriteFile(tempDir, []byte("not a directory"), 0644) // Create a file at tempDir
-				assert.NoError(err)
-				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-
-				_, err = executeCmd(rootCmd, "integrate", "carapace")
-				assert.Error(err)
-				assert.Contains(err.Error(), "failed to create Carapace specs directory")
-				assert.Contains(err.Error(), "not a directory")
-			})
-		})
-
-		Context("integrate command help", func() {
-			It("should show help for integrate command", func() {
-				output, err := executeCmd(rootCmd, "integrate", "--help")
-				assert.NoError(err)
-				assert.Contains(output, "Generate integration files for external tools")
-				assert.Contains(output, "Available integrations:")
-				assert.Contains(output, "warp")
-				assert.Contains(output, "carapace")
-			})
-
-			It("should show help for integrate warp subcommand", func() {
-				output, err := executeCmd(rootCmd, "integrate", "warp", "--help")
-				assert.NoError(err)
-				assert.Contains(output, "Generate Warp terminal workflow files")
-			})
-
-			It("should show help for integrate carapace subcommand", func() {
-				output, err := executeCmd(rootCmd, "integrate", "carapace", "--help")
-				assert.NoError(err)
-				assert.Contains(output, "Generate a Carapace YAML specification file")
 			})
 		})
 	})
-
 })
-
-// Additional test functions from separate test files (consolidated)
-
-func TestNewDlxCmd_Aliases(t *testing.T) {
-	// Arrange: Create the dlx command
-	dlxCmd := cmd.NewDlxCmd()
-
-	// Act: Get the aliases
-	actualAliases := dlxCmd.Aliases
-
-	// Assert: Should contain "x"
-	found := false
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Errorf("NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
-	}
-}
-
-func TestNewExecCmd_Aliases(t *testing.T) {
-	// Arrange: Create the exec command
-	execCmd := cmd.NewExecCmd()
-
-	// Act: Get the aliases
-	actualAliases := execCmd.Aliases
-
-	// Assert: Should only contain "e", NOT "x"
-	expectedAliases := []string{"e"}
-
-	if len(actualAliases) != len(expectedAliases) {
-		t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-		return
-	}
-
-	for i, alias := range actualAliases {
-		if alias != expectedAliases[i] {
-			t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-			return
-		}
-	}
-
-	// Also explicitly assert that "x" is NOT present
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			t.Errorf("NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
-		}
-	}
-}
-
-// writeToFile helper function for integration tests
-func writeToFile(filePath, content string) error {
-	return os.WriteFile(filePath, []byte(content), 0644)
-}
-
-func TestValidInstallCommandStringRegex(t *testing.T) {
-	regex := regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
-
-	t.Run("accepts valid commands with three or more words", func(t *testing.T) {
-		validCommands := []string{
-			"npm install -g npm",
-			"yarn global add yarn",
-			"pnpm add -g pnpm",
-			"bun install -g bun",
-			"deno install --allow-net deno",
-			"sudo apt-get install nodejs",
-			"brew install pnpm",
-			"winget install Microsoft.VisualStudioCode",
-			"choco install nodejs",
-			"dnf install yarn",
-			"yum install nodejs",
-			"zypper install pnpm",
-			"apk add deno",
-			"nix-env -iA nixpkgs.nodejs",
-			"nix profile install nixpkgs#yarn",
-			"pacman -S git",
-			"apt install curl wget zip",
-			"brew cask install docker",
-		}
-
-		for _, command := range validCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("rejects commands with insufficient words", func(t *testing.T) {
-		invalidCommands := []string{
-			"npm install",  // only two words
-			"install yarn", // only two words
-			"deno",         // single word
-			"nix profile",  // only two words
-			"yarn",         // single word
-			"pnpm",         // single word
-			"brew install", // only two words
-			"sudo apt-get", // only two words
-			"",             // empty string
-		}
-
-		for _, command := range invalidCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.False(t, regex.MatchString(command),
-					"Command '%s' should not match the regex", command)
-			})
-		}
-	})
-
-	t.Run("accepts commands with complex arguments", func(t *testing.T) {
-		complexCommands := []string{
-			"npm install --save-dev typescript @types/node",
-			"yarn add --dev jest @testing-library/react",
-			"pnpm install --global --force typescript",
-			"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
-			"sudo apt-get install --yes --quiet nodejs npm",
-			"brew install --cask --verbose docker",
-			"winget install --id Microsoft.VisualStudioCode --exact",
-			"nix-env --install --attr nixpkgs.nodejs",
-		}
-
-		for _, command := range complexCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Complex command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("handles edge cases", func(t *testing.T) {
-		testCases := []struct {
-			command  string
-			expected bool
-			reason   string
-		}{
-			{"a b c", true, "minimal three-word command"},
-			{"a   b   c", true, "command with extra spaces"},
-			{"npm\tinstall\tpackage", true, "command with tabs"},
-			{"npm  install  package", true, "command with multiple spaces"},
-			{" npm install package ", false, "command with leading/trailing spaces should fail"},
-		}
-
-		for _, testCase := range testCases {
-			t.Run(testCase.command, func(t *testing.T) {
-				result := regex.MatchString(testCase.command)
-				assert.Equal(t, testCase.expected, result,
-					"Command '%s' %s", testCase.command, testCase.reason)
-			})
-		}
-	})
-}
-
-func TestWriteToFile(t *testing.T) {
-	t.Run("writes content to file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-			content := "test content\nline 2"
-
-			err := writeToFile(filePath, content)
-			assert.NoError(t, err)
-
-			// Verify file exists and has correct content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, content, string(fileContent))
-		})
-	})
-
-	t.Run("returns error when trying to write to directory", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			// Try to write to the directory path itself
-			err := writeToFile(tempDir, "content")
-			assert.Error(t, err)
-			// Error should be about permissions or that it's a directory
-		})
-	})
-
-	t.Run("overwrites existing file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-
-			// Write initial content
-			err := writeToFile(filePath, "initial")
-			assert.NoError(t, err)
-
-			// Overwrite with new content
-			newContent := "overwritten content"
-			err = writeToFile(filePath, newContent)
-			assert.NoError(t, err)
-
-			// Verify new content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, newContent, string(fileContent))
-		})
-	})
-
-}

@@ -15,6 +15,8 @@
         [
             "agent",
             "clean-install",
+            "create",
+            "dlx",
             "exec",
             "install",
             "run",
@@ -73,6 +75,27 @@
         --version(-v)                # Show version for command
         --no-volta                   # Disable Volta integration for this command
     ] # Clean install packages using the detected package manager
+
+    export extern "jpd create" [
+        # Global flags
+        --debug(-d)                  # Make commands run in debug mode
+        --agent(-a): string@complete_jpd_agent_types # Select the JS package manager you want to use
+        --cwd(-C): path              # Run command in a specific directory (must end with '/')
+        --help(-h)                   # Show help for command
+        --version(-v)                # Show version for command
+        name: string                 # Package name (e.g., react-app) or URL for deno
+        ...args: string              # Project name and additional arguments
+    ] # Scaffold new projects (supports package names and URLs for deno)
+
+    export extern "jpd dlx" [
+        # Global flags
+        --debug(-d)                  # Make commands run in debug mode
+        --agent(-a): string@complete_jpd_agent_types # Select the JS package manager you want to use
+        --cwd(-C): path              # Run command in a specific directory (must end with '/')
+        --help(-h)                   # Show help for command
+        --version(-v)                # Show version for command
+        ...args: string              # Package to execute and its arguments
+    ] # Execute packages with package runner (dedicated package-runner command)
 
     export extern "jpd exec" [
         # Global flags
