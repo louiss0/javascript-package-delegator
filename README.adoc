@@ -73,6 +73,27 @@ nix profile install github:nix-community/nur#repos.the-code-fixer-23-nur.jpd
 
 == Usage
 
+[NOTE]
+====
+jpd create flags and flag passing:
+
+- `--search`, `-s`: Search npm for popular `create-*` packages and pick interactively.
+- `--size <n>`: Number of results to show when using `--search` (default: 25).
+- Passing flags to scaffolding tools:
+  - npm: jpd auto-inserts `--`; do not add your own. If you do, jpd normalizes it.
+  - pnpm / yarn v2+ / bun: pass flags directly after your app name.
+  - yarn v1: uses npx; pass flags directly.
+  - deno: pass arguments directly after the URL.
+
+Example (npm):
+
+[source,bash]
+----
+jpd create vite@latest my-app -- --template react
+# executes: npm exec create-vite@latest -- my-app --template react
+----
+====
+
 === CI build flag behavior
 
 In Continuous Integration (CI) builds, you can toggle a build-time flag to relax the `--cwd` folder path trailing-slash validation. By default (local builds), `--cwd` values must end with `/` (except the root `/`). In CI mode, both `path` and `path/` are accepted.
