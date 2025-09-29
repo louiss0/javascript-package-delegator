@@ -361,6 +361,18 @@ jpd create <name|url> [args...]
 - **npm, pnpm, yarn, bun**: Accepts package names (e.g., `react-app`, `vite`, `next-app`)
 - **deno**: Accepts URLs to TypeScript scripts (e.g., `https://deno.land/x/fresh/init.ts`)
 
+### Flags
+
+- `--search`, `-s`: Search npm for popular `create-*` packages and select interactively
+- `--size <n>`: Number of results to show when `--search` is used (default: 25)
+
+### Passing flags to scaffolding tools
+
+- npm: jpd automatically inserts `--` so flags go to the scaffolder. Do not add another `--`; if you do, jpd will normalize it.
+- pnpm / yarn v2+ / bun: pass flags directly after your app name.
+- yarn v1: uses npx; pass flags directly after your app name.
+- deno: pass arguments directly after the URL.
+
 ### Package Manager Mapping
 
 <Tabs>
