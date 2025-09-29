@@ -163,7 +163,7 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 						Description: "Number of results to show",
 					},
 				},
-				Completion:  "$carapace.packages.npm",
+				Completion: "$carapace.packages.npm",
 			},
 			"update": {
 				Description: "Update packages (equivalent to 'nup')",

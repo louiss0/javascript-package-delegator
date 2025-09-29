@@ -43,8 +43,8 @@ func ParseYarnMajor(version string) int {
 	}
 
 	// Handle simple cases like "3" or "berry-3.1.0"
-	if strings.HasPrefix(version, "berry-") {
-		version = strings.TrimPrefix(version, "berry-")
+	if after, ok := strings.CutPrefix(version, "berry-"); ok {
+		version = after
 	}
 
 	// Extract first character and convert to int
