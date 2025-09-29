@@ -161,6 +161,8 @@ type Dependencies struct {
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
 	NewTaskSelectorUI                     func(options []string) TaskUISelector
 	NewDependencyMultiSelectUI            func(options []string) DependencyUIMultiSelector
+	NewCreateAppSelector                  func([]services.PackageInfo) CreateAppSelector
+	NewCreateAppSearcher                  func() CreateAppSearcher
 	NewDebugExecutor                      func(bool) DebugExecutor
 }
 
@@ -500,7 +502,14 @@ Available commands:
 	cmd.AddCommand(NewRunCmd(deps.NewTaskSelectorUI))
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewDlxCmd())
-	cmd.AddCommand(NewCreateCmd())
+	// Defensive: default to real service if test deps didn’t set NewCreateAppSearcher
+	var cas CreateAppSearcher
+	if deps.NewCreateAppSearcher != nil {
+		cas = deps.NewCreateAppSearcher()
+	} else {
+		cas = services.NewNpmRegistryService()
+	}
+	cmd.AddCommand(NewCreateCmd(cas, deps.NewCreateAppSelector))
 	cmd.AddCommand(NewUpdateCmd())
 	cmd.AddCommand(NewUninstallCmd(deps.NewDependencyMultiSelectUI))
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
@@ -549,6 +558,10 @@ func init() {
 			NewPackageMultiSelectUI:    newPackageMultiSelectUI,
 			NewTaskSelectorUI:          newTaskSelectorUI,
 			NewDependencyMultiSelectUI: newDependencySelectorUI,
+			NewCreateAppSelector:       NewCreateAppSelector,
+			NewCreateAppSearcher: func() CreateAppSearcher {
+				return services.NewNpmRegistryService()
+			},
 			NewDebugExecutor:           newDebugExecutor,
 		},
 	)

@@ -1483,7 +1483,7 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(output, "-s")
 			assert.Contains(output, "--size")
 			// Guidance about npm separator normalization
-assert.Contains(output, "JPD automatically inserts the -- separator")
+			assert.Contains(output, "JPD automatically inserts the -- separator")
 		})
 
 		It("should have correct aliases", func() {
@@ -1524,7 +1524,7 @@ assert.Contains(output, "JPD automatically inserts the -- separator")
 					program, args, err := cmd.BuildCreateCommand("npm", "", "@org/starter", []string{"my-app"})
 					assert.NoError(err)
 					assert.Equal("npm", program)
-					assert.Equal([]string{"exec", "create-@org/starter", "--", "my-app"}, args)
+assert.Equal([]string{"exec", "@org/starter", "--", "my-app"}, args)
 				})
 
 				It("should return error when no name provided", func() {
@@ -1545,14 +1545,14 @@ assert.Contains(output, "JPD automatically inserts the -- separator")
 					program, args, err := cmd.BuildCreateCommand("pnpm", "", "react-app", []string{"my-app"})
 					assert.NoError(err)
 					assert.Equal("pnpm", program)
-					assert.Equal([]string{"exec", "create-react-app", "my-app"}, args)
+assert.Equal([]string{"dlx", "create-react-app", "my-app"}, args)
 				})
 
 				It("should handle version specifiers", func() {
 					program, args, err := cmd.BuildCreateCommand("pnpm", "", "vite@4", []string{"my-app", "--template", "vue"})
 					assert.NoError(err)
 					assert.Equal("pnpm", program)
-					assert.Equal([]string{"exec", "create-vite@4", "my-app", "--template", "vue"}, args)
+assert.Equal([]string{"dlx", "create-vite@4", "my-app", "--template", "vue"}, args)
 				})
 			})
 
@@ -1671,18 +1671,18 @@ assert.Contains(output, "JPD automatically inserts the -- separator")
 
 			It("should execute pnpm exec create-react-app", func() {
 				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.PNPM, detect.PNPM_LOCK_YAML)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "exec", "create-react-app", "my-app")
+DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-react-app", "my-app")
 				_, err := executeCmd(pnpmRootCmd, "create", "react-app", "my-app")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-react-app", "my-app"))
+assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-react-app", "my-app"))
 			})
 
 			It("does not strip a user-provided -- for pnpm", func() {
 				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.PNPM, detect.PNPM_LOCK_YAML)
-				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "exec", "create-vite@latest", "my-app", "--", "--template", "react")
+DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "dlx", "create-vite@latest", "my-app", "--", "--template", "react")
 				_, err := executeCmd(pnpmRootCmd, "create", "vite@latest", "my-app", "--", "--template", "react")
 				assert.NoError(err)
-				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-vite@latest", "my-app", "--", "--template", "react"))
+assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-vite@latest", "my-app", "--", "--template", "react"))
 			})
 		})
 

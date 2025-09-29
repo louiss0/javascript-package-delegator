@@ -3,6 +3,7 @@ package testutil
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	tmock "github.com/stretchr/testify/mock"
@@ -191,6 +192,21 @@ func (f *RootCommandFactory) baseDependencies() cmd.Dependencies {
 		NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 		NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
 		NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+		NewCreateAppSelector: func(packageInfo []services.PackageInfo) cmd.CreateAppSelector {
+
+			mockSelector := &mock.CreateAppSelectorMock{}
+			// Default mock behavior: select the first package
+			selectedPackage := packageInfo[0].Name
+			mockSelector.On("Run").Return(nil).Maybe()
+			mockSelector.On("Value").Return(selectedPackage).Maybe()
+			return mockSelector
+		},
+		NewCreateAppSearcher: func() cmd.CreateAppSearcher {
+			m := &mock.CreateAppSearcherMock{}
+			m.On("SearchCreateApps", tmock.Anything, tmock.Anything).
+				Return([]services.PackageInfo{{Name: "create-vite@latest", Description: "Vite"}}, nil).Maybe()
+			return m
+		},
 	}
 }
 
@@ -366,8 +382,6 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 // CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager
 // detection via PATH and multi-select UI.
 func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
-	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile: "npm", nil.
-	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func() (lockfile string, error error) {
 		return "", os.ErrNotExist
@@ -377,6 +391,17 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 	}
 	deps.NewPackageMultiSelectUI = func(pi []services.PackageInfo) cmd.MultiUISelecter {
 		return mock.NewMockPackageMultiSelectUI(pi)
+	}
+	// Provide a searcher that returns empty for queries containing "nonexistent"
+	deps.NewCreateAppSearcher = func() cmd.CreateAppSearcher {
+	m := &mock.CreateAppSearcherMock{}
+	// Register specific matcher first so it has priority over the generic one
+	m.On("SearchCreateApps", tmock.MatchedBy(func(q string) bool { return strings.Contains(q, "nonexistent") }), tmock.Anything).
+		Return([]services.PackageInfo{}, nil).Maybe()
+	m.On("SearchCreateApps", tmock.Anything, tmock.Anything).Return([]services.PackageInfo{
+		{Name: "create-vite@latest", Description: "Vite"},
+	}, nil).Maybe()
+	return m
 	}
 	return cmd.NewRootCmdForTesting(deps)
 }

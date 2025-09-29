@@ -62,10 +62,20 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 		return "", nil, fmt.Errorf("URLs are not supported for %s, use deno instead", pm)
 	}
 
-	// Normalize create bin - add "create-" prefix if not already present
+	// Determine the actual binary to execute (create-<name> for unscoped, leave scoped and already-prefixed names as-is)
 	bin := name
-	if !strings.HasPrefix(name, "create-") {
-		bin = "create-" + name
+	// identify scoped package like @scope/name (optionally with @version)
+	isScoped := strings.HasPrefix(name, "@") && strings.Contains(name, "/")
+	// strip version/dist tag to check base name prefixing rules
+	base := name
+	if at := strings.Index(base, "@"); at > 0 { // ignore leading '@' for scoped names
+		base = base[:at]
+	}
+	if !isScoped {
+		// only prefix for unscoped names when they don't already start with create-
+		if !strings.HasPrefix(base, "create-") {
+			bin = "create-" + name
+		}
 	}
 
 	// Build command based on package manager
@@ -75,22 +85,22 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 		argv = append([]string{"exec", bin, "--"}, args...)
 		return "npm", argv, nil
 	case "pnpm":
-		// pnpm exec create-<name> <args>
-		argv = append([]string{"exec", bin}, args...)
+		// Prefer pnpm dlx for create runners: pnpm dlx <bin> <args>
+		argv = append([]string{"dlx", bin}, args...)
 		return "pnpm", argv, nil
 	case "yarn":
 		yarnMajor := ParseYarnMajor(yarnVersion)
 		if yarnMajor <= 1 {
-			// Yarn v1 -> use npx: npx create-<name> <args>
+			// Yarn v1 -> use npx: npx <bin> <args>
 			argv = append([]string{bin}, args...)
 			return "npx", argv, nil
 		} else {
-			// Yarn v2+ -> use dlx: yarn dlx create-<name> <args>
+			// Yarn v2+ -> use dlx: yarn dlx <bin> <args>
 			argv = append([]string{"dlx", bin}, args...)
 			return "yarn", argv, nil
 		}
 	case "bun":
-		// bunx create-<name> <args>
+		// bunx <bin> <args>
 		argv = append([]string{bin}, args...)
 		return "bunx", argv, nil
 	default:
@@ -103,6 +113,12 @@ func BuildCreateCommand(pm, yarnVersion, name string, args []string) (program st
 type CreateAppSelector interface {
 	Run() error
 	Value() string
+}
+
+// CreateAppSearcher is a minimal interface to search for create-* packages.
+// Defined at point of consumption for testability.
+type CreateAppSearcher interface {
+	SearchCreateApps(query string, size int) ([]services.PackageInfo, error)
 }
 
 // createAppSelector is a private struct implementing CreateAppSelector.
@@ -146,7 +162,7 @@ func (s createAppSelector) Value() string {
 }
 
 // NewCreateCmd creates a new Cobra command for the "create" functionality
-func NewCreateCmd(newCreateAppSelector func([]services.PackageInfo) CreateAppSelector) *cobra.Command {
+func NewCreateCmd(searcher CreateAppSearcher, newCreateAppSelector func([]services.PackageInfo) CreateAppSelector) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create [name|url] [args...]",
 		Short: "Scaffold a new project using create runners",
@@ -258,9 +274,7 @@ Examples:
 						createAppQuery,
 					)
 				})
-				packageInfo, err := services.
-					NewNpmRegistryService().
-					SearchCreateApps(createAppQuery, size)
+				packageInfo, err := searcher.SearchCreateApps(createAppQuery, size)
 
 				if err != nil {
 					return err
@@ -292,9 +306,7 @@ Examples:
 					)
 				})
 
-				packageInfo, err := services.
-					NewNpmRegistryService().
-					SearchCreateApps(createAppQuery, size)
+				packageInfo, err := searcher.SearchCreateApps(createAppQuery, size)
 
 				if err != nil {
 					return err
@@ -328,9 +340,16 @@ Examples:
 			}
 
 			// Normalize extra "--" for npm (users sometimes add it themselves).
-			// npm mapping already injects "--" internally, so drop a leading user-provided one.
-			if pm == "npm" && len(packageArgs) > 0 && packageArgs[0] == "--" {
-				packageArgs = packageArgs[1:]
+			// npm mapping already injects one "--" internally, so remove any user-provided separators.
+			if pm == "npm" && len(packageArgs) > 0 {
+				filtered := make([]string, 0, len(packageArgs))
+				for _, a := range packageArgs {
+					if a == "--" {
+						continue // drop
+					}
+					filtered = append(filtered, a)
+				}
+				packageArgs = filtered
 			}
 
 			// Build command for creating projects
