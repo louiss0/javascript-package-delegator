@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -69,81 +68,6 @@ func writeToFile(filename, content string) error {
 // | yarn v2+       | yarn dlx <package> <args>                     |
 // | bun            | bunx <package> <args>                         |
 // | deno           | deno run <url> <args> (requires URL)          |
-
-// Test fixtures and helpers for command mapping tests
-// testingInterface defines the minimal interface needed by test helpers
-type testingInterface interface {
-	Helper()
-	Errorf(format string, args ...interface{})
-}
-
-// ginkgoTestingT wraps Ginkgo's FullGinkgoTInterface to work with testing.T
-type ginkgoTestingT struct {
-	ginkgo.FullGinkgoTInterface
-}
-
-func (g ginkgoTestingT) Helper() {}
-
-func (g ginkgoTestingT) Errorf(format string, args ...interface{}) {
-	g.FullGinkgoTInterface.Errorf(format, args...)
-}
-
-type pm string
-
-const (
-	npm  pm = "npm"
-	pnpm pm = "pnpm"
-	yarn pm = "yarn"
-	bun  pm = "bun"
-	deno pm = "deno"
-)
-
-type yarnInfo struct {
-	version string
-}
-
-type wantCmd struct {
-	program string
-	args    []string
-}
-
-type harness struct {
-	packageManager pm
-	yarnVersion    string
-}
-
-func newHarness(packageManager pm, yarnVersion string) harness {
-	return harness{
-		packageManager: packageManager,
-		yarnVersion:    yarnVersion,
-	}
-}
-
-func assertCmd(t testingInterface, gotProg string, gotArgs []string, want wantCmd) {
-	t.Helper()
-	if gotProg != want.program {
-		t.Errorf("program = %q, want %q", gotProg, want.program)
-	}
-	if len(gotArgs) != len(want.args) {
-		t.Errorf("args length = %d, want %d\nGot: %v\nWant: %v", len(gotArgs), len(want.args), gotArgs, want.args)
-		return
-	}
-	for i, gotArg := range gotArgs {
-		if gotArg != want.args[i] {
-			t.Errorf("args[%d] = %q, want %q", i, gotArg, want.args[i])
-		}
-	}
-}
-
-// buildExec wraps the shared function for testing
-func buildExec(h harness, bin string, args []string) (program string, argv []string, err error) {
-	return cmd.BuildExecCommand(string(h.packageManager), h.yarnVersion, bin, args)
-}
-
-// buildDLX wraps the shared function for testing
-func buildDLX(h harness, pkgOrURL string, args []string) (program string, argv []string, err error) {
-	return cmd.BuildDLXCommand(string(h.packageManager), h.yarnVersion, pkgOrURL, args)
-}
 
 // This function executes a cobra command with the given arguments and returns the output and error.
 // It sets the output and error buffers for the command, sets the arguments, and executes the command.
@@ -609,8 +533,8 @@ var _ = Describe("JPD Commands", func() {
 
 			generateRootCommandWithCommandRunnerHavingSetValue := func(value string) *cobra.Command {
 
-			return cmd.NewRootCmdForTesting(
-				cmd.Dependencies{
+				return cmd.NewRootCmdForTesting(
+					cmd.Dependencies{
 						CommandRunnerGetter: func() cmd.CommandRunner {
 							return factory.MockCommandRunner()
 						},
@@ -635,10 +559,10 @@ var _ = Describe("JPD Commands", func() {
 
 							return commandTextUI
 						},
-					YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
-					NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
-					NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-					NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+						YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
+						NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
+						NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
+						NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 					},
 				)
 
@@ -1552,8 +1476,14 @@ var _ = Describe("JPD Commands", func() {
 		It("should show help", func() {
 			output, err := executeCmd(rootCmd, "create", "--help")
 			assert.NoError(err)
-		assert.Contains(output, "Scaffold a new project using the appropriate package manager's create command")
+			assert.Contains(output, "Scaffold a new project using the appropriate package manager's create command")
 			assert.Contains(output, "jpd create")
+			// Create-specific flags are visible in help
+			assert.Contains(output, "--search")
+			assert.Contains(output, "-s")
+			assert.Contains(output, "--size")
+			// Guidance about npm separator normalization
+assert.Contains(output, "JPD automatically inserts the -- separator")
 		})
 
 		It("should have correct aliases", func() {
@@ -1720,6 +1650,16 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-vite@latest", "--", "my-app"))
 			})
+
+			It("normalizes an extra user-provided -- for npm", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+				// We only assert the executed command; allow any debug JS command log
+				DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
+				_, err := executeCmd(rootCmd, "create", "vite@latest", "my-app", "--", "--template", "react")
+				assert.NoError(err)
+				// Ensure only a single -- is present in the executed command
+				assert.True(mockCommandRunner.HasCommand("npm", "exec", "create-vite@latest", "--", "my-app", "--template", "react"))
+			})
 		})
 
 		Context("pnpm", func() {
@@ -1735,6 +1675,14 @@ var _ = Describe("JPD Commands", func() {
 				_, err := executeCmd(pnpmRootCmd, "create", "react-app", "my-app")
 				assert.NoError(err)
 				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-react-app", "my-app"))
+			})
+
+			It("does not strip a user-provided -- for pnpm", func() {
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.PNPM, detect.PNPM_LOCK_YAML)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("pnpm", "exec", "create-vite@latest", "my-app", "--", "--template", "react")
+				_, err := executeCmd(pnpmRootCmd, "create", "vite@latest", "my-app", "--", "--template", "react")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("pnpm", "exec", "create-vite@latest", "my-app", "--", "--template", "react"))
 			})
 		})
 
@@ -3011,8 +2959,8 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for path-based detection
 						DebugExecutorExpectationManager.ExpectNoLockfile()
 						DebugExecutorExpectationManager.ExpectPMDetectedFromPath(detect.NPM)
-					rootCmdForSelection := cmd.NewRootCmdForTesting(
-						cmd.Dependencies{
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
+							cmd.Dependencies{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
@@ -3030,7 +2978,7 @@ var _ = Describe("JPD Commands", func() {
 								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-							NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 							})
 
 						DebugExecutorExpectationManager.ExpectJSCommandRandomLog()
@@ -3089,8 +3037,8 @@ var _ = Describe("JPD Commands", func() {
 						// Set debug expectations for lockfile-based detection of deno
 						DebugExecutorExpectationManager.ExpectLockfileDetected(detect.DENO_JSON)
 						DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.DENO)
-					rootCmdForSelection := cmd.NewRootCmdForTesting(
-						cmd.Dependencies{
+						rootCmdForSelection := cmd.NewRootCmdForTesting(
+							cmd.Dependencies{
 								CommandRunnerGetter: func() cmd.CommandRunner {
 									return mockCommandRunner
 								},
@@ -3109,7 +3057,7 @@ var _ = Describe("JPD Commands", func() {
 								YarnCommandVersionOutputter: mock.NewMockYarnCommandVersionOutputer("1.0.0"),
 								NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 								NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
-							NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+								NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
 							},
 						)
 
