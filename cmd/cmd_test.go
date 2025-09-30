@@ -2330,6 +2330,34 @@ assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-vite@latest", "m
 				// We only assert the final command (mock stores last call)
 				assert.True(mockCommandRunner.HasCommand("pnpm", "run", "dev"))
 			})
+			It("should auto-install with npm when node_modules is missing for start", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"start": "echo start"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+				_, err = executeCmd(rootCmd, "run", "start")
+				assert.NoError(err)
+
+				// Only assert final command due to mock behavior
+				assert.True(mockCommandRunner.HasCommand("npm", "run", "start"))
+			})
+
 		})
 
 		Context("deno", func() {

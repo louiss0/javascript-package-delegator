@@ -178,8 +178,14 @@ Examples:
 				log.Info("Using package manager", "pm", pm)
 			})
 			// Preflight: auto-install dependencies when missing and enabled
-			autoInstallFlag, _ := cmd.Flags().GetBool("auto-install")
-			noVoltaFlag, _ := cmd.Flags().GetBool("no-volta")
+			autoInstallFlag, err := cmd.Flags().GetBool("auto-install")
+			if err != nil {
+				return fmt.Errorf("failed to parse --auto-install flag: %w", err)
+			}
+			noVoltaFlag, err := cmd.Flags().GetBool("no-volta")
+			if err != nil {
+				return fmt.Errorf("failed to parse --no-volta flag: %w", err)
+			}
 			autoInstallChanged := cmd.Flags().Changed("auto-install")
 
 			// Compute effective auto-install default: true for dev/start unless user set flag
@@ -191,8 +197,12 @@ Examples:
 
 			// Determine base directory for checks (respect --cwd if provided on root)
 			baseDir := ""
-			if val, err := cmd.Flags().GetString(_CWD_FLAG); err == nil && val != "" {
-				baseDir = val
+			cwdFlagValue, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to parse --%s flag: %w", _CWD_FLAG, err)
+			}
+			if cwdFlagValue != "" {
+				baseDir = cwdFlagValue
 			} else {
 				cwd, err := os.Getwd()
 				if err != nil {
@@ -290,7 +300,7 @@ Examples:
 
 	// Add flags
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
-	cmd.Flags().Bool("auto-install", false, "Auto-install deps when missing (defaults to true for dev/start)")
+	cmd.Flags().Bool("auto-install", false, "Auto-install deps when missing. Effective default: true when script is 'dev' or 'start'; otherwise false")
 	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
 
 	return cmd
