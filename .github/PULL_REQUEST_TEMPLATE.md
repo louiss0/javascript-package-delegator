@@ -1,14 +1,32 @@
-Checklist for Pull Requests
-- [x] Have you signed the [Contributor License Agreement](https://cla.opensource.microsoft.com/microsoft/winget-pkgs)?
-- [ ] Is there a linked Issue?
+# Pull Request
 
-Manifests
-- [x] Have you checked that there aren't other open [pull requests](https://github.com/microsoft/winget-pkgs/pulls) for the same manifest update/change?
-- [x] This PR only modifies one (1) manifest
-- [ ] Have you [validated](https://github.com/microsoft/winget-pkgs/blob/master/doc/Authoring.md#validation) your manifest locally with `winget validate --manifest <path>`?
-- [ ] Have you tested your manifest locally with `winget install --manifest <path>`?
-- [x] Does your manifest conform to the [1.10 schema](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema/1.10.0)?
+Provide a clear, concise summary of the change. Keep titles imperative and short.
 
-Note: `<path>` is the directory's name containing the manifest you're submitting.
+## Why
+Explain the problem this PR solves or the motivation behind the change.
 
----
+## What
+Summarize the user-visible behavior or developer-facing changes.
+
+## How
+Briefly describe the approach taken, key decisions, and any alternatives considered.
+
+## Breaking changes
+- [ ] None
+- If there are breaking changes, describe them and migration steps here.
+
+## Screenshots / CLI output (optional)
+Paste relevant terminal output or screenshots that help reviewers.
+
+## Tests
+- Describe what you tested and how to reproduce.
+- Include any new/updated unit or integration tests.
+
+## Checklist
+- [ ] Commits follow the project's Conventional Commit rules (type(scope): subject; imperative, <= 64 chars)
+- [ ] Changes are atomic, buildable, and tests pass locally (`go test ./...`)
+- [ ] New/updated tests are included for new behavior
+- [ ] Documentation updated where applicable
+- [ ] CI passes after pushing
+- [ ] Linked issue referenced, if applicable (e.g., Closes #123)
+- [ ] Git Flow: feature branches target `develop` (use `git flow feature start <name>`)
