@@ -35,6 +35,9 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+
+	// internal
+	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
 type taskSelectorUI struct {
@@ -174,6 +177,71 @@ Examples:
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
+			// Preflight: auto-install dependencies when missing and enabled
+			autoInstallFlag, err := cmd.Flags().GetBool("auto-install")
+			if err != nil {
+				return fmt.Errorf("failed to parse --auto-install flag: %w", err)
+			}
+			noVoltaFlag, err := cmd.Flags().GetBool("no-volta")
+			if err != nil {
+				return fmt.Errorf("failed to parse --no-volta flag: %w", err)
+			}
+			autoInstallChanged := cmd.Flags().Changed("auto-install")
+
+			// Compute effective auto-install default: true for dev/start unless user set flag
+			effectiveAutoInstall := lo.Ternary(
+				autoInstallChanged,
+				autoInstallFlag,
+				lo.Contains([]string{"dev", "start"}, scriptName),
+			)
+
+			// Determine base directory for checks (respect --cwd if provided on root)
+			baseDir := ""
+			cwdFlagValue, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to parse --%s flag: %w", _CWD_FLAG, err)
+			}
+			if cwdFlagValue != "" {
+				baseDir = cwdFlagValue
+			} else {
+				cwd, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				baseDir = cwd
+			}
+
+			// Only node-based managers have node_modules
+			if pm != "deno" && effectiveAutoInstall {
+				nmPath := filepath.Join(baseDir, "node_modules")
+				info, err := os.Stat(nmPath)
+				missingNodeModules := err != nil || !info.IsDir()
+
+				if missingNodeModules {
+					// Build install command with optional Volta wrapping
+					useVolta := detect.DetectVolta(detect.RealPathLookup{}) && lo.Contains([]string{"npm", "pnpm", "yarn"}, pm) && !noVoltaFlag
+
+					var name string
+					var args []string
+					if useVolta {
+						name = detect.VOLTA_RUN_COMMAND[0]
+						args = append(detect.VOLTA_RUN_COMMAND[1:], pm, "install")
+					} else {
+						name = pm
+						args = []string{"install"}
+					}
+
+					de.LogJSCommandIfDebugIsTrue(name, args...)
+					goEnv.ExecuteIfModeIsProduction(func() {
+						log.Info("Auto-installing dependencies before run", "pm", pm, "dir", baseDir)
+					})
+					cmdRunner.Command(name, args...)
+					if err := cmdRunner.Run(); err != nil {
+						return err
+					}
+				}
+			}
+
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -232,6 +300,8 @@ Examples:
 
 	// Add flags
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
+	cmd.Flags().Bool("auto-install", false, "Auto-install deps when missing. Effective default: true when script is 'dev' or 'start'; otherwise false")
+	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
 
 	return cmd
 }

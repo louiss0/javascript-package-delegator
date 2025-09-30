@@ -183,6 +183,8 @@ jpd run [script] [args...] [flags]
 | Flag | Description |
 |------|-------------|
 | `--if-present` | Only run script if it exists |
+| `--auto-install` | Auto-install deps when missing. Effective default: true when script is `dev` or `start`; otherwise false |
+| `--no-volta` | Disable Volta integration during auto-install |
 
 ### Interactive Selection
 
@@ -191,6 +193,27 @@ When no script name is provided, jpd shows an interactive menu:
 ```bash
 # Shows list of available scripts to choose from
 jpd run
+```
+
+### Auto-install behavior
+
+- When running `dev` or `start`, jpd will auto-install dependencies if `node_modules` is missing.
+- For other scripts, auto-install is OFF by default; enable with `--auto-install`.
+- Deno projects are excluded (no `node_modules`).
+- If Volta is detected and the agent is npm, pnpm, or yarn, the install will be wrapped as `volta run <pm> install` unless `--no-volta` is passed.
+
+Examples:
+
+```bash
+# In a project without node_modules
+jpd run dev           # runs: <pm> install  -> then  <pm> run dev
+
+# For non-dev/start scripts
+jpd run test          # runs the script directly (no install)
+jpd run test --auto-install  # forces install before run when missing
+
+# Disable Volta during auto-install
+jpd run dev --no-volta
 ```
 
 ### Package Manager Mapping
