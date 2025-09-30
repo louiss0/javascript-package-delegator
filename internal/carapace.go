@@ -142,6 +142,17 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 			},
 			"run": {
 				Description: "Run package.json scripts (equivalent to 'nr')",
+				Flags: map[string]FlagSpec{
+					"if-present": {
+						Description: "Run script only if it exists",
+					},
+					"auto-install": {
+						Description: "Auto-install deps when missing (effective default true for dev/start)",
+					},
+					"no-volta": {
+						Description: "Disable Volta integration during auto-install",
+					},
+				},
 				Completion:  "$carapace.scripts.npm",
 			},
 			"exec": {
