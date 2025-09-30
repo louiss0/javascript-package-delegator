@@ -2215,6 +2215,123 @@ assert.True(mockCommandRunner.HasCommand("pnpm", "dlx", "create-vite@latest", "m
 			})
 		})
 
+		Context("Auto install preflight", func() {
+			It("should auto-install with npm when node_modules is missing for dev", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				// package.json with dev script
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"dev": "echo dev"}}`), 0644)
+				assert.NoError(err)
+				// simulate npm lockfile
+				err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+				_, err = executeCmd(rootCmd, "run", "dev")
+				assert.NoError(err)
+
+				// We only assert the final command (mock stores last call)
+				assert.True(mockCommandRunner.HasCommand("npm", "run", "dev"))
+			})
+
+			It("should not auto-install when node_modules exists for dev (npm)", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				_ = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"dev": "echo dev"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+				_, err = executeCmd(rootCmd, "run", "dev")
+				assert.NoError(err)
+
+				assert.False(mockCommandRunner.HasCommand("npm", "install"))
+				assert.True(mockCommandRunner.HasCommand("npm", "run", "dev"))
+			})
+
+			It("should respect default off for non-dev/start scripts (npm)", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"test": "echo test"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+
+				_, err = executeCmd(rootCmd, "run", "test")
+				assert.NoError(err)
+
+				assert.False(mockCommandRunner.HasCommand("npm", "install"))
+				assert.True(mockCommandRunner.HasCommand("npm", "run", "test"))
+			})
+
+			It("should auto-install with pnpm when node_modules is missing for dev", func() {
+				rootCmd := factory.CreatePnpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"dev": "echo dev"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "pnpm-lock.yaml"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+
+				_, err = executeCmd(rootCmd, "run", "dev")
+				assert.NoError(err)
+
+				// We only assert the final command (mock stores last call)
+				assert.True(mockCommandRunner.HasCommand("pnpm", "run", "dev"))
+			})
+		})
+
 		Context("deno", func() {
 			var denoRootCmd *cobra.Command
 
