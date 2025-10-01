@@ -3,6 +3,7 @@
 package deps
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,13 +34,13 @@ func ReadStoredDepsHash(cwd string) (string, error) {
 
 // WriteStoredDepsHash writes the dependency hash to the node_modules directory.
 // Creates or overwrites the hash file with the provided hash value.
-// Creates the node_modules directory if it doesn't exist.
+// Requires that the node_modules directory already exists.
 func WriteStoredDepsHash(cwd, hash string) error {
 	nodeModulesPath := filepath.Join(cwd, "node_modules")
 	
-	// Ensure node_modules directory exists
-	if err := os.MkdirAll(nodeModulesPath, 0755); err != nil {
-		return err
+	// Check if node_modules directory exists
+	if _, err := os.Stat(nodeModulesPath); os.IsNotExist(err) {
+		return fmt.Errorf("node_modules directory does not exist at %s", nodeModulesPath)
 	}
 	
 	hashFilePath := filepath.Join(nodeModulesPath, DepsHashFile)

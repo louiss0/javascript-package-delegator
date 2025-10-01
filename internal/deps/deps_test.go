@@ -327,8 +327,13 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				tempDir := GinkgoT().TempDir()
 				testHash := "abc123def456"
 				
+				// Create node_modules directory first
+				nodeModulesPath := filepath.Join(tempDir, "node_modules")
+				err := os.MkdirAll(nodeModulesPath, 0755)
+				assert.NoError(err)
+				
 				// Write the hash
-				err := deps.WriteStoredDepsHash(tempDir, testHash)
+				err = deps.WriteStoredDepsHash(tempDir, testHash)
 				assert.NoError(err)
 				
 				// Read it back
@@ -337,13 +342,22 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.Equal(testHash, hash)
 				
 				// Verify the file was created with proper content in node_modules
-				nodeModulesPath := filepath.Join(tempDir, "node_modules")
 				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
 				content, err := os.ReadFile(hashFilePath)
 				assert.NoError(err)
 				assert.Equal(testHash+"\n", string(content))
 			})
 
+			It("should return error when node_modules directory doesn't exist", func() {
+				tempDir := GinkgoT().TempDir()
+				testHash := "abc123def456"
+				
+				// Try to write hash without creating node_modules first
+				err := deps.WriteStoredDepsHash(tempDir, testHash)
+				assert.Error(err)
+				assert.Contains(err.Error(), "node_modules directory does not exist")
+			})
+			
 			It("should handle write errors gracefully", func() {
 				// Try to write to a path that can't be created
 				testHash := "abc123def456"
@@ -384,6 +398,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.NoError(err)
 			assert.NotEmpty(hash1)
 			
+			// Create node_modules directory first
+			nodeModulesPath := filepath.Join(tempDir, "node_modules")
+			err = os.MkdirAll(nodeModulesPath, 0755)
+			assert.NoError(err)
+			
 			// Store the hash
 			err = deps.WriteStoredDepsHash(tempDir, hash1)
 			assert.NoError(err)
@@ -417,6 +436,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			hash1, err := deps.ComputeDenoImportsHash(tempDir)
 			assert.NoError(err)
 			assert.NotEmpty(hash1)
+			
+			// Create node_modules directory first
+			nodeModulesPath := filepath.Join(tempDir, "node_modules")
+			err = os.MkdirAll(nodeModulesPath, 0755)
+			assert.NoError(err)
 			
 			// Store the hash
 			err = deps.WriteStoredDepsHash(tempDir, hash1)
