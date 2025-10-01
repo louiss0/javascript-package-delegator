@@ -3,6 +3,7 @@ package mock
 
 import (
 	// standard library
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -506,7 +507,7 @@ func (m mockCreateAppSelectorImpl) Run(value *string) error {
 		if errorMsg == "" {
 			errorMsg = "mock create app selector error"
 		}
-		return fmt.Errorf(errorMsg)
+		return errors.New(errorMsg)
 	}
 
 	if len(m.packageInfo) == 0 {

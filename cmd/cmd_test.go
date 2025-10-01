@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -81,12 +80,6 @@ func writeToFile(filename, content string) error {
 // Test helper functions for standard Go tests (originally from testhelpers_test.go)
 
 // makeTempDir creates a temporary directory for the test
-func makeTempDir(t *testing.T, fn func(string)) {
-	t.Helper()
-
-	tempDir := t.TempDir()
-	fn(tempDir)
-}
 
 func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	// Save the original context to restore it later
