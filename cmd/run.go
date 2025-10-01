@@ -485,7 +485,7 @@ Examples:
 
 	// Add flags
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
-	cmd.Flags().Bool("auto-install", false, "Auto-install deps when missing. Effective default: true when script is 'dev' or 'start'; otherwise false")
+	cmd.Flags().Bool("auto-install", false, "Auto-install dependencies when missing or changed.\nTriggers on: missing node_modules, missing packages, unresolvable imports (Deno), or dependency changes (hash-based).\nHash stored in .jpd-deps-hash. Effective default: true for 'dev'/'start' scripts; otherwise false.")
 	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
 
 	return cmd
