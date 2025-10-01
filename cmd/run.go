@@ -59,7 +59,7 @@ func (t taskSelectorUI) Value() string {
 	return t.selectedValue
 }
 
-func (t taskSelectorUI) Run() error {
+func (t *taskSelectorUI) Run() error {
 	return t.selectUI.Value(&t.selectedValue).Run()
 }
 

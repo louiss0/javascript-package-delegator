@@ -32,7 +32,7 @@ func (t dependencyMultiSelectUI) Values() []string {
 	return t.selectedValues
 }
 
-func (t dependencyMultiSelectUI) Run() error {
+func (t *dependencyMultiSelectUI) Run() error {
 	return t.selectUI.Value(&t.selectedValues).Run()
 }
 
