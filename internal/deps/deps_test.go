@@ -284,13 +284,18 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.Empty(hash)
 			})
 
-			It("should read hash from existing file", func() {
+			It("should read hash from existing file in node_modules", func() {
 				tempDir := GinkgoT().TempDir()
 				expectedHash := "abc123def456"
 				hashContent := expectedHash + "\n"
-				hashFilePath := filepath.Join(tempDir, deps.DepsHashFile)
 				
-				err := os.WriteFile(hashFilePath, []byte(hashContent), 0644)
+				// Create node_modules directory and hash file
+				nodeModulesPath := filepath.Join(tempDir, "node_modules")
+				err := os.MkdirAll(nodeModulesPath, 0755)
+				assert.NoError(err)
+				
+				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
+				err = os.WriteFile(hashFilePath, []byte(hashContent), 0644)
 				assert.NoError(err)
 				
 				hash, err := deps.ReadStoredDepsHash(tempDir)
@@ -301,9 +306,14 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should trim whitespace from stored hash", func() {
 				tempDir := GinkgoT().TempDir()
 				hashWithWhitespace := "  abc123def456  \n\t  "
-				hashFilePath := filepath.Join(tempDir, deps.DepsHashFile)
 				
-				err := os.WriteFile(hashFilePath, []byte(hashWithWhitespace), 0644)
+				// Create node_modules directory and hash file
+				nodeModulesPath := filepath.Join(tempDir, "node_modules")
+				err := os.MkdirAll(nodeModulesPath, 0755)
+				assert.NoError(err)
+				
+				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
+				err = os.WriteFile(hashFilePath, []byte(hashWithWhitespace), 0644)
 				assert.NoError(err)
 				
 				hash, err := deps.ReadStoredDepsHash(tempDir)
@@ -326,19 +336,22 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.NoError(err)
 				assert.Equal(testHash, hash)
 				
-				// Verify the file was created with proper content
-				hashFilePath := filepath.Join(tempDir, deps.DepsHashFile)
+				// Verify the file was created with proper content in node_modules
+				nodeModulesPath := filepath.Join(tempDir, "node_modules")
+				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
 				content, err := os.ReadFile(hashFilePath)
 				assert.NoError(err)
 				assert.Equal(testHash+"\n", string(content))
 			})
 
 			It("should handle write errors gracefully", func() {
-				// Try to write to a read-only directory to test error handling
+				// Try to write to a path that can't be created
 				testHash := "abc123def456"
 				
-				// This will fail because path doesn't exist
-				err := deps.WriteStoredDepsHash("/nonexistent/directory", testHash)
+				// Use a path with invalid characters to force an error
+				// On Windows, these characters are invalid: < > : " | ? * 
+				invalidPath := "invalid<>path"
+				err := deps.WriteStoredDepsHash(invalidPath, testHash)
 				assert.Error(err)
 			})
 		})

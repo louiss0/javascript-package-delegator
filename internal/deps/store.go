@@ -11,10 +11,11 @@ import (
 // DepsHashFile is the filename for storing the computed dependency hash
 const DepsHashFile = ".jpd-deps-hash"
 
-// ReadStoredDepsHash reads the stored dependency hash from the project directory.
+// ReadStoredDepsHash reads the stored dependency hash from the node_modules directory.
 // If the file does not exist, returns empty string and nil error (not an error condition).
 func ReadStoredDepsHash(cwd string) (string, error) {
-	hashFilePath := filepath.Join(cwd, DepsHashFile)
+	nodeModulesPath := filepath.Join(cwd, "node_modules")
+	hashFilePath := filepath.Join(nodeModulesPath, DepsHashFile)
 	
 	data, err := os.ReadFile(hashFilePath)
 	if os.IsNotExist(err) {
@@ -30,10 +31,18 @@ func ReadStoredDepsHash(cwd string) (string, error) {
 	return hash, nil
 }
 
-// WriteStoredDepsHash writes the dependency hash to the project directory.
+// WriteStoredDepsHash writes the dependency hash to the node_modules directory.
 // Creates or overwrites the hash file with the provided hash value.
+// Creates the node_modules directory if it doesn't exist.
 func WriteStoredDepsHash(cwd, hash string) error {
-	hashFilePath := filepath.Join(cwd, DepsHashFile)
+	nodeModulesPath := filepath.Join(cwd, "node_modules")
+	
+	// Ensure node_modules directory exists
+	if err := os.MkdirAll(nodeModulesPath, 0755); err != nil {
+		return err
+	}
+	
+	hashFilePath := filepath.Join(nodeModulesPath, DepsHashFile)
 	
 	// Write hash with trailing newline for better file handling
 	content := hash + "\n"

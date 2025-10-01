@@ -223,7 +223,7 @@ Examples:
 
 				if pm != "deno" {
 					// Node.js package manager dependency checks
-					isYarnPnp := pm == "yarn" && isYarnPnpProject(baseDir)
+					isYarnPnp := pm == "yarn" && IsYarnPnpProject(baseDir)
 					
 					if goEnv.IsDevelopmentMode() {
 						log.Debug("Node PM check", "yarn_pnp", isYarnPnp)
@@ -248,11 +248,11 @@ Examples:
 					// Check individual package presence (for all Node PMs)
 					depsWithVersions, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
 					if err == nil && len(depsWithVersions) > 0 {
-						names := parsePackageNames(depsWithVersions)
+						names := ParsePackageNames(depsWithVersions)
 						
 						if !isYarnPnp {
 							// Check individual packages in node_modules
-							missing := missingNodePackages(baseDir, names)
+							missing := MissingNodePackages(baseDir, names)
 							if len(missing) > 0 {
 								shouldInstall = true
 								installReason.WriteString(fmt.Sprintf("%d missing packages; ", len(missing)))
@@ -539,9 +539,9 @@ func readDenoJSON() (*DenoJSON, error) {
 	return &pkg, nil
 }
 
-// parsePackageNames extracts package names from "name@version" strings.
+// ParsePackageNames extracts package names from "name@version" strings.
 // Handles scoped packages correctly by splitting on the last '@' character.
-func parsePackageNames(depWithVersions []string) []string {
+func ParsePackageNames(depWithVersions []string) []string {
 	names := make([]string, len(depWithVersions))
 	for i, dep := range depWithVersions {
 		// Split on last '@' to handle scoped packages like @types/node@1.0.0
@@ -560,9 +560,9 @@ func parsePackageNames(depWithVersions []string) []string {
 	return names
 }
 
-// isYarnPnpProject checks if the current directory is a Yarn PnP project
+// IsYarnPnpProject checks if the current directory is a Yarn PnP project
 // by looking for .pnp.cjs or .pnp.data.json files.
-func isYarnPnpProject(cwd string) bool {
+func IsYarnPnpProject(cwd string) bool {
 	pnpCjsPath := filepath.Join(cwd, ".pnp.cjs")
 	pnpDataPath := filepath.Join(cwd, ".pnp.data.json")
 	
@@ -572,9 +572,9 @@ func isYarnPnpProject(cwd string) bool {
 	return cjsErr == nil || dataErr == nil
 }
 
-// missingNodePackages checks which packages are missing from node_modules.
+// MissingNodePackages checks which packages are missing from node_modules.
 // Returns up to maxMissing packages to avoid excessive checking and noisy logs.
-func missingNodePackages(cwd string, depNames []string) []string {
+func MissingNodePackages(cwd string, depNames []string) []string {
 	const maxMissing = 10
 	missing := make([]string, 0, maxMissing)
 	
