@@ -82,7 +82,7 @@ func ExtractImportsFromDenoJSON() ([]string, error) {
 	if filepath.Ext(denoFilePath) == ".jsonc" {
 		data = NormalizeJSONCToJSON(data)
 	}
-	
+
 	var pkg DenoJSONDependencies
 
 	if err := json.Unmarshal(data, &pkg); err != nil {

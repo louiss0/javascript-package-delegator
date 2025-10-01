@@ -562,7 +562,7 @@ func init() {
 			NewCreateAppSearcher: func() CreateAppSearcher {
 				return services.NewNpmRegistryService()
 			},
-			NewDebugExecutor:           newDebugExecutor,
+			NewDebugExecutor: newDebugExecutor,
 		},
 	)
 }

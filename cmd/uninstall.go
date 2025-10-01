@@ -36,7 +36,6 @@ func (t *dependencyMultiSelectUI) Run() error {
 	return t.selectUI.Value(&t.selectedValues).Run()
 }
 
-
 const _INTERACTIVE_FLAG = "interactive"
 
 func NewUninstallCmd(newDependencySelectorUI func(options []string) DependencyUIMultiSelector) *cobra.Command {

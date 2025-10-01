@@ -153,7 +153,7 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 						Description: "Disable Volta integration during auto-install",
 					},
 				},
-				Completion:  "$carapace.scripts.npm",
+				Completion: "$carapace.scripts.npm",
 			},
 			"exec": {
 				Description: "Execute packages (equivalent to 'nlx')",

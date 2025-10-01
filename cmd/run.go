@@ -224,39 +224,39 @@ Examples:
 				if pm != "deno" {
 					// Node.js package manager dependency checks
 					isYarnPnp := pm == "yarn" && IsYarnPnpProject(baseDir)
-					
+
 					if goEnv.IsDevelopmentMode() {
 						log.Debug("Node PM check", "yarn_pnp", isYarnPnp)
 					}
-					
+
 					if !isYarnPnp {
 						// Check node_modules directory (skip for Yarn PnP)
 						nmPath := filepath.Join(baseDir, "node_modules")
 						info, err := os.Stat(nmPath)
 						missingNodeModules := err != nil || !info.IsDir()
-						
+
 						if missingNodeModules {
 							shouldInstall = true
 							installReason.WriteString("missing node_modules; ")
 						}
-						
+
 						if goEnv.IsDevelopmentMode() {
 							log.Debug("Node modules check", "missing", missingNodeModules)
 						}
 					}
-					
+
 					// Check individual package presence (for all Node PMs)
 					depsWithVersions, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
 					if err == nil && len(depsWithVersions) > 0 {
 						names := ParsePackageNames(depsWithVersions)
-						
+
 						if !isYarnPnp {
 							// Check individual packages in node_modules
 							missing := MissingNodePackages(baseDir, names)
 							if len(missing) > 0 {
 								shouldInstall = true
 								installReason.WriteString(fmt.Sprintf("%d missing packages; ", len(missing)))
-								
+
 								if goEnv.IsDevelopmentMode() {
 									firstFew := missing
 									if len(firstFew) > 3 {
@@ -282,7 +282,7 @@ Examples:
 									installReason.WriteString("dependencies changed; ")
 								}
 							}
-							
+
 							if goEnv.IsDevelopmentMode() {
 								currentShort := ""
 								storedShort := ""
@@ -307,11 +307,11 @@ Examples:
 						if len(checksToRun) > maxImportChecks {
 							checksToRun = checksToRun[:maxImportChecks]
 						}
-						
+
 						missingImports := 0
 						for _, importURL := range checksToRun {
 							de.LogJSCommandIfDebugIsTrue("deno", "info", "--json", importURL)
-							
+
 							// Check if import is resolvable
 							infoCmd := cmdRunner
 							infoCmd.Command("deno", "info", "--json", importURL)
@@ -320,17 +320,17 @@ Examples:
 								missingImports++
 							}
 						}
-						
+
 						if missingImports > 0 {
 							shouldInstall = true
 							installReason.WriteString(fmt.Sprintf("%d unresolvable imports; ", missingImports))
-							
+
 							if goEnv.IsDevelopmentMode() {
 								log.Debug("Import check", "checked", len(checksToRun), "missing", missingImports)
 							}
 						}
 					}
-					
+
 					// Hash-based dependency change detection for Deno
 					currentHash, err := deps.ComputeDenoImportsHash(baseDir)
 					if err == nil {
@@ -345,7 +345,7 @@ Examples:
 									installReason.WriteString("imports changed; ")
 								}
 							}
-							
+
 							if goEnv.IsDevelopmentMode() {
 								currentShort := ""
 								storedShort := ""
@@ -367,7 +367,7 @@ Examples:
 					goEnv.ExecuteIfModeIsProduction(func() {
 						log.Info("Auto-installing dependencies", "reason", reason, "pm", pm, "dir", baseDir)
 					})
-					
+
 					if pm != "deno" {
 						// Node.js package managers installation
 						useVolta := detect.DetectVolta(detect.RealPathLookup{}) && lo.Contains([]string{"npm", "pnpm", "yarn"}, pm) && !noVoltaFlag
@@ -387,7 +387,7 @@ Examples:
 						if err := cmdRunner.Run(); err != nil {
 							return fmt.Errorf("failed to install dependencies: %w", err)
 						}
-						
+
 						// Update hash after successful installation
 						if newHash, err := deps.ComputeNodeDepsHash(baseDir); err == nil {
 							if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
@@ -565,10 +565,10 @@ func ParsePackageNames(depWithVersions []string) []string {
 func IsYarnPnpProject(cwd string) bool {
 	pnpCjsPath := filepath.Join(cwd, ".pnp.cjs")
 	pnpDataPath := filepath.Join(cwd, ".pnp.data.json")
-	
+
 	_, cjsErr := os.Stat(pnpCjsPath)
 	_, dataErr := os.Stat(pnpDataPath)
-	
+
 	return cjsErr == nil || dataErr == nil
 }
 
@@ -577,15 +577,15 @@ func IsYarnPnpProject(cwd string) bool {
 func MissingNodePackages(cwd string, depNames []string) []string {
 	const maxMissing = 10
 	missing := make([]string, 0, maxMissing)
-	
+
 	nodeModulesPath := filepath.Join(cwd, "node_modules")
-	
+
 	for _, name := range depNames {
 		if len(missing) >= maxMissing {
 			// Stop checking after finding maxMissing packages to avoid performance issues
 			break
 		}
-		
+
 		// Handle scoped packages: @scope/name -> node_modules/@scope/name
 		// Regular packages: name -> node_modules/name
 		var packagePath string
@@ -596,13 +596,13 @@ func MissingNodePackages(cwd string, depNames []string) []string {
 			// Regular package
 			packagePath = filepath.Join(nodeModulesPath, name)
 		}
-		
+
 		_, err := os.Stat(packagePath)
 		if os.IsNotExist(err) {
 			missing = append(missing, name)
 		}
 		// Ignore other errors (permissions, etc.) and assume package exists
 	}
-	
+
 	return missing
 }

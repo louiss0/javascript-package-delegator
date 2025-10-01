@@ -12,7 +12,6 @@ import (
 	"github.com/louiss0/javascript-package-delegator/internal/deps"
 )
 
-
 var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 	assert := assert.New(GinkgoT())
 
@@ -90,11 +89,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 						"@types/node": "^20.0.0"
 					}
 				}`
-				
+
 				packageJSONPath := filepath.Join(tempDir, "package.json")
 				err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
 				assert.NoError(err)
-				
+
 				hash1, err := deps.ComputeNodeDepsHash(tempDir)
 				assert.NoError(err)
 				assert.NotEmpty(hash1)
@@ -104,7 +103,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should produce same hash regardless of dependency order in package.json", func() {
 				tempDir1 := GinkgoT().TempDir()
 				tempDir2 := GinkgoT().TempDir()
-				
+
 				packageJSON1 := `{
 					"dependencies": {
 						"react": "^18.2.0",
@@ -130,11 +129,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.NoError(err)
 				err = os.WriteFile(filepath.Join(tempDir2, "package.json"), []byte(packageJSON2), 0644)
 				assert.NoError(err)
-				
+
 				// Both should produce the same hash due to sorted keys
 				hash1, err1 := deps.ComputeNodeDepsHash(tempDir1)
 				hash2, err2 := deps.ComputeNodeDepsHash(tempDir2)
-				
+
 				assert.NoError(err1)
 				assert.NoError(err2)
 				assert.Equal(hash1, hash2, "Hashes should be identical regardless of JSON key order")
@@ -152,7 +151,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				packageJSONPath := filepath.Join(tempDir, "package.json")
 				err := os.WriteFile(packageJSONPath, []byte(invalidJSON), 0644)
 				assert.NoError(err)
-				
+
 				_, err = deps.ComputeNodeDepsHash(tempDir)
 				assert.Error(err)
 				assert.Contains(err.Error(), "failed to parse package.json")
@@ -168,11 +167,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 						"react": "https://esm.sh/react@18.2.0"
 					}
 				}`
-				
+
 				denoJSONPath := filepath.Join(tempDir, "deno.json")
 				err := os.WriteFile(denoJSONPath, []byte(denoJSON), 0644)
 				assert.NoError(err)
-				
+
 				hash, err := deps.ComputeDenoImportsHash(tempDir)
 				assert.NoError(err)
 				assert.NotEmpty(hash)
@@ -189,11 +188,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 						"react": "npm:react@18.2.0",
 					}
 				}`
-				
+
 				denoJSONCPath := filepath.Join(tempDir, "deno.jsonc")
 				err := os.WriteFile(denoJSONCPath, []byte(denoJSONC), 0644)
 				assert.NoError(err)
-				
+
 				hash, err := deps.ComputeDenoImportsHash(tempDir)
 				assert.NoError(err)
 				assert.NotEmpty(hash)
@@ -207,29 +206,29 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 						"lodash": "https://deno.land/x/lodash@4.17.21/mod.ts"
 					}
 				}`
-				
+
 				denoJSONC := `{
 					"imports": {
 						"react": "https://esm.sh/react@18.2.0"
 					}
 				}`
-				
+
 				// Create both files
 				err := os.WriteFile(filepath.Join(tempDir, "deno.json"), []byte(denoJSON), 0644)
 				assert.NoError(err)
 				err = os.WriteFile(filepath.Join(tempDir, "deno.jsonc"), []byte(denoJSONC), 0644)
 				assert.NoError(err)
-				
+
 				// Should use deno.json (which has lodash), not deno.jsonc (which has react)
 				hash, err := deps.ComputeDenoImportsHash(tempDir)
 				assert.NoError(err)
 				assert.NotEmpty(hash)
-				
+
 				// Create another temp dir with only the deno.json content to compare
 				tempDir2 := GinkgoT().TempDir()
 				err = os.WriteFile(filepath.Join(tempDir2, "deno.json"), []byte(denoJSON), 0644)
 				assert.NoError(err)
-				
+
 				expectedHash, err := deps.ComputeDenoImportsHash(tempDir2)
 				assert.NoError(err)
 				assert.Equal(expectedHash, hash, "Should prefer deno.json over deno.jsonc")
@@ -245,7 +244,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should produce consistent hash regardless of import order", func() {
 				tempDir1 := GinkgoT().TempDir()
 				tempDir2 := GinkgoT().TempDir()
-				
+
 				denoJSON1 := `{
 					"imports": {
 						"react": "https://esm.sh/react@18.2.0",
@@ -264,10 +263,10 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.NoError(err)
 				err = os.WriteFile(filepath.Join(tempDir2, "deno.json"), []byte(denoJSON2), 0644)
 				assert.NoError(err)
-				
+
 				hash1, err1 := deps.ComputeDenoImportsHash(tempDir1)
 				hash2, err2 := deps.ComputeDenoImportsHash(tempDir2)
-				
+
 				assert.NoError(err1)
 				assert.NoError(err2)
 				assert.Equal(hash1, hash2, "Hashes should be identical regardless of import order")
@@ -288,16 +287,16 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				tempDir := GinkgoT().TempDir()
 				expectedHash := "abc123def456"
 				hashContent := expectedHash + "\n"
-				
+
 				// Create node_modules directory and hash file
 				nodeModulesPath := filepath.Join(tempDir, "node_modules")
 				err := os.MkdirAll(nodeModulesPath, 0755)
 				assert.NoError(err)
-				
+
 				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
 				err = os.WriteFile(hashFilePath, []byte(hashContent), 0644)
 				assert.NoError(err)
-				
+
 				hash, err := deps.ReadStoredDepsHash(tempDir)
 				assert.NoError(err)
 				assert.Equal(expectedHash, hash)
@@ -306,16 +305,16 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should trim whitespace from stored hash", func() {
 				tempDir := GinkgoT().TempDir()
 				hashWithWhitespace := "  abc123def456  \n\t  "
-				
+
 				// Create node_modules directory and hash file
 				nodeModulesPath := filepath.Join(tempDir, "node_modules")
 				err := os.MkdirAll(nodeModulesPath, 0755)
 				assert.NoError(err)
-				
+
 				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
 				err = os.WriteFile(hashFilePath, []byte(hashWithWhitespace), 0644)
 				assert.NoError(err)
-				
+
 				hash, err := deps.ReadStoredDepsHash(tempDir)
 				assert.NoError(err)
 				assert.Equal("abc123def456", hash)
@@ -326,21 +325,21 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should write hash with trailing newline and read it back correctly", func() {
 				tempDir := GinkgoT().TempDir()
 				testHash := "abc123def456"
-				
+
 				// Create node_modules directory first
 				nodeModulesPath := filepath.Join(tempDir, "node_modules")
 				err := os.MkdirAll(nodeModulesPath, 0755)
 				assert.NoError(err)
-				
+
 				// Write the hash
 				err = deps.WriteStoredDepsHash(tempDir, testHash)
 				assert.NoError(err)
-				
+
 				// Read it back
 				hash, err := deps.ReadStoredDepsHash(tempDir)
 				assert.NoError(err)
 				assert.Equal(testHash, hash)
-				
+
 				// Verify the file was created with proper content in node_modules
 				hashFilePath := filepath.Join(nodeModulesPath, deps.DepsHashFile)
 				content, err := os.ReadFile(hashFilePath)
@@ -351,19 +350,19 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should return error when node_modules directory doesn't exist", func() {
 				tempDir := GinkgoT().TempDir()
 				testHash := "abc123def456"
-				
+
 				// Try to write hash without creating node_modules first
 				err := deps.WriteStoredDepsHash(tempDir, testHash)
 				assert.Error(err)
 				assert.Contains(err.Error(), "node_modules directory does not exist")
 			})
-			
+
 			It("should handle write errors gracefully", func() {
 				// Try to write to a path that can't be created
 				testHash := "abc123def456"
-				
+
 				// Use a path with invalid characters to force an error
-				// On Windows, these characters are invalid: < > : " | ? * 
+				// On Windows, these characters are invalid: < > : " | ? *
 				invalidPath := "invalid<>path"
 				err := deps.WriteStoredDepsHash(invalidPath, testHash)
 				assert.Error(err)
@@ -387,31 +386,31 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 					"typescript": "^5.0.0"
 				}
 			}`
-			
+
 			// Create package.json
 			packageJSONPath := filepath.Join(tempDir, "package.json")
 			err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
 			assert.NoError(err)
-			
+
 			// Compute and store hash
 			hash1, err := deps.ComputeNodeDepsHash(tempDir)
 			assert.NoError(err)
 			assert.NotEmpty(hash1)
-			
+
 			// Create node_modules directory first
 			nodeModulesPath := filepath.Join(tempDir, "node_modules")
 			err = os.MkdirAll(nodeModulesPath, 0755)
 			assert.NoError(err)
-			
+
 			// Store the hash
 			err = deps.WriteStoredDepsHash(tempDir, hash1)
 			assert.NoError(err)
-			
+
 			// Read it back and verify
 			storedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(hash1, storedHash)
-			
+
 			// Compute hash again, should be identical
 			hash2, err := deps.ComputeNodeDepsHash(tempDir)
 			assert.NoError(err)
@@ -426,42 +425,42 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 					"react": "https://esm.sh/react@18.2.0"
 				}
 			}`
-			
+
 			// Create deno.json
 			denoJSONPath := filepath.Join(tempDir, "deno.json")
 			err := os.WriteFile(denoJSONPath, []byte(denoJSON), 0644)
 			assert.NoError(err)
-			
+
 			// Compute and store hash
 			hash1, err := deps.ComputeDenoImportsHash(tempDir)
 			assert.NoError(err)
 			assert.NotEmpty(hash1)
-			
+
 			// Create node_modules directory first
 			nodeModulesPath := filepath.Join(tempDir, "node_modules")
 			err = os.MkdirAll(nodeModulesPath, 0755)
 			assert.NoError(err)
-			
+
 			// Store the hash
 			err = deps.WriteStoredDepsHash(tempDir, hash1)
 			assert.NoError(err)
-			
+
 			// Read it back and verify
 			storedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(hash1, storedHash)
-			
+
 			// Compute hash again, should be identical
 			hash2, err := deps.ComputeDenoImportsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(hash1, hash2, "Hash should be consistent")
 		})
-		
+
 		It("should verify auto-install detection works after WriteStoredDepsHash fix", func() {
 			// This test verifies that WriteStoredDepsHash no longer creates node_modules,
 			// allowing auto-install logic to properly detect when dependencies are missing
 			tempDir := GinkgoT().TempDir()
-			
+
 			// Create package.json with dependencies
 			packageJSON := `{
 				"dependencies": {
@@ -472,84 +471,84 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 					"typescript": "^5.0.0"
 				}
 			}`
-			
+
 			packageJSONPath := filepath.Join(tempDir, "package.json")
 			err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
 			assert.NoError(err)
-			
+
 			// Verify node_modules doesn't exist (simulating fresh project state)
 			nodeModulesPath := filepath.Join(tempDir, "node_modules")
 			_, err = os.Stat(nodeModulesPath)
 			assert.True(os.IsNotExist(err), "node_modules should not exist initially")
-			
+
 			// Compute hash (this should work regardless of node_modules existence)
 			currentHash, err := deps.ComputeNodeDepsHash(tempDir)
 			assert.NoError(err)
 			assert.NotEmpty(currentHash)
-			
+
 			// Try to read stored hash (should return empty string, no error)
 			storedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Empty(storedHash, "stored hash should be empty when node_modules doesn't exist")
-			
+
 			// Verify that trying to write hash fails when node_modules doesn't exist
 			err = deps.WriteStoredDepsHash(tempDir, currentHash)
 			assert.Error(err)
 			assert.Contains(err.Error(), "node_modules directory does not exist")
-			
+
 			// This simulates the auto-install logic:
 			// 1. node_modules missing -> shouldInstall = true
-			// 2. Install runs (creating node_modules) 
+			// 2. Install runs (creating node_modules)
 			// 3. WriteStoredDepsHash succeeds after installation
-			
+
 			// Simulate installation creating node_modules
 			err = os.MkdirAll(nodeModulesPath, 0755)
 			assert.NoError(err)
-			
+
 			// Now WriteStoredDepsHash should succeed
 			err = deps.WriteStoredDepsHash(tempDir, currentHash)
 			assert.NoError(err)
-			
+
 			// Verify hash was stored correctly
 			retrievedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(currentHash, retrievedHash)
 		})
-		
+
 		It("should handle scenario where node_modules exists but hash is missing", func() {
 			// This test verifies the scenario where node_modules exists (from previous install)
 			// but the hash file is missing (maybe deleted or corrupted)
 			tempDir := GinkgoT().TempDir()
-			
+
 			// Create package.json
 			packageJSON := `{
 				"dependencies": {
 					"express": "^4.18.0"
 				}
 			}`
-			
+
 			packageJSONPath := filepath.Join(tempDir, "package.json")
 			err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
 			assert.NoError(err)
-			
+
 			// Create node_modules directory (simulating after installation)
 			nodeModulesPath := filepath.Join(tempDir, "node_modules")
 			err = os.MkdirAll(nodeModulesPath, 0755)
 			assert.NoError(err)
-			
+
 			// Stored hash should be empty (no hash file yet)
 			storedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Empty(storedHash)
-			
+
 			// Compute and store hash
 			currentHash, err := deps.ComputeNodeDepsHash(tempDir)
 			assert.NoError(err)
-			
+
 			// Writing hash should succeed since node_modules exists
 			err = deps.WriteStoredDepsHash(tempDir, currentHash)
 			assert.NoError(err)
-			
+
 			// Verify it was stored
 			retrievedHash, err := deps.ReadStoredDepsHash(tempDir)
 			assert.NoError(err)

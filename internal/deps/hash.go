@@ -36,18 +36,18 @@ func ComputeNodeDepsHash(cwd string) (string, error) {
 
 	// Merge dependencies and devDependencies
 	allDeps := lo.Assign(pkg.Dependencies, pkg.DevDependencies)
-	
+
 	// Convert to sorted slice for deterministic hashing
 	depEntries := lo.Entries(allDeps)
 	sort.Slice(depEntries, func(i, j int) bool {
 		return depEntries[i].Key < depEntries[j].Key
 	})
-	
+
 	// Create deterministic string representation
 	depLines := lo.Map(depEntries, func(entry lo.Entry[string, string], index int) string {
 		return fmt.Sprintf("%s@%s", entry.Key, entry.Value)
 	})
-	
+
 	content := strings.Join(depLines, "\n")
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash), nil
@@ -83,7 +83,7 @@ func ComputeDenoImportsHash(cwd string) (string, error) {
 	if filepath.Ext(denoFilePath) == ".jsonc" {
 		data = NormalizeJSONCToJSON(data)
 	}
-	
+
 	var pkg DenoJSONDependencies
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return "", fmt.Errorf("failed to parse %s: %w", denoFilePath, err)
@@ -94,12 +94,12 @@ func ComputeDenoImportsHash(cwd string) (string, error) {
 	sort.Slice(importEntries, func(i, j int) bool {
 		return importEntries[i].Key < importEntries[j].Key
 	})
-	
+
 	// Create deterministic string representation
 	importLines := lo.Map(importEntries, func(entry lo.Entry[string, string], index int) string {
 		return fmt.Sprintf("%s=%s", entry.Key, entry.Value)
 	})
-	
+
 	content := strings.Join(importLines, "\n")
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash), nil

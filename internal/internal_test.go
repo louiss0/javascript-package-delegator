@@ -689,26 +689,26 @@ var _ = Describe("Warp Workflow Generator", func() {
 			assert.Contains(GinkgoT(), contentStr, "name: args", "Expected args argument")
 		})
 
-			It("should return error when unable to create output directory", func() {
-				var inaccessiblePath string
-				if runtime.GOOS == "windows" {
-					// Use a path with invalid characters to guarantee failure on Windows
-					inaccessiblePath = filepath.Join(os.TempDir(), "bad:name", "inaccessible")
-				} else {
-					// Create a read-only directory and attempt to write beneath it
-					readOnlyDir := filepath.Join(tempDir, "readonly")
-					err := os.MkdirAll(readOnlyDir, 0555)
-					assert.NoError(GinkgoT(), err, "Expected no error creating read-only directory")
-					defer func() { _ = os.Chmod(readOnlyDir, 0755) }()
-					inaccessiblePath = filepath.Join(readOnlyDir, "inaccessible")
-				}
+		It("should return error when unable to create output directory", func() {
+			var inaccessiblePath string
+			if runtime.GOOS == "windows" {
+				// Use a path with invalid characters to guarantee failure on Windows
+				inaccessiblePath = filepath.Join(os.TempDir(), "bad:name", "inaccessible")
+			} else {
+				// Create a read-only directory and attempt to write beneath it
+				readOnlyDir := filepath.Join(tempDir, "readonly")
+				err := os.MkdirAll(readOnlyDir, 0555)
+				assert.NoError(GinkgoT(), err, "Expected no error creating read-only directory")
+				defer func() { _ = os.Chmod(readOnlyDir, 0755) }()
+				inaccessiblePath = filepath.Join(readOnlyDir, "inaccessible")
+			}
 
-				err := generator.GenerateJPDWorkflows(inaccessiblePath)
+			err := generator.GenerateJPDWorkflows(inaccessiblePath)
 
-				// Should get an error
-				assert.Error(GinkgoT(), err, "Expected error when trying to create directory in an inaccessible location")
-				assert.Contains(GinkgoT(), err.Error(), "failed to create output directory", "Expected specific error message")
-			})
+			// Should get an error
+			assert.Error(GinkgoT(), err, "Expected error when trying to create directory in an inaccessible location")
+			assert.Contains(GinkgoT(), err.Error(), "failed to create output directory", "Expected specific error message")
+		})
 	})
 
 	Describe("Multi-document format", func() {

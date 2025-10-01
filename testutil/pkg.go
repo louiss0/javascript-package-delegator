@@ -394,14 +394,14 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 	}
 	// Provide a searcher that returns empty for queries containing "nonexistent"
 	deps.NewCreateAppSearcher = func() cmd.CreateAppSearcher {
-	m := &mock.CreateAppSearcherMock{}
-	// Register specific matcher first so it has priority over the generic one
-	m.On("SearchCreateApps", tmock.MatchedBy(func(q string) bool { return strings.Contains(q, "nonexistent") }), tmock.Anything).
-		Return([]services.PackageInfo{}, nil).Maybe()
-	m.On("SearchCreateApps", tmock.Anything, tmock.Anything).Return([]services.PackageInfo{
-		{Name: "create-vite@latest", Description: "Vite"},
-	}, nil).Maybe()
-	return m
+		m := &mock.CreateAppSearcherMock{}
+		// Register specific matcher first so it has priority over the generic one
+		m.On("SearchCreateApps", tmock.MatchedBy(func(q string) bool { return strings.Contains(q, "nonexistent") }), tmock.Anything).
+			Return([]services.PackageInfo{}, nil).Maybe()
+		m.On("SearchCreateApps", tmock.Anything, tmock.Anything).Return([]services.PackageInfo{
+			{Name: "create-vite@latest", Description: "Vite"},
+		}, nil).Maybe()
+		return m
 	}
 	return cmd.NewRootCmdForTesting(deps)
 }
