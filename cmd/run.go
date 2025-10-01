@@ -38,6 +38,7 @@ import (
 
 	// internal
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/internal/deps"
 )
 
 type taskSelectorUI struct {
@@ -211,33 +212,217 @@ Examples:
 				baseDir = cwd
 			}
 
-			// Only node-based managers have node_modules
-			if pm != "deno" && effectiveAutoInstall {
-				nmPath := filepath.Join(baseDir, "node_modules")
-				info, err := os.Stat(nmPath)
-				missingNodeModules := err != nil || !info.IsDir()
+			// Enhanced dependency detection and auto-install logic
+			if effectiveAutoInstall {
+				shouldInstall := false
+				var installReason strings.Builder
 
-				if missingNodeModules {
-					// Build install command with optional Volta wrapping
-					useVolta := detect.DetectVolta(detect.RealPathLookup{}) && lo.Contains([]string{"npm", "pnpm", "yarn"}, pm) && !noVoltaFlag
+				if goEnv.IsDevelopmentMode() {
+					log.Debug("Auto-install check", "script", scriptName, "pm", pm, "enabled", effectiveAutoInstall)
+				}
 
-					var name string
-					var args []string
-					if useVolta {
-						name = detect.VOLTA_RUN_COMMAND[0]
-						args = append(detect.VOLTA_RUN_COMMAND[1:], pm, "install")
-					} else {
-						name = pm
-						args = []string{"install"}
+				if pm != "deno" {
+					// Node.js package manager dependency checks
+					isYarnPnp := pm == "yarn" && isYarnPnpProject(baseDir)
+					
+					if goEnv.IsDevelopmentMode() {
+						log.Debug("Node PM check", "yarn_pnp", isYarnPnp)
+					}
+					
+					if !isYarnPnp {
+						// Check node_modules directory (skip for Yarn PnP)
+						nmPath := filepath.Join(baseDir, "node_modules")
+						info, err := os.Stat(nmPath)
+						missingNodeModules := err != nil || !info.IsDir()
+						
+						if missingNodeModules {
+							shouldInstall = true
+							installReason.WriteString("missing node_modules; ")
+						}
+						
+						if goEnv.IsDevelopmentMode() {
+							log.Debug("Node modules check", "missing", missingNodeModules)
+						}
+					}
+					
+					// Check individual package presence (for all Node PMs)
+					depsWithVersions, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+					if err == nil && len(depsWithVersions) > 0 {
+						names := parsePackageNames(depsWithVersions)
+						
+						if !isYarnPnp {
+							// Check individual packages in node_modules
+							missing := missingNodePackages(baseDir, names)
+							if len(missing) > 0 {
+								shouldInstall = true
+								installReason.WriteString(fmt.Sprintf("%d missing packages; ", len(missing)))
+								
+								if goEnv.IsDevelopmentMode() {
+									firstFew := missing
+									if len(firstFew) > 3 {
+										firstFew = firstFew[:3]
+									}
+									log.Debug("Missing packages", "count", len(missing), "examples", firstFew)
+								}
+							}
+						}
 					}
 
-					de.LogJSCommandIfDebugIsTrue(name, args...)
+					// Hash-based dependency change detection
+					currentHash, err := deps.ComputeNodeDepsHash(baseDir)
+					if err == nil {
+						storedHash, err := deps.ReadStoredDepsHash(baseDir)
+						if err == nil {
+							hashMismatch := storedHash == "" || currentHash != storedHash
+							if hashMismatch {
+								shouldInstall = true
+								if storedHash == "" {
+									installReason.WriteString("no stored hash; ")
+								} else {
+									installReason.WriteString("dependencies changed; ")
+								}
+							}
+							
+							if goEnv.IsDevelopmentMode() {
+								currentShort := ""
+								storedShort := ""
+								if len(currentHash) >= 8 {
+									currentShort = currentHash[:8]
+								}
+								if len(storedHash) >= 8 {
+									storedShort = storedHash[:8]
+								}
+								log.Debug("Hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
+							}
+						}
+					}
+
+				} else if pm == "deno" {
+					// Deno import accessibility checks
+					importValues, err := deps.ExtractImportsFromDenoJSON()
+					if err == nil && len(importValues) > 0 {
+						// Check first few imports to avoid excessive process spawning
+						const maxImportChecks = 5
+						checksToRun := importValues
+						if len(checksToRun) > maxImportChecks {
+							checksToRun = checksToRun[:maxImportChecks]
+						}
+						
+						missingImports := 0
+						for _, importURL := range checksToRun {
+							de.LogJSCommandIfDebugIsTrue("deno", "info", "--json", importURL)
+							
+							// Check if import is resolvable
+							infoCmd := cmdRunner
+							infoCmd.Command("deno", "info", "--json", importURL)
+							if err := infoCmd.Run(); err != nil {
+								// Import is not resolvable/cached
+								missingImports++
+							}
+						}
+						
+						if missingImports > 0 {
+							shouldInstall = true
+							installReason.WriteString(fmt.Sprintf("%d unresolvable imports; ", missingImports))
+							
+							if goEnv.IsDevelopmentMode() {
+								log.Debug("Import check", "checked", len(checksToRun), "missing", missingImports)
+							}
+						}
+					}
+					
+					// Hash-based dependency change detection for Deno
+					currentHash, err := deps.ComputeDenoImportsHash(baseDir)
+					if err == nil {
+						storedHash, err := deps.ReadStoredDepsHash(baseDir)
+						if err == nil {
+							hashMismatch := storedHash == "" || currentHash != storedHash
+							if hashMismatch {
+								shouldInstall = true
+								if storedHash == "" {
+									installReason.WriteString("no stored hash; ")
+								} else {
+									installReason.WriteString("imports changed; ")
+								}
+							}
+							
+							if goEnv.IsDevelopmentMode() {
+								currentShort := ""
+								storedShort := ""
+								if len(currentHash) >= 8 {
+									currentShort = currentHash[:8]
+								}
+								if len(storedHash) >= 8 {
+									storedShort = storedHash[:8]
+								}
+								log.Debug("Deno hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
+							}
+						}
+					}
+				}
+
+				// Perform installation if needed
+				if shouldInstall {
+					reason := strings.TrimSuffix(installReason.String(), "; ")
 					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Info("Auto-installing dependencies before run", "pm", pm, "dir", baseDir)
+						log.Info("Auto-installing dependencies", "reason", reason, "pm", pm, "dir", baseDir)
 					})
-					cmdRunner.Command(name, args...)
-					if err := cmdRunner.Run(); err != nil {
-						return err
+					
+					if pm != "deno" {
+						// Node.js package managers installation
+						useVolta := detect.DetectVolta(detect.RealPathLookup{}) && lo.Contains([]string{"npm", "pnpm", "yarn"}, pm) && !noVoltaFlag
+
+						var name string
+						var args []string
+						if useVolta {
+							name = detect.VOLTA_RUN_COMMAND[0]
+							args = append(detect.VOLTA_RUN_COMMAND[1:], pm, "install")
+						} else {
+							name = pm
+							args = []string{"install"}
+						}
+
+						de.LogJSCommandIfDebugIsTrue(name, args...)
+						cmdRunner.Command(name, args...)
+						if err := cmdRunner.Run(); err != nil {
+							return fmt.Errorf("failed to install dependencies: %w", err)
+						}
+						
+						// Update hash after successful installation
+						if newHash, err := deps.ComputeNodeDepsHash(baseDir); err == nil {
+							if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
+								if goEnv.IsDevelopmentMode() {
+									hashShort := ""
+									if len(newHash) >= 8 {
+										hashShort = newHash[:8]
+									}
+									log.Debug("Updated dependency hash", "hash", hashShort)
+								}
+							}
+						}
+					} else {
+						// Deno cache/install
+						de.LogJSCommandIfDebugIsTrue("deno", "cache", "deno.json")
+						cmdRunner.Command("deno", "cache", "deno.json")
+						if err := cmdRunner.Run(); err != nil {
+							// Don't fail hard on deno cache errors, just log
+							if goEnv.IsDevelopmentMode() {
+								log.Debug("Deno cache failed, continuing", "error", err)
+							}
+						} else {
+							// Update hash after successful caching
+							if newHash, err := deps.ComputeDenoImportsHash(baseDir); err == nil {
+								if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
+									if goEnv.IsDevelopmentMode() {
+										hashShort := ""
+										if len(newHash) >= 8 {
+											hashShort = newHash[:8]
+										}
+										log.Debug("Updated Deno imports hash", "hash", hashShort)
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -352,4 +537,72 @@ func readDenoJSON() (*DenoJSON, error) {
 	}
 
 	return &pkg, nil
+}
+
+// parsePackageNames extracts package names from "name@version" strings.
+// Handles scoped packages correctly by splitting on the last '@' character.
+func parsePackageNames(depWithVersions []string) []string {
+	names := make([]string, len(depWithVersions))
+	for i, dep := range depWithVersions {
+		// Split on last '@' to handle scoped packages like @types/node@1.0.0
+		lastAtIndex := strings.LastIndex(dep, "@")
+		if lastAtIndex == -1 {
+			// No version specified, use the whole string
+			names[i] = dep
+		} else if strings.HasPrefix(dep, "@") && lastAtIndex == 0 {
+			// Scoped package without version like @types/node
+			names[i] = dep
+		} else {
+			// Extract name before the last '@'
+			names[i] = dep[:lastAtIndex]
+		}
+	}
+	return names
+}
+
+// isYarnPnpProject checks if the current directory is a Yarn PnP project
+// by looking for .pnp.cjs or .pnp.data.json files.
+func isYarnPnpProject(cwd string) bool {
+	pnpCjsPath := filepath.Join(cwd, ".pnp.cjs")
+	pnpDataPath := filepath.Join(cwd, ".pnp.data.json")
+	
+	_, cjsErr := os.Stat(pnpCjsPath)
+	_, dataErr := os.Stat(pnpDataPath)
+	
+	return cjsErr == nil || dataErr == nil
+}
+
+// missingNodePackages checks which packages are missing from node_modules.
+// Returns up to maxMissing packages to avoid excessive checking and noisy logs.
+func missingNodePackages(cwd string, depNames []string) []string {
+	const maxMissing = 10
+	missing := make([]string, 0, maxMissing)
+	
+	nodeModulesPath := filepath.Join(cwd, "node_modules")
+	
+	for _, name := range depNames {
+		if len(missing) >= maxMissing {
+			// Stop checking after finding maxMissing packages to avoid performance issues
+			break
+		}
+		
+		// Handle scoped packages: @scope/name -> node_modules/@scope/name
+		// Regular packages: name -> node_modules/name
+		var packagePath string
+		if strings.HasPrefix(name, "@") {
+			// Scoped package
+			packagePath = filepath.Join(nodeModulesPath, name)
+		} else {
+			// Regular package
+			packagePath = filepath.Join(nodeModulesPath, name)
+		}
+		
+		_, err := os.Stat(packagePath)
+		if os.IsNotExist(err) {
+			missing = append(missing, name)
+		}
+		// Ignore other errors (permissions, etc.) and assume package exists
+	}
+	
+	return missing
 }
