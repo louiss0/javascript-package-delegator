@@ -456,6 +456,105 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.NoError(err)
 			assert.Equal(hash1, hash2, "Hash should be consistent")
 		})
+		
+		It("should verify auto-install detection works after WriteStoredDepsHash fix", func() {
+			// This test verifies that WriteStoredDepsHash no longer creates node_modules,
+			// allowing auto-install logic to properly detect when dependencies are missing
+			tempDir := GinkgoT().TempDir()
+			
+			// Create package.json with dependencies
+			packageJSON := `{
+				"dependencies": {
+					"react": "^18.2.0",
+					"lodash": "^4.17.21"
+				},
+				"devDependencies": {
+					"typescript": "^5.0.0"
+				}
+			}`
+			
+			packageJSONPath := filepath.Join(tempDir, "package.json")
+			err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
+			assert.NoError(err)
+			
+			// Verify node_modules doesn't exist (simulating fresh project state)
+			nodeModulesPath := filepath.Join(tempDir, "node_modules")
+			_, err = os.Stat(nodeModulesPath)
+			assert.True(os.IsNotExist(err), "node_modules should not exist initially")
+			
+			// Compute hash (this should work regardless of node_modules existence)
+			currentHash, err := deps.ComputeNodeDepsHash(tempDir)
+			assert.NoError(err)
+			assert.NotEmpty(currentHash)
+			
+			// Try to read stored hash (should return empty string, no error)
+			storedHash, err := deps.ReadStoredDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Empty(storedHash, "stored hash should be empty when node_modules doesn't exist")
+			
+			// Verify that trying to write hash fails when node_modules doesn't exist
+			err = deps.WriteStoredDepsHash(tempDir, currentHash)
+			assert.Error(err)
+			assert.Contains(err.Error(), "node_modules directory does not exist")
+			
+			// This simulates the auto-install logic:
+			// 1. node_modules missing -> shouldInstall = true
+			// 2. Install runs (creating node_modules) 
+			// 3. WriteStoredDepsHash succeeds after installation
+			
+			// Simulate installation creating node_modules
+			err = os.MkdirAll(nodeModulesPath, 0755)
+			assert.NoError(err)
+			
+			// Now WriteStoredDepsHash should succeed
+			err = deps.WriteStoredDepsHash(tempDir, currentHash)
+			assert.NoError(err)
+			
+			// Verify hash was stored correctly
+			retrievedHash, err := deps.ReadStoredDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Equal(currentHash, retrievedHash)
+		})
+		
+		It("should handle scenario where node_modules exists but hash is missing", func() {
+			// This test verifies the scenario where node_modules exists (from previous install)
+			// but the hash file is missing (maybe deleted or corrupted)
+			tempDir := GinkgoT().TempDir()
+			
+			// Create package.json
+			packageJSON := `{
+				"dependencies": {
+					"express": "^4.18.0"
+				}
+			}`
+			
+			packageJSONPath := filepath.Join(tempDir, "package.json")
+			err := os.WriteFile(packageJSONPath, []byte(packageJSON), 0644)
+			assert.NoError(err)
+			
+			// Create node_modules directory (simulating after installation)
+			nodeModulesPath := filepath.Join(tempDir, "node_modules")
+			err = os.MkdirAll(nodeModulesPath, 0755)
+			assert.NoError(err)
+			
+			// Stored hash should be empty (no hash file yet)
+			storedHash, err := deps.ReadStoredDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Empty(storedHash)
+			
+			// Compute and store hash
+			currentHash, err := deps.ComputeNodeDepsHash(tempDir)
+			assert.NoError(err)
+			
+			// Writing hash should succeed since node_modules exists
+			err = deps.WriteStoredDepsHash(tempDir, currentHash)
+			assert.NoError(err)
+			
+			// Verify it was stored
+			retrievedHash, err := deps.ReadStoredDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Equal(currentHash, retrievedHash)
+		})
 	})
 })
 
