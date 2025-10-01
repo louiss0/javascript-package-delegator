@@ -2378,7 +2378,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2407,7 +2408,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2463,7 +2465,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2490,7 +2493,8 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
 
 				_, err = executeCmd(rootCmd, "run", "start")
 				assert.NoError(err)

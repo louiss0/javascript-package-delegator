@@ -98,13 +98,120 @@ func (m *debugExecutorExpectationManager) ExpectJSCommandRandomLog() {
 func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
 	// Allow any LogDebugMessageIfDebugIsTrue calls
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
-	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything).Return().Maybe()
 
 	// Allow any LogJSCommandIfDebugIsTrue calls
 	m.ExpectJSCommandRandomLog()
+}
+
+// ExpectAutoInstallDebugFlow sets flexible expectations for auto-install related debug logs
+// so tests can rely on MockDebugExecutor without emitting real logs.
+func (m *debugExecutorExpectationManager) ExpectAutoInstallDebugFlow() {
+	// Auto-install check: script, pm, enabled
+m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		tmock.Anything, // script
+		tmock.Anything, // pm
+		tmock.Anything, // enabled label
+		tmock.Anything, // enabled value
+		).Return().Maybe()
+	// Also accept exact 6 keyvals form (script, value, pm, value, enabled, value)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Node PM check: yarn_pnp
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node PM check",
+		tmock.Anything, // key
+		tmock.Anything, // value
+	).Return().Maybe()
+
+	// Node modules check: missing
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node modules check",
+		tmock.Anything, // key
+		tmock.Anything, // value
+	).Return().Maybe()
+
+	// Missing packages (optional)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Missing packages",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Hash comparison: current, stored, mismatch
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Hash comparison",
+		tmock.Anything, // current
+		tmock.Anything, // stored
+		tmock.Anything, // mismatch label
+		tmock.Anything, // mismatch value
+	).Return().Maybe()
+
+	// Import check (Deno): checked, missing
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Import check",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Deno hash comparison
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Deno hash comparison",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Updated dependency hash (Node)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated dependency hash",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Deno cache failed (non-fatal)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Deno cache failed, continuing",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Updated Deno imports hash
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated Deno imports hash",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
 }
 
 // ExpectCommonPMDetectionFlow expects the most common package manager detection flow based on lockfile
