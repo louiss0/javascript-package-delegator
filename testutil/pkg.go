@@ -109,8 +109,57 @@ m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anythin
 	m.ExpectJSCommandRandomLog()
 }
 
+// ExpectAutoInstallCheck asserts the initial auto-install check log with exact values
+func (m *debugExecutorExpectationManager) ExpectAutoInstallCheck(script, pm string, enabled bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		"script", script,
+		"pm", pm,
+		"enabled", enabled,
+	).Return()
+}
+
+// ExpectNodePMCheck asserts yarn_pnp detection for node package managers
+func (m *debugExecutorExpectationManager) ExpectNodePMCheck(isYarnPnp bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node PM check",
+		"yarn_pnp", isYarnPnp,
+	).Return()
+}
+
+// ExpectNodeModulesCheck asserts whether node_modules is missing
+func (m *debugExecutorExpectationManager) ExpectNodeModulesCheck(missing bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node modules check",
+		"missing", missing,
+	).Return()
+}
+
+// ExpectHashComparison asserts the hash mismatch field (values are shortened; use Anything for the hash strings)
+func (m *debugExecutorExpectationManager) ExpectHashComparison(mismatch bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Hash comparison",
+		tmock.Anything, tmock.Anything, // current
+		tmock.Anything, tmock.Anything, // stored
+		"mismatch", mismatch,
+	).Return()
+}
+
+// ExpectUpdatedDependencyHash asserts that an updated dependency hash log occurs (hash value is dynamic)
+func (m *debugExecutorExpectationManager) ExpectUpdatedDependencyHash() {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated dependency hash",
+		"hash", tmock.Anything,
+	).Return().Maybe()
+}
+
 // ExpectAutoInstallDebugFlow sets flexible expectations for auto-install related debug logs
-// so tests can rely on MockDebugExecutor without emitting real logs.
+// (Kept for backwards compatibility, but prefer specific expectations above)
 func (m *debugExecutorExpectationManager) ExpectAutoInstallDebugFlow() {
 	// Auto-install check: script, pm, enabled
 m.DebugExecutor.On(

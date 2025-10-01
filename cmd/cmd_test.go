@@ -2379,7 +2379,12 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
+				// Specific auto-install debug expectations
+				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.NPM, true)
+				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
+				DebugExecutorExpectationManager.ExpectNodeModulesCheck(true)
+				DebugExecutorExpectationManager.ExpectHashComparison(true)
+				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2409,7 +2414,12 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
+				// Specific auto-install debug expectations for existing node_modules
+				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.NPM, true)
+				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
+				DebugExecutorExpectationManager.ExpectNodeModulesCheck(false)
+				DebugExecutorExpectationManager.ExpectHashComparison(true)
+				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2466,7 +2476,12 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
 DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
+				// Specific auto-install debug expectations for pnpm
+				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.PNPM, true)
+				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
+				DebugExecutorExpectationManager.ExpectNodeModulesCheck(true)
+				DebugExecutorExpectationManager.ExpectHashComparison(true)
+				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
 
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
@@ -2494,7 +2509,12 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				DebugExecutorExpectationManager.ExpectAutoInstallDebugFlow()
+				// Specific auto-install debug expectations for start script
+				DebugExecutorExpectationManager.ExpectAutoInstallCheck("start", detect.NPM, true)
+				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
+				DebugExecutorExpectationManager.ExpectNodeModulesCheck(true)
+				DebugExecutorExpectationManager.ExpectHashComparison(true)
+				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
 
 				_, err = executeCmd(rootCmd, "run", "start")
 				assert.NoError(err)
