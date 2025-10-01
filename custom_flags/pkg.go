@@ -102,7 +102,6 @@ func validateWindowsFolderPath(value string) bool {
 		return false
 	}
 
-	return true
 	return match
 }
 

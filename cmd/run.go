@@ -407,7 +407,7 @@ Examples:
 						if err := cmdRunner.Run(); err != nil {
 							// Don't fail hard on deno cache errors, just log
 							if goEnv.IsDevelopmentMode() {
-									de.LogDebugMessageIfDebugIsTrue("Deno cache failed, continuing", "error", err)
+								de.LogDebugMessageIfDebugIsTrue("Deno cache failed, continuing", "error", err)
 							}
 						} else {
 							// Update hash after successful caching

@@ -2378,7 +2378,7 @@ var _ = Describe("JPD Commands", func() {
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 				// Specific auto-install debug expectations
 				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.NPM, true)
 				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
@@ -2413,7 +2413,7 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 				// Specific auto-install debug expectations for existing node_modules
 				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.NPM, true)
 				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
@@ -2475,7 +2475,7 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
-DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				// Specific auto-install debug expectations for pnpm
 				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.PNPM, true)
 				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
@@ -2508,7 +2508,7 @@ DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
 				assert.NoError(err)
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
-DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
 				// Specific auto-install debug expectations for start script
 				DebugExecutorExpectationManager.ExpectAutoInstallCheck("start", detect.NPM, true)
 				DebugExecutorExpectationManager.ExpectNodePMCheck(false)

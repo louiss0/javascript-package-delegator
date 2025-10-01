@@ -98,7 +98,7 @@ func (m *debugExecutorExpectationManager) ExpectJSCommandRandomLog() {
 func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
 	// Allow any LogDebugMessageIfDebugIsTrue calls
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
-m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
@@ -162,14 +162,14 @@ func (m *debugExecutorExpectationManager) ExpectUpdatedDependencyHash() {
 // (Kept for backwards compatibility, but prefer specific expectations above)
 func (m *debugExecutorExpectationManager) ExpectAutoInstallDebugFlow() {
 	// Auto-install check: script, pm, enabled
-m.DebugExecutor.On(
+	m.DebugExecutor.On(
 		"LogDebugMessageIfDebugIsTrue",
 		"Auto-install check",
 		tmock.Anything, // script
 		tmock.Anything, // pm
 		tmock.Anything, // enabled label
 		tmock.Anything, // enabled value
-		).Return().Maybe()
+	).Return().Maybe()
 	// Also accept exact 6 keyvals form (script, value, pm, value, enabled, value)
 	m.DebugExecutor.On(
 		"LogDebugMessageIfDebugIsTrue",
