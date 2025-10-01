@@ -218,7 +218,7 @@ Examples:
 				var installReason strings.Builder
 
 				if goEnv.IsDevelopmentMode() {
-					log.Debug("Auto-install check", "script", scriptName, "pm", pm, "enabled", effectiveAutoInstall)
+					de.LogDebugMessageIfDebugIsTrue("Auto-install check", "script", scriptName, "pm", pm, "enabled", effectiveAutoInstall)
 				}
 
 				if pm != "deno" {
@@ -226,7 +226,7 @@ Examples:
 					isYarnPnp := pm == "yarn" && IsYarnPnpProject(baseDir)
 
 					if goEnv.IsDevelopmentMode() {
-						log.Debug("Node PM check", "yarn_pnp", isYarnPnp)
+						de.LogDebugMessageIfDebugIsTrue("Node PM check", "yarn_pnp", isYarnPnp)
 					}
 
 					if !isYarnPnp {
@@ -241,7 +241,7 @@ Examples:
 						}
 
 						if goEnv.IsDevelopmentMode() {
-							log.Debug("Node modules check", "missing", missingNodeModules)
+							de.LogDebugMessageIfDebugIsTrue("Node modules check", "missing", missingNodeModules)
 						}
 					}
 
@@ -262,7 +262,7 @@ Examples:
 									if len(firstFew) > 3 {
 										firstFew = firstFew[:3]
 									}
-									log.Debug("Missing packages", "count", len(missing), "examples", firstFew)
+									de.LogDebugMessageIfDebugIsTrue("Missing packages", "count", len(missing), "examples", firstFew)
 								}
 							}
 						}
@@ -292,7 +292,7 @@ Examples:
 								if len(storedHash) >= 8 {
 									storedShort = storedHash[:8]
 								}
-								log.Debug("Hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
+								de.LogDebugMessageIfDebugIsTrue("Hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
 							}
 						}
 					}
@@ -326,7 +326,7 @@ Examples:
 							installReason.WriteString(fmt.Sprintf("%d unresolvable imports; ", missingImports))
 
 							if goEnv.IsDevelopmentMode() {
-								log.Debug("Import check", "checked", len(checksToRun), "missing", missingImports)
+								de.LogDebugMessageIfDebugIsTrue("Import check", "checked", len(checksToRun), "missing", missingImports)
 							}
 						}
 					}
@@ -355,7 +355,7 @@ Examples:
 								if len(storedHash) >= 8 {
 									storedShort = storedHash[:8]
 								}
-								log.Debug("Deno hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
+								de.LogDebugMessageIfDebugIsTrue("Deno hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
 							}
 						}
 					}
@@ -396,7 +396,7 @@ Examples:
 									if len(newHash) >= 8 {
 										hashShort = newHash[:8]
 									}
-									log.Debug("Updated dependency hash", "hash", hashShort)
+									de.LogDebugMessageIfDebugIsTrue("Updated dependency hash", "hash", hashShort)
 								}
 							}
 						}
@@ -407,7 +407,7 @@ Examples:
 						if err := cmdRunner.Run(); err != nil {
 							// Don't fail hard on deno cache errors, just log
 							if goEnv.IsDevelopmentMode() {
-								log.Debug("Deno cache failed, continuing", "error", err)
+									de.LogDebugMessageIfDebugIsTrue("Deno cache failed, continuing", "error", err)
 							}
 						} else {
 							// Update hash after successful caching
@@ -418,7 +418,7 @@ Examples:
 										if len(newHash) >= 8 {
 											hashShort = newHash[:8]
 										}
-										log.Debug("Updated Deno imports hash", "hash", hashShort)
+										de.LogDebugMessageIfDebugIsTrue("Updated Deno imports hash", "hash", hashShort)
 									}
 								}
 							}
