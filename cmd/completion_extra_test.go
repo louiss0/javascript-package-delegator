@@ -143,23 +143,23 @@ func TestCompletion_InvalidShellErrors(t *testing.T) {
 	testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 
 	_, err := executeCmd(root, "completion", "noshell")
-assert.Error(t, err)
+	assert.Error(t, err)
 }
 
 func TestCompletion_RequiresExactlyOneArg_Error(t *testing.T) {
-    mockRunner := mock.NewMockCommandRunner()
-    factory := testutil.NewRootCommandFactory(mockRunner)
-    factory.SetupBasicCommandRunnerExpectations()
-    factory.ResetDebugExecutor()
-    testutil.DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
-    factory.SetupBasicDebugExecutorExpectations()
+	mockRunner := mock.NewMockCommandRunner()
+	factory := testutil.NewRootCommandFactory(mockRunner)
+	factory.SetupBasicCommandRunnerExpectations()
+	factory.ResetDebugExecutor()
+	testutil.DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
+	factory.SetupBasicDebugExecutorExpectations()
 
-    root := factory.CreateNpmAsDefault(nil)
-    testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+	root := factory.CreateNpmAsDefault(nil)
+	testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 
-    // No shell argument provided should error
-    _, err := executeCmd(root, "completion")
-    assert.Error(t, err)
-    // Helpfulness: error should mention requires exactly one argument
-    // (Don't over-assert exact message in case upstream changes wording)
+	// No shell argument provided should error
+	_, err := executeCmd(root, "completion")
+	assert.Error(t, err)
+	// Helpfulness: error should mention requires exactly one argument
+	// (Don't over-assert exact message in case upstream changes wording)
 }
