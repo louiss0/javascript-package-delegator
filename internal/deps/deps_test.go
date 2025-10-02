@@ -555,6 +555,75 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.Equal(currentHash, retrievedHash)
 		})
 	})
+
+	Context("Extractors", func() {
+		It("should extract merged prod and dev dependencies from package.json", func() {
+			orig, _ := os.Getwd()
+			defer func() { _ = os.Chdir(orig) }()
+
+			tempDir := GinkgoT().TempDir()
+			_ = os.Chdir(tempDir)
+
+			packageJSON := `{
+			  "dependencies": {
+			    "react": "18.2.0"
+			  },
+			  "devDependencies": {
+			    "typescript": "5.4.0"
+			  }
+			}`
+			err := os.WriteFile("package.json", []byte(packageJSON), 0644)
+			assert.NoError(err)
+
+			out, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+			assert.NoError(err)
+			// Order is not guaranteed; assert by elements
+			assert.ElementsMatch([]string{"react@18.2.0", "typescript@5.4.0"}, out)
+		})
+
+		It("should extract imports from deno.json and prefer deno.json over deno.jsonc", func() {
+			orig, _ := os.Getwd()
+			defer func() { _ = os.Chdir(orig) }()
+
+			tempDir := GinkgoT().TempDir()
+			_ = os.Chdir(tempDir)
+
+			// Create both files; function should prefer deno.json
+			denoJSON := `{
+			  "imports": {
+			    "lodash": "https://deno.land/x/lodash@4.17.21/mod.ts"
+			  }
+			}`
+			denoJSONC := `{
+			  /* alt */
+			  "imports": {
+			    "react": "https://esm.sh/react@18.2.0"
+			  },
+			}`
+			err := os.WriteFile("deno.json", []byte(denoJSON), 0644)
+			assert.NoError(err)
+			err = os.WriteFile("deno.jsonc", []byte(denoJSONC), 0644)
+			assert.NoError(err)
+
+			vals, err := deps.ExtractImportsFromDenoJSON()
+			assert.NoError(err)
+			assert.ElementsMatch([]string{"https://deno.land/x/lodash@4.17.21/mod.ts"}, vals)
+		})
+
+		It("should error when required files are missing for extractors", func() {
+			orig, _ := os.Getwd()
+			defer func() { _ = os.Chdir(orig) }()
+
+			tempDir := GinkgoT().TempDir()
+			_ = os.Chdir(tempDir)
+
+			_, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+			assert.Error(err)
+
+			_, err = deps.ExtractImportsFromDenoJSON()
+			assert.Error(err)
+		})
+	})
 })
 
 func TestDeps(t *testing.T) {
