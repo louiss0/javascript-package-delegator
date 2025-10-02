@@ -1,5 +1,5 @@
-version: 2
-linters-settings:
+version: "2"
+lintersSettings:
   revive:
     rules:
       - name: unexported-return
