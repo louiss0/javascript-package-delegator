@@ -35,13 +35,6 @@ func validateFilePath(value string) bool {
 // validateFolderPath validates a folder path according to the current platform
 func validateFolderPath(value string) bool {
 	if isWindows() {
-		// In CI on Windows, accept either native Windows-style or POSIX-style folder paths
-		if build_info.InCI() {
-			if validateWindowsFolderPath(value) || validatePosixFolderPath(value) {
-				return true
-			}
-			return false
-		}
 		return validateWindowsFolderPath(value)
 	}
 	return validatePosixFolderPath(value)

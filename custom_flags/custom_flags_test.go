@@ -185,9 +185,15 @@ var _ = Describe("FolderPathFlag", func() {
 			Context("when in CI mode", func() {
 				It("should accept path without trailing slash if InCI returns true", func() {
 					if build_info.InCI() {
-						err := flag.Set("/path/to/dir")
+						var p string
+						if runtime.GOOS == "windows" {
+							p = "C:/path/to/dir" // Windows-style path without trailing slash
+						} else {
+							p = "/path/to/dir" // POSIX-style path without trailing slash
+						}
+						err := flag.Set(p)
 						assertT.NoError(err)
-						assertT.Equal("/path/to/dir", flag.String())
+						assertT.Equal(p, flag.String())
 					} else {
 						Skip("Skipping CI-specific test when not in CI mode")
 					}
