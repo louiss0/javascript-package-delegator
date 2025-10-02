@@ -77,5 +77,23 @@ func TestCompletion_WithShorthands_AppendsAliasBlock_Nushell(t *testing.T) {
 	out, err := executeCmd(root, "completion", "nushell", "--with-shorthands")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, out)
-	assert.Contains(t, out, "export extern \"jpi\"")
+assert.Contains(t, out, "export extern \"jpi\"")
+}
+
+func TestCompletion_WithShorthands_AppendsAliasBlock_Fish(t *testing.T) {
+    mockRunner := mock.NewMockCommandRunner()
+    factory := testutil.NewRootCommandFactory(mockRunner)
+    factory.SetupBasicCommandRunnerExpectations()
+    factory.ResetDebugExecutor()
+    testutil.DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
+    factory.SetupBasicDebugExecutorExpectations()
+
+    root := factory.CreateNpmAsDefault(nil)
+    testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
+
+    out, err := executeCmd(root, "completion", "fish", "--with-shorthands")
+    assert.NoError(t, err)
+    assert.NotEmpty(t, out)
+    // Fish alias block uses function definitions
+    assert.Contains(t, out, "function jpi")
 }
