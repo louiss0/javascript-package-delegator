@@ -128,11 +128,11 @@ jobs:
         run: |
           set -euo pipefail
           if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 80) exit 1 }'; then
-            echo "❌ Coverage is below 70% threshold (Ginkgo-tested packages only) on ${{ matrix.os }}"
+            echo "❌ Coverage is below 80% threshold (Ginkgo-tested packages only) on ${{ matrix.os }}"
             go tool cover -func=coverage.out | tail -n 1
             exit 1
           fi
-          echo "✅ Coverage meets 70% threshold (Ginkgo-tested packages only) on ${{ matrix.os }}"
+          echo "✅ Coverage meets 80% threshold (Ginkgo-tested packages only) on ${{ matrix.os }}"
 
       - name: Generate HTML coverage report
         run: go tool cover -html=coverage.out -o coverage.html
