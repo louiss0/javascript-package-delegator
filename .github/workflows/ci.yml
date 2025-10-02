@@ -127,7 +127,7 @@ jobs:
       - name: Coverage threshold check
         run: |
           set -euo pipefail
-          if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 70) exit 1 }'; then
+          if ! go tool cover -func=coverage.out | awk '/^total:/ { if ($3+0 < 80) exit 1 }'; then
             echo "❌ Coverage is below 70% threshold (Ginkgo-tested packages only) on ${{ matrix.os }}"
             go tool cover -func=coverage.out | tail -n 1
             exit 1
