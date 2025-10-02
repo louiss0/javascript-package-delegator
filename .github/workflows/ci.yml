@@ -104,8 +104,12 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Install Ginkgo
-        run: go install github.com/onsi/ginkgo/v2/ginkgo@latest
+      - name: Install Ginkgo (match module version)
+        run: |
+          set -euo pipefail
+          VER=$(go list -m -f '{{.Version}}' github.com/onsi/ginkgo/v2)
+          echo "Installing ginkgo CLI @ ${VER}"
+          go install github.com/onsi/ginkgo/v2/ginkgo@"${VER}"
 
       - name: Run tests with Ginkgo and CI build flags
         run: |
