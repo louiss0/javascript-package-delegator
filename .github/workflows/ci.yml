@@ -172,6 +172,9 @@ jobs:
       - name: Activate pnpm via Corepack (fallback preparation)
         run: corepack prepare pnpm@9 --activate
 
+      - name: Install pnpm via npm (fallback)
+        run: npm i -g pnpm@9
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
