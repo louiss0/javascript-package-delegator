@@ -80,6 +80,13 @@ func writeToFile(filename, content string) error {
 // The first argument after the rootCmd is any sub command or flag you want to test.
 // This function now properly preserves the command context with CommandRunner.
 
+func makeTempDir(t *testing.T, cb func(string)) {
+	tempDir, err := os.MkdirTemp("", "jpd-test-")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+	cb(tempDir)
+}
+
 // Test helper functions for standard Go tests (originally from testhelpers_test.go)
 
 // makeTempDir creates a temporary directory for the test
@@ -2138,7 +2145,7 @@ var _ = Describe("JPD Commands", func() {
 				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "run", "build")
 
 				// Configure mock UI to return "build" as the selected script
-				rootCmd := factory.CreateWithSelectedScript("build")
+				rootCmd := factory.CreateWithTaskSelectorUI("npm")
 
 				_, err := executeCmd(rootCmd, "run")
 				assert.NoError(err)
@@ -2346,7 +2353,7 @@ var _ = Describe("JPD Commands", func() {
 
 		Context("Interactive mode", func() {
 			It("should trigger interactive UI when no packages are provided", func() {
-				rootCmd := factory.CreateWithSelectedScript("lodash")
+				rootCmd := factory.CreateWithTaskSelectorUI("npm")
 				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectJSCommandLog("npm", "uninstall", "lodash")
 				_, err := executeCmd(rootCmd, "uninstall")
@@ -2850,7 +2857,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	const ExecCommand = "Exec Command"
 	Describe(ExecCommand, func() {
 		var execCmd *cobra.Command
 		BeforeEach(func() {
@@ -3019,7 +3025,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	const UpdateCommand = "Update Command"
 	Describe(UpdateCommand, func() {
 
 		var updateCmd *cobra.Command
@@ -3377,7 +3382,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	const UninstallCommand = "Uninstall Command"
 	Describe(UninstallCommand, func() {
 
 		var uninstallCmd *cobra.Command
@@ -3818,7 +3822,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	const CleanInstallCommand = "Clean Install Command"
 	Describe(CleanInstallCommand, func() {
 
 		var cleanInstallCmd *cobra.Command
@@ -4069,7 +4072,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-	const AgentCommand = "Agent Command"
 	Describe(AgentCommand, func() {
 
 		var agentCmd *cobra.Command
