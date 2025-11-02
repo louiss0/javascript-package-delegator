@@ -15,8 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
-	"github.comcom/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.comcom/spf13/cobra"
 
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/cmd"
@@ -2523,8 +2523,9 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
-})
-			})
+	const AutoInstallCommand = "Auto Install Command"
+	Describe(AutoInstallCommand, func() {
+		Context("Auto Install for run command", func() {
 
 			It("should not auto-install when node_modules exists for dev (npm)", func() {
 				rootCmd := factory.CreateNpmAsDefault(nil)
@@ -4569,7 +4570,6 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 })
-<<<<<<< HEAD
 
 // Additional test functions from separate test files (consolidated)
 
@@ -4924,5 +4924,3 @@ func (m *mockDebugExecutorCwd) LogJSCommandIfDebugIsTrue(name string, args ...st
 func newMockDebugExecutorCwd(debug bool) cmd.DebugExecutor {
 	return &mockDebugExecutorCwd{}
 }
-=======
->>>>>>> develop
