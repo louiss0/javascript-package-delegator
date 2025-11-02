@@ -3,6 +3,7 @@ package mock
 
 import (
 	// standard library
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -472,6 +473,62 @@ func NewMockPathLookup() *MockPathLookup {
 	}
 }
 
+// mockCreateAppSelectorImpl defines the same struct as cmd.createAppSelector
+// This must have exactly the same underlying type to satisfy Go's strict ~struct constraint
+type mockCreateAppSelectorImpl struct {
+	packageInfo []services.PackageInfo // Must match exactly: []services.PackageInfo
+}
+
+// MockCreateAppSelectorBehavior controls mock behavior globally
+type MockCreateAppSelectorBehavior struct {
+	SelectedValue string
+	ShouldError   bool
+	ErrorMessage  string
+}
+
+var mockBehavior = MockCreateAppSelectorBehavior{}
+
+// SetMockCreateAppSelectorBehavior controls how the mock responds
+func SetMockCreateAppSelectorBehavior(selectedValue string, shouldError bool, errorMessage string) {
+	mockBehavior.SelectedValue = selectedValue
+	mockBehavior.ShouldError = shouldError
+	mockBehavior.ErrorMessage = errorMessage
+}
+
+// ResetMockCreateAppSelectorBehavior resets to default behavior
+func ResetMockCreateAppSelectorBehavior() {
+	mockBehavior = MockCreateAppSelectorBehavior{}
+}
+
+// Run implements the interface without interactive UI
+func (m mockCreateAppSelectorImpl) Run(value *string) error {
+	if mockBehavior.ShouldError {
+		errorMsg := mockBehavior.ErrorMessage
+		if errorMsg == "" {
+			errorMsg = "mock create app selector error"
+		}
+		return errors.New(errorMsg)
+	}
+
+	if len(m.packageInfo) == 0 {
+		return fmt.Errorf("no packages available for selection")
+	}
+
+	if value != nil {
+		if mockBehavior.SelectedValue != "" {
+			*value = mockBehavior.SelectedValue
+		} else {
+			*value = m.packageInfo[0].Name
+		}
+	}
+	return nil
+}
+
+// CreateMockCreateAppSelectorImpl creates the mock with exact type matching
+func CreateMockCreateAppSelectorImpl(packages []services.PackageInfo) mockCreateAppSelectorImpl {
+	return mockCreateAppSelectorImpl{packageInfo: packages}
+}
+
 // MockFileSystem implements the detect.FileSystem interface using testify/mock
 type MockFileSystem struct {
 	mock.Mock
@@ -547,4 +604,56 @@ func NewMockFileInfo(name string, size int64, mode os.FileMode, modTime time.Tim
 		ModTimeVal: modTime,
 		IsDirVal:   isDir,
 	}
+}
+
+// CreateAppSelectorMock implements the cmd.CreateAppSelector interface using testify/mock
+type CreateAppSelectorMock struct {
+	m mock.Mock // private field
+}
+
+// Run implements CreateAppSelector.Run
+func (m *CreateAppSelectorMock) Run() error {
+	args := m.m.Called()
+	return args.Error(0)
+}
+
+// Value implements CreateAppSelector.Value
+func (m *CreateAppSelectorMock) Value() string {
+	args := m.m.Called()
+	return args.String(0)
+}
+
+// On provides a passthrough to support arranging expectations while keeping field private
+func (m *CreateAppSelectorMock) On(method string, arguments ...interface{}) *mock.Call {
+	return m.m.On(method, arguments...)
+}
+
+// AssertExpectations provides a passthrough to assert expectations
+func (m *CreateAppSelectorMock) AssertExpectations(t mock.TestingT) bool {
+	return m.m.AssertExpectations(t)
+}
+
+// CreateAppSearcherMock implements the cmd.CreateAppSearcher interface using testify/mock
+type CreateAppSearcherMock struct {
+	m mock.Mock // private field
+}
+
+// SearchCreateApps implements CreateAppSearcher.SearchCreateApps
+func (m *CreateAppSearcherMock) SearchCreateApps(query string, size int) ([]services.PackageInfo, error) {
+	args := m.m.Called(query, size)
+	var out []services.PackageInfo
+	if v := args.Get(0); v != nil {
+		out = v.([]services.PackageInfo)
+	}
+	return out, args.Error(1)
+}
+
+// On provides a passthrough to support arranging expectations while keeping field private
+func (m *CreateAppSearcherMock) On(method string, arguments ...interface{}) *mock.Call {
+	return m.m.On(method, arguments...)
+}
+
+// AssertExpectations provides a passthrough to assert expectations
+func (m *CreateAppSearcherMock) AssertExpectations(t mock.TestingT) bool {
+	return m.m.AssertExpectations(t)
 }

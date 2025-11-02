@@ -36,17 +36,68 @@ import (
 	"github.com/louiss0/javascript-package-delegator/detect"
 )
 
+// ParseYarnMajor extracts the major version number from a yarn version string
+func ParseYarnMajor(version string) int {
+	if version == "" {
+		return 0
+	}
+
+	// Handle simple cases like "3" or "berry-3.1.0"
+	if after, ok := strings.CutPrefix(version, "berry-"); ok {
+		version = after
+	}
+
+	// Extract first character and convert to int
+	if len(version) > 0 && version[0] >= '1' && version[0] <= '9' {
+		return int(version[0] - '0')
+	}
+
+	return 0 // unknown
+}
+
+// isURL checks if a string is a valid HTTP or HTTPS URL
+func isURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+// BuildExecCommand builds command line for running local dependencies
+func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program string, argv []string, err error) {
+	if bin == "" {
+		return "", nil, fmt.Errorf("binary name is required for exec command")
+	}
+
+	switch pm {
+	case "npm":
+		argv = append([]string{"exec", bin, "--"}, args...)
+		return "npm", argv, nil
+	case "pnpm":
+		argv = append([]string{"exec", bin}, args...)
+		return "pnpm", argv, nil
+	case "yarn":
+		argv = append([]string{bin}, args...)
+		return "yarn", argv, nil
+	case "bun":
+		argv = append([]string{"x", bin}, args...)
+		return "bun", argv, nil
+	case "deno":
+		argv = append([]string{"run", bin}, args...)
+		return "deno", argv, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported package manager: %s", pm)
+	}
+}
+
 func NewExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "exec <package> [args...]",
-		Short: "Execute packages using the detected package manager",
-		Long: `Execute packages using the appropriate package manager's execute command.
-Equivalent to 'nlx' command - detects npm, yarn, pnpm, or bun and runs npx/yarn dlx/pnpm dlx/bunx.
+		Use:   "exec <bin> [args...]",
+		Short: "Execute local dependencies using package manager exec",
+		Long: `Execute local dependencies using the appropriate package manager's exec command.
+This runs binaries from locally installed packages in your project.
 
 Examples:
-  javascript-package-delegator exec create-react-app my-app
-  javascript-package-delegator exec @angular/cli new my-project
-  javascript-package-delegator exec typescript --version
+  javascript-package-delegator exec eslint --version
+  javascript-package-delegator exec ts-node src/index.ts
+  javascript-package-delegator exec vite build
   javascript-package-delegator exec prettier --check .`,
 		Aliases: []string{"e"},
 		Args:    cobra.MinimumNArgs(1),
@@ -56,61 +107,27 @@ Examples:
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
 
-			packageName := args[0]
-			packageArgs := args[1:]
+			binaryName := args[0]
+			binaryArgs := args[1:]
 
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
 
-			// Build command based on package manager
-			var execCommand string
-			var cmdArgs []string
-
-			switch pm {
-			case "npm":
-				execCommand = "npx"
-				cmdArgs = []string{packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "yarn":
-				// Check if it's Yarn v1 or v2+
-				yarnVersion, err := detect.DetectYarnVersion(
+			// Get yarn version if needed
+			yarnVersion := ""
+			if pm == "yarn" {
+				if version, err := detect.DetectYarnVersion(
 					getYarnVersionRunnerCommandContext(cmd),
-				)
-
-				if err != nil {
-					// Fallback to yarn v1 style
-					execCommand = "yarn"
-					cmdArgs = []string{packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
-				} else if strings.HasPrefix(yarnVersion, "1.") {
-					// Yarn v1
-					execCommand = "yarn"
-					cmdArgs = []string{packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
-				} else {
-					// Yarn v2+
-					execCommand = "yarn"
-					cmdArgs = []string{"dlx", packageName}
-					cmdArgs = append(cmdArgs, packageArgs...)
+				); err == nil {
+					yarnVersion = version
 				}
+			}
 
-			case "pnpm":
-				execCommand = "pnpm"
-				cmdArgs = []string{"dlx", packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "bun":
-				execCommand = "bunx"
-				cmdArgs = []string{packageName}
-				cmdArgs = append(cmdArgs, packageArgs...)
-
-			case "deno":
-				return fmt.Errorf("deno does not have a dlx/x equivalent")
-
-			default:
-				return fmt.Errorf("unsupported package manager: %s", pm)
+			// Build command for executing local dependencies
+			execCommand, cmdArgs, err := BuildExecCommand(pm, yarnVersion, binaryName, binaryArgs)
+			if err != nil {
+				return err
 			}
 
 			// Execute the command

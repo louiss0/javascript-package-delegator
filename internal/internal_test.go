@@ -3,6 +3,7 @@ package integrations_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -493,15 +494,25 @@ var _ = Describe("Warp Workflow Generator", func() {
 				// Unset XDG_DATA_HOME and set HOME
 				err = os.Unsetenv("XDG_DATA_HOME")
 				assert.NoError(GinkgoT(), err)
-				err = os.Setenv("HOME", tmpHome)
-				assert.NoError(GinkgoT(), err)
+				_ = os.Setenv("HOME", tmpHome) // On Windows, HOME may be ignored by os.UserHomeDir
 
 				// Call function
 				result, err := integrations.DefaultWarpWorkflowsDir()
 
+				// Determine expected dataHome per implementation
+				var expectedDataHome string
+				if runtime.GOOS == "windows" {
+					// On Windows, DefaultWarpWorkflowsDir uses os.UserHomeDir() ignoring HOME
+					realHome, e := os.UserHomeDir()
+					assert.NoError(GinkgoT(), e)
+					expectedDataHome = filepath.Join(realHome, ".local", "share")
+				} else {
+					expectedDataHome = filepath.Join(tmpHome, ".local", "share")
+				}
+
 				// Assertions
 				assert.NoError(GinkgoT(), err)
-				expected := filepath.Join(tmpHome, ".local", "share", "warp-terminal", "workflows")
+				expected := filepath.Join(expectedDataHome, "warp-terminal", "workflows")
 				assert.Equal(GinkgoT(), expected, result)
 			})
 		})
@@ -534,6 +545,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 				"JPD Run",
 				"JPD Exec",
 				"JPD DLX",
+				"JPD Create",
 				"JPD Update",
 				"JPD Uninstall",
 				"JPD Clean Install",
@@ -589,6 +601,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 				"jpd-run.yaml",
 				"jpd-exec.yaml",
 				"jpd-dlx.yaml",
+				"jpd-create.yaml",
 				"jpd-update.yaml",
 				"jpd-uninstall.yaml",
 				"jpd-clean-install.yaml",
@@ -677,22 +690,24 @@ var _ = Describe("Warp Workflow Generator", func() {
 		})
 
 		It("should return error when unable to create output directory", func() {
-			// Try to create workflows in a path that will fail (e.g., root directory without permissions)
-			// This test might not work on all systems, so we'll create a more controlled scenario
-			readOnlyDir := filepath.Join(tempDir, "readonly")
-			err := os.MkdirAll(readOnlyDir, 0555) // Read-only directory
-			assert.NoError(GinkgoT(), err, "Expected no error creating read-only directory")
+			var inaccessiblePath string
+			if runtime.GOOS == "windows" {
+				// Use a path with invalid characters to guarantee failure on Windows
+				inaccessiblePath = filepath.Join(os.TempDir(), "bad:name", "inaccessible")
+			} else {
+				// Create a read-only directory and attempt to write beneath it
+				readOnlyDir := filepath.Join(tempDir, "readonly")
+				err := os.MkdirAll(readOnlyDir, 0555)
+				assert.NoError(GinkgoT(), err, "Expected no error creating read-only directory")
+				defer func() { _ = os.Chmod(readOnlyDir, 0755) }()
+				inaccessiblePath = filepath.Join(readOnlyDir, "inaccessible")
+			}
 
-			// Make nested path that would require write access to readonly dir
-			inaccessiblePath := filepath.Join(readOnlyDir, "inaccessible")
-			err = generator.GenerateJPDWorkflows(inaccessiblePath)
+			err := generator.GenerateJPDWorkflows(inaccessiblePath)
 
-			// Should get a permission denied error
-			assert.Error(GinkgoT(), err, "Expected error when trying to create directory in read-only location")
+			// Should get an error
+			assert.Error(GinkgoT(), err, "Expected error when trying to create directory in an inaccessible location")
 			assert.Contains(GinkgoT(), err.Error(), "failed to create output directory", "Expected specific error message")
-
-			// Restore permissions for cleanup
-			_ = os.Chmod(readOnlyDir, 0755)
 		})
 	})
 
@@ -704,8 +719,8 @@ var _ = Describe("Warp Workflow Generator", func() {
 
 			// Count document separators
 			separatorCount := strings.Count(result, "---")
-			// Should have separators between documents (8 workflows = 7 separators + 1 at start)
-			assert.True(GinkgoT(), separatorCount >= 7, "Expected at least 7 document separators, got %d", separatorCount)
+			// Should have separators between documents (9 workflows = 8 separators + 1 at start)
+			assert.True(GinkgoT(), separatorCount >= 8, "Expected at least 8 document separators, got %d", separatorCount)
 		})
 	})
 })

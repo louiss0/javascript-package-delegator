@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath" // Import filepath for joining paths in mocks
-	"time"          // Added for MockFileInfo
+	"runtime"
+	"time" // Added for MockFileInfo
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
@@ -449,8 +450,12 @@ var _ = Describe("Detect", Label("fast", "unit"), func() {
 			})
 
 			It("should find a common system command", func() {
-				// Test with a command that should exist on most systems
-				path, err := realPath.LookPath("echo")
+				// Use a command that exists on the current platform
+				cmdName := "echo"
+				if runtime.GOOS == "windows" {
+					cmdName = "cmd"
+				}
+				path, err := realPath.LookPath(cmdName)
 				assert.NoError(err)
 				assert.NotEmpty(path)
 			})

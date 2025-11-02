@@ -1,6 +1,7 @@
 package custom_flags_test
 
 import (
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,9 +46,15 @@ var _ = Describe("FilePathFlag", func() {
 	Describe("S	zet method", func() {
 		Context("when provided valid file paths", func() {
 			It("should accept valid absolute path", func() {
-				err := flag.Set("/path/to/file.txt")
+				var path string
+				if runtime.GOOS == "windows" {
+					path = "C:\\path\\to\\file.txt"
+				} else {
+					path = "/path/to/file.txt"
+				}
+				err := flag.Set(path)
 				assertT.NoError(err)
-				assertT.Equal("/path/to/file.txt", flag.String())
+				assertT.Equal(path, flag.String())
 			})
 
 			It("should accept valid relative path", func() {
@@ -91,13 +98,21 @@ var _ = Describe("FilePathFlag", func() {
 			It("should reject path with double slash", func() {
 				err := flag.Set("path//file.txt")
 				assertT.Error(err)
-				assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+				if runtime.GOOS == "windows" {
+					assertT.Contains(err.Error(), "not a valid Windows file path")
+				} else {
+					assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+				}
 			})
 
 			It("should reject path with trailing slash", func() {
 				err := flag.Set("path/")
 				assertT.Error(err)
-				assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+				if runtime.GOOS == "windows" {
+					assertT.Contains(err.Error(), "not a valid Windows file path")
+				} else {
+					assertT.Contains(err.Error(), "not a valid POSIX/UNIX file path")
+				}
 			})
 		})
 	})
@@ -132,29 +147,53 @@ var _ = Describe("FolderPathFlag", func() {
 	Describe("Set method", func() {
 		Context("when provided valid folder paths", func() {
 			It("should accept valid absolute path with slash", func() {
-				err := flag.Set("/path/to/dir/")
+				var path string
+				if runtime.GOOS == "windows" {
+					path = "C:\\path\\to\\dir\\"
+				} else {
+					path = "/path/to/dir/"
+				}
+				err := flag.Set(path)
 				assertT.NoError(err)
-				assertT.Equal("/path/to/dir/", flag.String())
+				assertT.Equal(path, flag.String())
 			})
 
 			It("should accept valid relative path with slash", func() {
-				err := flag.Set("dir/")
+				var path string
+				if runtime.GOOS == "windows" {
+					path = "dir\\"
+				} else {
+					path = "dir/"
+				}
+				err := flag.Set(path)
 				assertT.NoError(err)
-				assertT.Equal("dir/", flag.String())
+				assertT.Equal(path, flag.String())
 			})
 
 			It("should accept root path", func() {
-				err := flag.Set("/")
+				var path string
+				if runtime.GOOS == "windows" {
+					path = "C:\\"
+				} else {
+					path = "/"
+				}
+				err := flag.Set(path)
 				assertT.NoError(err)
-				assertT.Equal("/", flag.String())
+				assertT.Equal(path, flag.String())
 			})
 
 			Context("when in CI mode", func() {
 				It("should accept path without trailing slash if InCI returns true", func() {
 					if build_info.InCI() {
-						err := flag.Set("/path/to/dir")
+						var p string
+						if runtime.GOOS == "windows" {
+							p = "C:/path/to/dir" // Windows-style path without trailing slash
+						} else {
+							p = "/path/to/dir" // POSIX-style path without trailing slash
+						}
+						err := flag.Set(p)
 						assertT.NoError(err)
-						assertT.Equal("/path/to/dir", flag.String())
+						assertT.Equal(p, flag.String())
 					} else {
 						Skip("Skipping CI-specific test when not in CI mode")
 					}
@@ -164,9 +203,18 @@ var _ = Describe("FolderPathFlag", func() {
 			Context("when not in CI mode", func() {
 				It("should reject path without trailing slash if InCI returns false", func() {
 					if !build_info.InCI() {
-						err := flag.Set("/path/to/dir")
-						assertT.Error(err)
-						assertT.Contains(err.Error(), "must end with '/'")
+						var path string
+						if runtime.GOOS == "windows" {
+							path = "C:\\path\\to\\dir"
+							err := flag.Set(path)
+							assertT.Error(err)
+							assertT.Contains(err.Error(), "Windows folder path")
+						} else {
+							path = "/path/to/dir"
+							err := flag.Set(path)
+							assertT.Error(err)
+							assertT.Contains(err.Error(), "must end with '/'")
+						}
 					} else {
 						Skip("Skipping non-CI test when in CI mode")
 					}
@@ -176,9 +224,18 @@ var _ = Describe("FolderPathFlag", func() {
 
 		Context("when provided invalid folder paths", func() {
 			It("should reject file-like paths", func() {
-				err := flag.Set("/path/to/file.txt")
-				assertT.Error(err)
-				assertT.Contains(err.Error(), "not a valid POSIX/UNIX folder path")
+				var path string
+				if runtime.GOOS == "windows" {
+					path = "C:\\path\\to\\file.txt"
+					err := flag.Set(path)
+					assertT.Error(err)
+					assertT.Contains(err.Error(), "not a valid Windows folder path")
+				} else {
+					path = "/path/to/file.txt"
+					err := flag.Set(path)
+					assertT.Error(err)
+					assertT.Contains(err.Error(), "not a valid POSIX/UNIX folder path")
+				}
 			})
 
 			It("should reject empty string", func() {

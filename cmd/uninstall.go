@@ -2,10 +2,7 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -14,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
+	"github.com/louiss0/javascript-package-delegator/internal/deps"
 )
 
 type dependencyMultiSelectUI struct {
@@ -34,68 +32,8 @@ func (t dependencyMultiSelectUI) Values() []string {
 	return t.selectedValues
 }
 
-func (t dependencyMultiSelectUI) Run() error {
+func (t *dependencyMultiSelectUI) Run() error {
 	return t.selectUI.Value(&t.selectedValues).Run()
-}
-
-func extractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
-	type PackageJSONDependencies struct {
-		Dependencies    map[string]string `json:"dependencies"`
-		DevDependencies map[string]string `json:"devDependencies"`
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	packageJSONPath := filepath.Join(cwd, "package.json")
-	data, err := os.ReadFile(packageJSONPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read package.json: %w", err)
-	}
-
-	var pkg PackageJSONDependencies
-
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, fmt.Errorf("failed to parse package.json: %w", err)
-	}
-
-	prodAndDevDependenciesMerged := lo.Map(
-		lo.Entries(lo.Assign(pkg.Dependencies, pkg.DevDependencies)),
-		func(item lo.Entry[string, string], index int) string {
-			return fmt.Sprintf("%s@%s", item.Key, item.Value)
-		},
-	)
-
-	return prodAndDevDependenciesMerged, nil
-}
-
-func extractImportsFromDenoJSON() ([]string, error) {
-	type DenoJSONDependencies struct {
-		Imports map[string]string `json:"imports"`
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	denoJSONPath := filepath.Join(cwd, "deno.json")
-	data, err := os.ReadFile(denoJSONPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read deno.json: %w", err)
-	}
-
-	var pkg DenoJSONDependencies
-
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, fmt.Errorf("failed to parse deno.json: %w", err)
-	}
-
-	importValues := lo.Values(pkg.Imports)
-
-	return importValues, nil
 }
 
 const _INTERACTIVE_FLAG = "interactive"
@@ -155,13 +93,13 @@ Examples:
 
 				if packageIsDeno {
 
-					dependencies, err = extractImportsFromDenoJSON()
+					dependencies, err = deps.ExtractImportsFromDenoJSON()
 					if err != nil {
 						return err
 					}
 				} else {
 
-					dependencies, err = extractProdAndDevDependenciesFromPackageJSON()
+					dependencies, err = deps.ExtractProdAndDevDependenciesFromPackageJSON()
 					if err != nil {
 						return err
 					}

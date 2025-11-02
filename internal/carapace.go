@@ -142,7 +142,18 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 			},
 			"run": {
 				Description: "Run package.json scripts (equivalent to 'nr')",
-				Completion:  "$carapace.scripts.npm",
+				Flags: map[string]FlagSpec{
+					"if-present": {
+						Description: "Run script only if it exists",
+					},
+					"auto-install": {
+						Description: "Auto-install deps when missing (effective default true for dev/start)",
+					},
+					"no-volta": {
+						Description: "Disable Volta integration during auto-install",
+					},
+				},
+				Completion: "$carapace.scripts.npm",
 			},
 			"exec": {
 				Description: "Execute packages (equivalent to 'nlx')",
@@ -151,6 +162,19 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 			"dlx": {
 				Description: "Execute packages with package runner (dedicated package-runner command)",
 				Completion:  "$carapace.packages.npm",
+			},
+			"create": {
+				Description: "Scaffold new projects (supports package names and URLs for deno)",
+				Flags: map[string]FlagSpec{
+					"search": {
+						Shorthand:   "s",
+						Description: "Interactive search for create packages",
+					},
+					"size": {
+						Description: "Number of results to show",
+					},
+				},
+				Completion: "$carapace.packages.npm",
 			},
 			"update": {
 				Description: "Update packages (equivalent to 'nup')",

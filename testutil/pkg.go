@@ -3,6 +3,7 @@ package testutil
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	tmock "github.com/stretchr/testify/mock"
@@ -98,12 +99,168 @@ func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
 	// Allow any LogDebugMessageIfDebugIsTrue calls
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything).Return().Maybe()
 
 	// Allow any LogJSCommandIfDebugIsTrue calls
 	m.ExpectJSCommandRandomLog()
+}
+
+// ExpectAutoInstallCheck asserts the initial auto-install check log with exact values
+func (m *debugExecutorExpectationManager) ExpectAutoInstallCheck(script, pm string, enabled bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		"script", script,
+		"pm", pm,
+		"enabled", enabled,
+	).Return()
+}
+
+// ExpectNodePMCheck asserts yarn_pnp detection for node package managers
+func (m *debugExecutorExpectationManager) ExpectNodePMCheck(isYarnPnp bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node PM check",
+		"yarn_pnp", isYarnPnp,
+	).Return()
+}
+
+// ExpectNodeModulesCheck asserts whether node_modules is missing
+func (m *debugExecutorExpectationManager) ExpectNodeModulesCheck(missing bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node modules check",
+		"missing", missing,
+	).Return()
+}
+
+// ExpectHashComparison asserts the hash mismatch field (values are shortened; use Anything for the hash strings)
+func (m *debugExecutorExpectationManager) ExpectHashComparison(mismatch bool) {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Hash comparison",
+		tmock.Anything, tmock.Anything, // current
+		tmock.Anything, tmock.Anything, // stored
+		"mismatch", mismatch,
+	).Return()
+}
+
+// ExpectUpdatedDependencyHash asserts that an updated dependency hash log occurs (hash value is dynamic)
+func (m *debugExecutorExpectationManager) ExpectUpdatedDependencyHash() {
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated dependency hash",
+		"hash", tmock.Anything,
+	).Return().Maybe()
+}
+
+// ExpectAutoInstallDebugFlow sets flexible expectations for auto-install related debug logs
+// (Kept for backwards compatibility, but prefer specific expectations above)
+func (m *debugExecutorExpectationManager) ExpectAutoInstallDebugFlow() {
+	// Auto-install check: script, pm, enabled
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		tmock.Anything, // script
+		tmock.Anything, // pm
+		tmock.Anything, // enabled label
+		tmock.Anything, // enabled value
+	).Return().Maybe()
+	// Also accept exact 6 keyvals form (script, value, pm, value, enabled, value)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Auto-install check",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Node PM check: yarn_pnp
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node PM check",
+		tmock.Anything, // key
+		tmock.Anything, // value
+	).Return().Maybe()
+
+	// Node modules check: missing
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Node modules check",
+		tmock.Anything, // key
+		tmock.Anything, // value
+	).Return().Maybe()
+
+	// Missing packages (optional)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Missing packages",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Hash comparison: current, stored, mismatch
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Hash comparison",
+		tmock.Anything, // current
+		tmock.Anything, // stored
+		tmock.Anything, // mismatch label
+		tmock.Anything, // mismatch value
+	).Return().Maybe()
+
+	// Import check (Deno): checked, missing
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Import check",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Deno hash comparison
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Deno hash comparison",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Updated dependency hash (Node)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated dependency hash",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Deno cache failed (non-fatal)
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Deno cache failed, continuing",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
+
+	// Updated Deno imports hash
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		"Updated Deno imports hash",
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
 }
 
 // ExpectCommonPMDetectionFlow expects the most common package manager detection flow based on lockfile
@@ -191,6 +348,21 @@ func (f *RootCommandFactory) baseDependencies() cmd.Dependencies {
 		NewPackageMultiSelectUI:     mock.NewMockPackageMultiSelectUI,
 		NewTaskSelectorUI:           mock.NewMockTaskSelectUI,
 		NewDependencyMultiSelectUI:  mock.NewMockDependencySelectUI,
+		NewCreateAppSelector: func(packageInfo []services.PackageInfo) cmd.CreateAppSelector {
+
+			mockSelector := &mock.CreateAppSelectorMock{}
+			// Default mock behavior: select the first package
+			selectedPackage := packageInfo[0].Name
+			mockSelector.On("Run").Return(nil).Maybe()
+			mockSelector.On("Value").Return(selectedPackage).Maybe()
+			return mockSelector
+		},
+		NewCreateAppSearcher: func() cmd.CreateAppSearcher {
+			m := &mock.CreateAppSearcherMock{}
+			m.On("SearchCreateApps", tmock.Anything, tmock.Anything).
+				Return([]services.PackageInfo{{Name: "create-vite@latest", Description: "Vite"}}, nil).Maybe()
+			return m
+		},
 	}
 }
 
@@ -221,7 +393,7 @@ func (f *RootCommandFactory) CreateRootCmdWithLockfileDetected(pm string, lockfi
 	deps.DetectVolta = func() bool {
 		return volta
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateRootCmdWithPathDetected creates a root command simulating package manager
@@ -245,7 +417,7 @@ func (f *RootCommandFactory) CreateRootCmdWithPathDetected(pm string, pmDetectio
 	deps.DetectVolta = func() bool {
 		return volta
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // GenerateWithPackageManagerDetector creates a root command with a specific package manager detected,
@@ -291,7 +463,7 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 	}
 	// Override specific dependency for Yarn version output
 	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("2.0.0")
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager,
@@ -314,7 +486,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 	}
 	// Override specific dependency for Yarn version output
 	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("1.0.0")
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateNoYarnVersion creates a root command simulating no yarn version detection,
@@ -360,14 +532,12 @@ func (f *RootCommandFactory) GenerateNoDetectionAtAll(commandTextUIValue string)
 		}
 		return mockUI
 	}
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithPackageManagerAndMultiSelectUI creates a root command configured for package manager
 // detection via PATH and multi-select UI.
 func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.Command {
-	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile: "npm", nil.
-	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist
@@ -378,7 +548,18 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 	deps.NewPackageMultiSelectUI = func(pi []services.PackageInfo) cmd.MultiUISelecter {
 		return mock.NewMockPackageMultiSelectUI(pi)
 	}
-	return cmd.NewRootCmd(deps)
+	// Provide a searcher that returns empty for queries containing "nonexistent"
+	deps.NewCreateAppSearcher = func() cmd.CreateAppSearcher {
+		m := &mock.CreateAppSearcherMock{}
+		// Register specific matcher first so it has priority over the generic one
+		m.On("SearchCreateApps", tmock.MatchedBy(func(q string) bool { return strings.Contains(q, "nonexistent") }), tmock.Anything).
+			Return([]services.PackageInfo{}, nil).Maybe()
+		m.On("SearchCreateApps", tmock.Anything, tmock.Anything).Return([]services.PackageInfo{
+			{Name: "create-vite@latest", Description: "Vite"},
+		}, nil).Maybe()
+		return m
+	}
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithTaskSelectorUI creates a root command configured for task selection UI based on a
@@ -394,7 +575,7 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 		return packageManager, nil
 	}
 	deps.NewTaskSelectorUI = mock.NewMockTaskSelectUI
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }
 
 // CreateWithDependencySelectUI creates a root command configured for dependency selection UI based on a
@@ -408,5 +589,5 @@ func (f *RootCommandFactory) CreateWithDependencySelectUI(packageManager string)
 		return packageManager, nil
 	}
 	deps.NewDependencyMultiSelectUI = mock.NewMockDependencySelectUI
-	return cmd.NewRootCmd(deps)
+	return cmd.NewRootCmdForTesting(deps)
 }

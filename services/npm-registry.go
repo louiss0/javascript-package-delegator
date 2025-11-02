@@ -24,6 +24,7 @@ type PackageInfo struct {
 // It provides methods for searching and retrieving package information.
 type NpmRegistryService interface {
 	SearchPackages(pattern string) ([]PackageInfo, error)
+	SearchCreateApps(query string, size int) ([]PackageInfo, error)
 	// Add other methods like GetPackageInfo(name string) if needed later
 }
 
@@ -144,4 +145,76 @@ func (s *npmRegistryServiceImpl) SearchPackages(pattern string) ([]PackageInfo, 
 	})
 
 	return packages, nil
+}
+
+// SearchCreateApps searches for create apps using the query and size, parsing the new npm registry response format.
+func (s *npmRegistryServiceImpl) SearchCreateApps(query string, size int) ([]PackageInfo, error) {
+	if query == "" {
+		query = "create-"
+	}
+	if size <= 0 {
+		size = 25
+	}
+
+	url := fmt.Sprintf("%s?text=%s&size=%d", s.baseSearchURL, query, size)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make HTTP request to npm registry: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("npm registry returned status %d: %s (body: %s)", resp.StatusCode, resp.Status, string(bodyBytes))
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body from npm registry: %w", err)
+	}
+
+	type CreateAppPackageInfo = struct {
+		Package struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Links       struct {
+				Homepage   string `json:"homepage"`
+				Repository string `json:"repository"`
+				Npm        string `json:"npm"`
+			} `json:"links"`
+		} `json:"package"`
+	}
+
+	var raw struct {
+		Objects []CreateAppPackageInfo `json:"objects"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse npm registry response: %w", err)
+	}
+
+	pkgs := lo.Map(raw.Objects, func(obj CreateAppPackageInfo,
+		_ int) PackageInfo {
+		p := obj.Package
+
+		homepage := p.Links.Homepage
+		if homepage == "" {
+			homepage = p.Links.Repository
+		}
+		if homepage == "" {
+			homepage = p.Links.Npm
+		}
+		return PackageInfo{
+			Name:        p.Name,
+			Description: p.Description,
+			Homepage:    homepage,
+		}
+	})
+	return pkgs, nil
 }

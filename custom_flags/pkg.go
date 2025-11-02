@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,118 @@ import (
 	"github.com/louiss0/javascript-package-delegator/build_info"
 	"github.com/louiss0/javascript-package-delegator/custom_errors"
 )
+
+// Cross-platform path validation utilities
+
+// isWindows returns true if running on Windows
+func isWindows() bool {
+	return runtime.GOOS == "windows"
+}
+
+// validateFilePath validates a file path according to the current platform
+func validateFilePath(value string) bool {
+	if isWindows() {
+		return validateWindowsFilePath(value)
+	}
+	return validatePosixFilePath(value)
+}
+
+// validateFolderPath validates a folder path according to the current platform
+func validateFolderPath(value string) bool {
+	if isWindows() {
+		return validateWindowsFolderPath(value)
+	}
+	return validatePosixFolderPath(value)
+}
+
+// validateWindowsFilePath validates Windows file paths
+func validateWindowsFilePath(value string) bool {
+	// Windows file path regex - more permissive:
+	// - Absolute: C:\path\to\file.ext or C:/path/to/file.ext
+	// - Relative: path\to\file.ext, .\file.ext, ..\path\file.ext, file.ext
+	// - UNC: \\server\share\file.ext
+	// Accepts both forward and backward slashes, must end with filename (no trailing slash)
+	windowsFilePathRegex := `^(?:(?:[a-zA-Z]:[/\\]|\\\\[^/\\:*?"<>|]+\\[^/\\:*?"<>|]+[/\\]|\.{1,2}[/\\])(?:[^/\\:*?"<>|]+[/\\])*|(?:[^/\\:*?"<>|]+[/\\])+)?[^/\\:*?"<>|]+$`
+	match, _ := regexp.MatchString(windowsFilePathRegex, value)
+	return match
+}
+
+// validateWindowsFolderPath validates Windows folder paths
+func validateWindowsFolderPath(value string) bool {
+	// Check if it looks like a file (has an extension)
+	// On Windows, we also need to reject file-like paths
+	trimmed := strings.TrimRight(value, "/\\")
+	if trimmed != "" {
+		// Get the last component of the path
+		lastComponent := trimmed
+		if lastSlash := strings.LastIndexAny(trimmed, "/\\"); lastSlash != -1 {
+			lastComponent = trimmed[lastSlash+1:]
+		}
+
+		// Check if it has a file extension (and it's not . or ..)
+		if strings.Contains(lastComponent, ".") && lastComponent != "." && lastComponent != ".." {
+			// It looks like a file, reject it
+			return false
+		}
+	}
+
+	// Windows folder path regex - same pattern for now, CI distinction added at validation level
+	// Accepts both forward and backward slashes, with or without trailing separator
+	windowsFolderPathRegex := `^(?:[a-zA-Z]:[/\\]?|\\\\[^/\\:*?"<>|]+\\[^/\\:*?"<>|]+[/\\]?|\.{1,2}[/\\]?|[^/\\:*?"<>|]+)(?:[/\\][^/\\:*?"<>|]+)*[/\\]?$`
+
+	match, _ := regexp.MatchString(windowsFolderPathRegex, value)
+	if !match {
+		return false
+	}
+
+	// In CI mode, accept all paths that match the basic regex
+	if build_info.InCI() {
+		return true
+	}
+
+	// In non-CI mode, apply stricter rules for Windows paths without trailing separators
+	// Allow special cases: drive roots (C:), current dir (.), parent dir (..)
+	if value == "." || value == ".." {
+		return true
+	}
+
+	// Allow drive roots like "C:" or "D:"
+	if matched, _ := regexp.MatchString(`^[a-zA-Z]:$`, value); matched {
+		return true
+	}
+
+	// If path doesn't end with separator, it's invalid in strict mode
+	// unless it's one of the special cases above
+	if !strings.HasSuffix(value, "/") && !strings.HasSuffix(value, "\\") {
+		return false
+	}
+
+	return match
+}
+
+// validatePosixFilePath validates POSIX/UNIX file paths
+func validatePosixFilePath(value string) bool {
+	// Regex for general POSIX/UNIX file paths (relative or absolute)
+	posixUnixFilePathRegex := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*)?/?([a-zA-Z0-9._-]+)$`
+	match, _ := regexp.MatchString(posixUnixFilePathRegex, value)
+	return match
+}
+
+// validatePosixFolderPath validates POSIX/UNIX folder paths
+func validatePosixFolderPath(value string) bool {
+	// Strict mode (default): requires a trailing slash unless it's just "/"
+	posixUnixFolderPathStrict := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/|\/)$`
+	// CI-relaxed mode: accepts with or without trailing slash
+	posixUnixFolderPathRelaxed := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/?|\/)$`
+
+	regexToUse := posixUnixFolderPathStrict
+	if build_info.InCI() {
+		regexToUse = posixUnixFolderPathRelaxed
+	}
+
+	match, _ := regexp.MatchString(regexToUse, value)
+	return match
+}
 
 // Interfaces extending pflag.Value for testability
 
@@ -84,24 +197,13 @@ func (p *filePathFlag) Set(value string) error {
 		return fmt.Errorf("the %s flag cannot be empty or contain only whitespace", p.flagName)
 	}
 
-	// Regex for general POSIX/UNIX file paths (relative or absolute)
-	// Allows:
-	// - Optional leading slash (for absolute paths)
-	// - Segments consisting of alphanumeric, underscore, hyphen, or dot, or '.'/'..'
-	// - Segments separated by a single slash
-	// - Ends with a filename (alphanumeric, underscore, hyphen, or dot - not '.' or '..')
-	// - Does NOT allow consecutive slashes (//)
-	// - Does NOT allow trailing slash
-	posixUnixFilePathRegex := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*)?/?([a-zA-Z0-9._-]+)$`
-
-	match, err := regexp.MatchString(posixUnixFilePathRegex, value)
-	if err != nil {
-		// This error indicates a problem with the regex itself, not the input value.
-		return fmt.Errorf("internal error: failed to compile file path regex: %w", err)
-	}
-
-	if !match {
-		return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX file path", p.flagName, value)
+	// Use cross-platform validation
+	if !validateFilePath(value) {
+		platform := "POSIX/UNIX"
+		if isWindows() {
+			platform = "Windows"
+		}
+		return fmt.Errorf("the %s flag value '%s' is not a valid %s file path", p.flagName, value, platform)
 	}
 
 	p.value = value
@@ -144,46 +246,36 @@ func (p *folderPathFlag) Set(value string) error {
 		return fmt.Errorf("the %s flag cannot be empty or contain only whitespace", p.flagName)
 	}
 
-	// Early rejection of file-like paths (regardless of CI mode)
-	// Strip any trailing slash to get the final path segment
-	trimmed := strings.TrimRight(value, "/")
-	if trimmed != "" {
-		base := path.Base(trimmed)
-		ext := path.Ext(base)
-		// If there's a file extension and it's not "." or "..", reject as file-like
-		if ext != "" && base != "." && base != ".." {
-			return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
+	// Early rejection of file-like paths (only for POSIX systems)
+	if !isWindows() {
+		// Strip any trailing slash to get the final path segment
+		trimmed := strings.TrimRight(value, "/")
+		if trimmed != "" {
+			base := path.Base(trimmed)
+			ext := path.Ext(base)
+			// If there's a file extension and it's not "." or "..", reject as file-like
+			if ext != "" && base != "." && base != ".." {
+				platform := "POSIX/UNIX"
+				msg := "(must end with '/' unless it's just '/')"
+				if build_info.InCI() {
+					msg = ""
+				}
+				return fmt.Errorf("the %s flag value '%s' is not a valid %s folder path %s", p.flagName, value, platform, msg)
+			}
 		}
 	}
 
-	// Regex for general POSIX/UNIX paths (relative or absolute)
-	// Allows:
-	// - Optional leading slash (for absolute paths)
-	// - Segments consisting of alphanumeric, underscore, hyphen, or dot
-	// - Segments can be '.' or '..'
-	// - Segments separated by a single slash
-	// - Does NOT allow consecutive slashes (//)
-	// Strict mode (default): requires a trailing slash unless it's just "/"
-	posixUnixFolderPathStrict := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/|\/)$`
-	// CI-relaxed mode: accepts with or without trailing slash
-	posixUnixFolderPathRelaxed := `^(?:/?(?:[a-zA-Z0-9._-]+|\.{1,2})(?:/(?:[a-zA-Z0-9._-]+|\.{1,2}))*/?|\/)$`
-
-	regexToUse := posixUnixFolderPathStrict
-	if build_info.InCI() {
-		regexToUse = posixUnixFolderPathRelaxed
-	}
-
-	match, err := regexp.MatchString(regexToUse, value)
-	if err != nil {
-		// This error indicates a problem with the regex itself, not the input value.
-		return fmt.Errorf("internal error: failed to compile path regex: %w", err)
-	}
-
-	if !match {
-		if build_info.InCI() {
-			return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path", p.flagName, value)
+	// Use cross-platform validation
+	if !validateFolderPath(value) {
+		platform := "POSIX/UNIX"
+		msg := "(must end with '/' unless it's just '/')"
+		if isWindows() {
+			platform = "Windows"
+			msg = ""
+		} else if build_info.InCI() {
+			msg = ""
 		}
-		return fmt.Errorf("the %s flag value '%s' is not a valid POSIX/UNIX folder path (must end with '/' unless it's just '/')", p.flagName, value)
+		return fmt.Errorf("the %s flag value '%s' is not a valid %s folder path %s", p.flagName, value, platform, msg)
 	}
 
 	p.value = value

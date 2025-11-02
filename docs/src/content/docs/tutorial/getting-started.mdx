@@ -150,6 +150,32 @@ jpd install -s react
 
 This opens an interactive interface where you can search for packages and select which ones to install.
 
+### Scaffolding New Projects
+
+Create new projects using create runners from various package managers:
+
+```bash
+# Create a React app
+jpd create react-app my-app
+
+# Create a Vite project with a template
+jpd create vite@latest my-project -- --template react-swc
+
+# Create a Next.js app
+jpd create next-app my-next-app --typescript
+```
+
+For Deno projects, use URLs instead of package names:
+
+```bash
+# Create a Fresh project (Deno)
+jpd -a deno create https://deno.land/x/fresh/init.ts my-fresh-app
+```
+
+<Aside type="note">
+  jpd automatically adds the `create-` prefix for npm, pnpm, yarn, and bun. Deno requires a valid URL to a TypeScript initialization script.
+</Aside>
+
 ### Updating Dependencies
 
 Update all dependencies to their latest compatible versions:

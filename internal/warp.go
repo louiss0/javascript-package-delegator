@@ -147,6 +147,23 @@ func (g *warpGenerator) getWorkflowDefinitions() []workflowDefinition {
 			Arguments:   nil, // No arguments for clean-install
 		},
 		{
+			Name:        "JPD Create",
+			Command:     "jpd create {{name}} {{args}}",
+			Description: "Scaffold new projects using JPD (supports package names and URLs for deno)",
+			Arguments: []WarpWorkflowArgument{
+				{
+					Name:         "name",
+					Description:  "Package name (e.g., react-app) or URL for deno",
+					DefaultValue: nil,
+				},
+				{
+					Name:         "args",
+					Description:  "Project name and additional arguments",
+					DefaultValue: nil,
+				},
+			},
+		},
+		{
 			Name:        "JPD Agent",
 			Command:     "jpd agent",
 			Description: "Show detected package manager using JPD",
@@ -182,6 +199,7 @@ func (g *warpGenerator) GenerateJPDWorkflows(outDir string) error {
 		"JPD Run":           "jpd-run.yaml",
 		"JPD Exec":          "jpd-exec.yaml",
 		"JPD DLX":           "jpd-dlx.yaml",
+		"JPD Create":        "jpd-create.yaml",
 		"JPD Update":        "jpd-update.yaml",
 		"JPD Uninstall":     "jpd-uninstall.yaml",
 		"JPD Clean Install": "jpd-clean-install.yaml",

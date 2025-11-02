@@ -183,6 +183,8 @@ jpd run [script] [args...] [flags]
 | Flag | Description |
 |------|-------------|
 | `--if-present` | Only run script if it exists |
+| `--auto-install` | Auto-install deps when missing. Effective default: true when script is `dev` or `start`; otherwise false |
+| `--no-volta` | Disable Volta integration during auto-install |
 
 ### Interactive Selection
 
@@ -191,6 +193,27 @@ When no script name is provided, jpd shows an interactive menu:
 ```bash
 # Shows list of available scripts to choose from
 jpd run
+```
+
+### Auto-install behavior
+
+- When running `dev` or `start`, jpd will auto-install dependencies if `node_modules` is missing.
+- For other scripts, auto-install is OFF by default; enable with `--auto-install`.
+- Deno projects are excluded (no `node_modules`).
+- If Volta is detected and the agent is npm, pnpm, or yarn, the install will be wrapped as `volta run <pm> install` unless `--no-volta` is passed.
+
+Examples:
+
+```bash
+# In a project without node_modules
+jpd run dev           # runs: <pm> install  -> then  <pm> run dev
+
+# For non-dev/start scripts
+jpd run test          # runs the script directly (no install)
+jpd run test --auto-install  # forces install before run when missing
+
+# Disable Volta during auto-install
+jpd run dev --no-volta
 ```
 
 ### Package Manager Mapping
@@ -343,6 +366,126 @@ jpd dlx <package> [args...]
 ```
 
 This command is functionally identical to `jpd exec` but provides a dedicated entry point for package execution workflows.
+
+---
+
+## create <Badge text="Alias: c" variant="tip" />
+
+Scaffold new projects using create runners from various package managers.
+
+### Usage
+
+```bash
+jpd create <name|url> [args...]
+```
+
+### Package Manager Support
+
+- **npm, pnpm, yarn, bun**: Accepts package names (e.g., `react-app`, `vite`, `next-app`)
+- **deno**: Accepts URLs to TypeScript scripts (e.g., `https://deno.land/x/fresh/init.ts`)
+
+### Flags
+
+- `--search`, `-s`: Search npm for popular `create-*` packages and select interactively
+- `--size <n>`: Number of results to show when `--search` is used (default: 25)
+
+### Passing flags to scaffolding tools
+
+- npm: jpd automatically inserts `--` so flags go to the scaffolder. Do not add another `--`; if you do, jpd will normalize it.
+- pnpm / yarn v2+ / bun: pass flags directly after your app name.
+- yarn v1: uses npx; pass flags directly after your app name.
+- deno: pass arguments directly after the URL.
+
+### Package Manager Mapping
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # jpd create react-app my-app
+    npm exec create-react-app -- my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    npm exec create-vite@latest -- my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v1">
+    ```bash
+    # jpd create react-app my-app
+    npx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    npx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="yarn v2+">
+    ```bash
+    # jpd create react-app my-app
+    yarn dlx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    yarn dlx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="pnpm">
+    ```bash
+    # jpd create react-app my-app
+    pnpm dlx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    pnpm dlx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="bun">
+    ```bash
+    # jpd create react-app my-app
+    bunx create-react-app my-app
+    
+    # jpd create vite@latest my-app -- --template react
+    bunx create-vite@latest my-app --template react
+    ```
+  </TabItem>
+  
+  <TabItem label="deno">
+    ```bash
+    # jpd create https://deno.land/x/fresh/init.ts my-app
+    deno run https://deno.land/x/fresh/init.ts my-app
+    
+    # jpd create https://raw.githubusercontent.com/denoland/fresh/main/init.ts my-fresh-app
+    deno run https://raw.githubusercontent.com/denoland/fresh/main/init.ts my-fresh-app
+    ```
+  </TabItem>
+</Tabs>
+
+### URL Validation for Deno
+
+When using jpd with deno, the first argument must be a valid HTTP or HTTPS URL:
+
+```bash
+# ✅ Valid - HTTPS URL
+jpd -a deno create https://deno.land/x/fresh/init.ts my-app
+
+# ✅ Valid - HTTP URL
+jpd -a deno create http://localhost:8000/init.ts my-app
+
+# ❌ Invalid - Package name not supported
+jpd -a deno create fresh my-app
+```
+
+For other package managers, URLs are not supported and will result in an error.
+
+### Automatic Create Prefix
+
+For npm, pnpm, yarn, and bun, jpd automatically adds the `create-` prefix if not already present:
+
+```bash
+# These are equivalent:
+jpd create react-app my-app
+jpd create create-react-app my-app
+```
 
 ---
 
