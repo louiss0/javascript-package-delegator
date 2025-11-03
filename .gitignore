@@ -32,3 +32,6 @@ bun.lockb
 .pnpm-store/
 .yarn/
 .npm/
+
+# Allow docs' lockfile for CI cache key
+!docs/pnpm-lock.yaml
