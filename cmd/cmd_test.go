@@ -83,7 +83,7 @@ func writeToFile(filename, content string) error {
 func makeTempDir(t *testing.T, cb func(string)) {
 	tempDir, err := os.MkdirTemp("", "jpd-test-")
 	assert.NoError(t, err)
-	err := os.RemoveAll(tempDir)
+	err = os.RemoveAll(tempDir)
 	assert.NoError(t, err)
 	cb(tempDir)
 }
