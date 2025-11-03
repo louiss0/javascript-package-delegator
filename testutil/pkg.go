@@ -439,8 +439,18 @@ func (f *RootCommandFactory) CreateBunAsDefault(err error) *cobra.Command {
 }
 
 // CreateDenoAsDefault creates a root command with "deno" as the default detected package manager,
-// simulating lockfile-based detection.
+// simulating lockfile-based detection. It also creates a temporary deno.json file.
 func (f *RootCommandFactory) CreateDenoAsDefault(err error) *cobra.Command {
+	// Create a mock deno.json for the test
+	denoJSONContent := `{
+  "tasks": {
+    "dev": "echo dev",
+    "build": "echo build",
+    "test": "echo test"
+  }
+}`
+	_ = os.WriteFile("deno.json", []byte(denoJSONContent), 0644)
+
 	return f.CreateRootCmdWithLockfileDetected("deno", detect.DENO_JSON, err, false)
 }
 
@@ -563,10 +573,21 @@ func (f *RootCommandFactory) CreateWithPackageManagerAndMultiSelectUI() *cobra.C
 }
 
 // CreateWithTaskSelectorUI creates a root command configured for task selection UI based on a
-// package manager detected via PATH.
+// package manager detected via PATH. It also creates a temporary package.json file with sample tasks.
 func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *cobra.Command {
 	// Original used DetectLockfile: "", nil and DetectJSPackageManagerBasedOnLockFile.
 	// Refactoring to explicitly use PATH detection for non-specific lockfile scenarios as per prompt.
+
+	// Create a mock package.json for the test
+	packageJSONContent := `{
+  "scripts": {
+    "dev": "echo dev",
+    "build": "echo build",
+    "test": "echo test"
+  }
+}`
+	_ = os.WriteFile("package.json", []byte(packageJSONContent), 0644)
+
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist
@@ -579,8 +600,21 @@ func (f *RootCommandFactory) CreateWithTaskSelectorUI(packageManager string) *co
 }
 
 // CreateWithDependencySelectUI creates a root command configured for dependency selection UI based on a
-// package manager detected via PATH.
+// package manager detected via PATH. It also creates a temporary package.json file with sample dependencies.
 func (f *RootCommandFactory) CreateWithDependencySelectUI(packageManager string) *cobra.Command {
+	// Create a mock package.json with dependencies for the test
+	packageJSONContent := `{
+  "dependencies": {
+    "lodash": "^4.17.0",
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
+}`
+	_ = os.WriteFile("package.json", []byte(packageJSONContent), 0644)
+
 	deps := f.baseDependencies()
 	deps.DetectLockfile = func(targetDir string) (lockfile string, err error) {
 		return "", os.ErrNotExist

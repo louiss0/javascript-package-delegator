@@ -41,7 +41,7 @@ func NewCleanInstallCmd(detectVolta func() bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean-install",
 		Short: "Clean install packages using the detected package manager",
-		Long: `Clean install packages using the appropriate package manager with frozen lockfile.
+		Long: `Perform a clean installation of dependencies from a lockfile using the appropriate package manager with frozen lockfile.
 Equivalent to 'nci' command - detects npm, yarn, pnpm, or bun and runs clean install.
 
 This command is designed for CI environments and production builds where you want to install
