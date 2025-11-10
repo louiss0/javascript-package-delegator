@@ -183,8 +183,6 @@ jpd run [script] [args...] [flags]
 | Flag | Description |
 |------|-------------|
 | `--if-present` | Only run script if it exists |
-| `--auto-install` | Auto-install deps when missing. Effective default: true when script is `dev` or `start`; otherwise false |
-| `--no-volta` | Disable Volta integration during auto-install |
 
 ### Interactive Selection
 
@@ -195,25 +193,21 @@ When no script name is provided, jpd shows an interactive menu:
 jpd run
 ```
 
-### Auto-install behavior
+### Need dependency bootstrapping?
 
-- When running `dev` or `start`, jpd will auto-install dependencies if `node_modules` is missing.
-- For other scripts, auto-install is OFF by default; enable with `--auto-install`.
-- Deno projects are excluded (no `node_modules`).
-- If Volta is detected and the agent is npm, pnpm, or yarn, the install will be wrapped as `volta run <pm> install` unless `--no-volta` is passed.
+`jpd run` now focuses purely on executing scripts. If you want jpd to handle dependency installation automatically (the old `--auto-install` behavior), use the dedicated `start` command instead. It runs your project's dev/start script and ensures dependencies exist before handing off to the package manager.
 
 Examples:
 
 ```bash
-# In a project without node_modules
-jpd run dev           # runs: <pm> install  -> then  <pm> run dev
+# Shows the interactive picker
+jpd run
 
-# For non-dev/start scripts
-jpd run test          # runs the script directly (no install)
-jpd run test --auto-install  # forces install before run when missing
+# Run a script and pass arguments through
+jpd run build -- --watch
 
-# Disable Volta during auto-install
-jpd run dev --no-volta
+# Skip missing scripts without failing CI
+jpd run lint --if-present
 ```
 
 ### Package Manager Mapping
@@ -275,6 +269,33 @@ jpd run dev --no-volta
     ```
   </TabItem>
 </Tabs>
+
+## start
+
+Opinionated helper for dev/start workflows with automatic dependency bootstrapping.
+
+### Usage
+
+```bash
+jpd start [args...]
+```
+
+### Behavior
+
+- Ensures `node_modules` exists before delegating to the package manager. If it's missing, jpd installs dependencies first.
+- Uses the same package manager, Volta detection, and cwd overrides as `run`.
+- Skips the install step for Deno projects (no `node_modules` to inspect).
+- Falls back to plain script execution when everything is already installed, so repeated runs stay fast.
+
+Examples:
+
+```bash
+# Start the dev server, installing deps if needed
+jpd start
+
+# Pass options through to the underlying script
+jpd start -- --host 0.0.0.0 --open
+```
 
 ---
 
