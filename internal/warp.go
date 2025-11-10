@@ -83,6 +83,18 @@ func (g *warpGenerator) getWorkflowDefinitions() []workflowDefinition {
 			},
 		},
 		{
+			Name:        "JPD Start",
+			Command:     "jpd start {{args}}",
+			Description: "Run dev/start scripts with dependency checks using JPD",
+			Arguments: []WarpWorkflowArgument{
+				{
+					Name:         "args",
+					Description:  "Additional arguments forwarded to the start script (use --script when needed)",
+					DefaultValue: nil,
+				},
+			},
+		},
+		{
 			Name:        "JPD Exec",
 			Command:     "jpd exec {{package}} {{args}}",
 			Description: "Execute packages using JPD",
@@ -197,6 +209,7 @@ func (g *warpGenerator) GenerateJPDWorkflows(outDir string) error {
 	filenameMap := map[string]string{
 		"JPD Install":       "jpd-install.yaml",
 		"JPD Run":           "jpd-run.yaml",
+		"JPD Start":         "jpd-start.yaml",
 		"JPD Exec":          "jpd-exec.yaml",
 		"JPD DLX":           "jpd-dlx.yaml",
 		"JPD Create":        "jpd-create.yaml",
