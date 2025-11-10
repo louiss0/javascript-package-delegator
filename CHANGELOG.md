@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Breaking
+- **run command**: Removed the `--auto-install` and `--no-volta` flags. `jpd run` now focuses strictly on running scripts; use `jpd start` for dependency bootstrapping.
+
+### Documentation
+- Document the new `start` command workflow and update the run command reference to reflect the removal of `--auto-install`.
 
 ## [3.0.0] - 2025-10-03
 
