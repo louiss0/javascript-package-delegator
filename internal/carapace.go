@@ -155,6 +155,18 @@ func (g *carapaceSpecGenerator) GenerateYAMLSpec(cmd *cobra.Command) (string, er
 				},
 				Completion: "$carapace.scripts.npm",
 			},
+			"start": {
+				Description: "Run dev/start scripts with dependency preflight",
+				Flags: map[string]FlagSpec{
+					"script": {
+						Description: "Script name to run instead of automatic detection",
+					},
+					"no-volta": {
+						Description: "Disable Volta integration during auto-install",
+					},
+				},
+				Completion: "$carapace.scripts.npm",
+			},
 			"exec": {
 				Description: "Execute packages (equivalent to 'nlx')",
 				Completion:  "$carapace.packages.npm",
