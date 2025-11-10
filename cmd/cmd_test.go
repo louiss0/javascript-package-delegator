@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
@@ -24,7 +22,6 @@ import (
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
-	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
 
@@ -80,19 +77,6 @@ func writeToFile(filename, content string) error {
 // When you use this function, make sure to pass the root command and any arguments you want to test.
 // The first argument after the rootCmd is any sub command or flag you want to test.
 // This function now properly preserves the command context with CommandRunner.
-
-func makeTempDir(t *testing.T, cb func(string)) {
-	tempDir, err := os.MkdirTemp("", "jpd-test-")
-	assert.NoError(t, err)
-	t.Cleanup(func() {
-		assert.NoError(t, os.RemoveAll(tempDir))
-	})
-	cb(tempDir)
-}
-
-// Test helper functions for standard Go tests (originally from testhelpers_test.go)
-
-// makeTempDir creates a temporary directory for the test
 
 func executeCmd(cmd *cobra.Command, args ...string) (string, error) {
 	// Save the original context to restore it later
@@ -2588,13 +2572,6 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				// Specific auto-install debug expectations for existing node_modules
-				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.NPM, true)
-				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
-				DebugExecutorExpectationManager.ExpectNodeModulesCheck(false)
-				DebugExecutorExpectationManager.ExpectHashComparison(true)
-				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
-
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
 
@@ -2650,13 +2627,6 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
-				// Specific auto-install debug expectations for pnpm
-				DebugExecutorExpectationManager.ExpectAutoInstallCheck("dev", detect.PNPM, true)
-				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
-				DebugExecutorExpectationManager.ExpectNodeModulesCheck(true)
-				DebugExecutorExpectationManager.ExpectHashComparison(true)
-				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
-
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
 
@@ -2683,13 +2653,6 @@ var _ = Describe("JPD Commands", func() {
 
 				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
 				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
-				// Specific auto-install debug expectations for start script
-				DebugExecutorExpectationManager.ExpectAutoInstallCheck("start", detect.NPM, true)
-				DebugExecutorExpectationManager.ExpectNodePMCheck(false)
-				DebugExecutorExpectationManager.ExpectNodeModulesCheck(true)
-				DebugExecutorExpectationManager.ExpectHashComparison(true)
-				DebugExecutorExpectationManager.ExpectUpdatedDependencyHash()
-
 				_, err = executeCmd(rootCmd, "run", "start")
 				assert.NoError(err)
 
@@ -4402,6 +4365,7 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(commandNames, "clean-install")
 			assert.Contains(commandNames, "agent")
 			assert.Contains(commandNames, "integrate")
+			assert.Contains(commandNames, "start")
 		})
 
 		It("should maintain command count", func() {
@@ -4412,7 +4376,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(10, userCommands)
+			assert.Equal(11, userCommands)
 		})
 	})
 
@@ -4504,6 +4468,7 @@ var _ = Describe("JPD Commands", func() {
 				}
 
 				for _, command := range validCommands {
+					command := command
 					It(fmt.Sprintf("should match '%s'", command), func() {
 						assert.True(regex.MatchString(command), "Command '%s' should match the regex", command)
 					})
@@ -4512,18 +4477,19 @@ var _ = Describe("JPD Commands", func() {
 
 			Context("rejects commands with insufficient words", func() {
 				invalidCommands := []string{
-					"npm install",  // only two words
-					"install yarn", // only two words
-					"deno",         // single word
-					"nix profile",  // only two words
-					"yarn",         // single word
-					"pnpm",         // single word
-					"brew install", // only two words
-					"sudo apt-get", // only two words
-					"",             // empty string
+					"npm install",
+					"install yarn",
+					"deno",
+					"nix profile",
+					"yarn",
+					"pnpm",
+					"brew install",
+					"sudo apt-get",
+					"",
 				}
 
 				for _, command := range invalidCommands {
+					command := command
 					It(fmt.Sprintf("should NOT match '%s'", command), func() {
 						assert.False(regex.MatchString(command), "Command '%s' should not match the regex", command)
 					})
@@ -4543,6 +4509,7 @@ var _ = Describe("JPD Commands", func() {
 				}
 
 				for _, command := range complexCommands {
+					command := command
 					It(fmt.Sprintf("should match complex command '%s'", command), func() {
 						assert.True(regex.MatchString(command), "Complex command '%s' should match the regex", command)
 					})
@@ -4550,25 +4517,25 @@ var _ = Describe("JPD Commands", func() {
 			})
 
 			Context("handles edge cases", func() {
-				It("should handle minimal three-word command", func() {
-					assert.True(regex.MatchString("a b c"), "minimal three-word command should match")
-				})
+				testCases := []struct {
+					command  string
+					expected bool
+					reason   string
+				}{
+					{"a b c", true, "minimal three-word command"},
+					{"a   b   c", true, "command with extra spaces"},
+					{"npm\tinstall\tpackage", true, "command with tabs"},
+					{"npm  install  package", true, "command with multiple spaces"},
+					{" npm install package ", false, "command with leading/trailing spaces should fail"},
+				}
 
-				It("should handle command with extra spaces", func() {
-					assert.True(regex.MatchString("a   b   c"), "command with extra spaces should match")
-				})
-
-				It("should handle command with tabs", func() {
-					assert.True(regex.MatchString("npm\tinstall\tpackage"), "command with tabs should match")
-				})
-
-				It("should handle command with multiple spaces", func() {
-					assert.True(regex.MatchString("npm  install  package"), "command with multiple spaces should match")
-				})
-
-				It("should reject command with leading/trailing spaces", func() {
-					assert.False(regex.MatchString(" npm install package "), "command with leading/trailing spaces should fail")
-				})
+				for _, tc := range testCases {
+					tc := tc
+					It(fmt.Sprintf("should handle '%s'", tc.command), func() {
+						result := regex.MatchString(tc.command)
+						assert.Equal(tc.expected, result, "Command '%s' %s", tc.command, tc.reason)
+					})
+				}
 			})
 		})
 
@@ -4586,366 +4553,30 @@ var _ = Describe("JPD Commands", func() {
 				err := writeToFile(filePath, content)
 				assert.NoError(err)
 
-				// Verify file exists and has correct content
 				fileContent, err := os.ReadFile(filePath)
 				assert.NoError(err)
 				assert.Equal(content, string(fileContent))
 			})
 
 			It("should return error when trying to write to directory", func() {
-				// Try to write to the directory path itself
 				err := writeToFile(tempDir, "content")
 				assert.Error(err)
+			})
+
+			It("should overwrite existing file", func() {
+				filePath := filepath.Join(tempDir, "test.txt")
+
+				err := writeToFile(filePath, "initial")
+				assert.NoError(err)
+
+				newContent := "overwritten content"
+				err = writeToFile(filePath, newContent)
+				assert.NoError(err)
+
+				fileContent, err := os.ReadFile(filePath)
+				assert.NoError(err)
+				assert.Equal(newContent, string(fileContent))
 			})
 		})
 	})
 })
-
-// Additional test functions from separate test files (consolidated)
-
-func TestNewDlxCmd_Aliases(t *testing.T) {
-	// Arrange: Create the dlx command
-	dlxCmd := cmd.NewDlxCmd()
-
-	// Act: Get the aliases
-	actualAliases := dlxCmd.Aliases
-
-	// Assert: Should contain "x"
-	found := false
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Errorf("NewDlxCmd().Aliases should contain 'x', but got %v", actualAliases)
-	}
-}
-
-func TestNewExecCmd_Aliases(t *testing.T) {
-	// Arrange: Create the exec command
-	execCmd := cmd.NewExecCmd()
-
-	// Act: Get the aliases
-	actualAliases := execCmd.Aliases
-
-	// Assert: Should only contain "e", NOT "x"
-	expectedAliases := []string{"e"}
-
-	if len(actualAliases) != len(expectedAliases) {
-		t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-		return
-	}
-
-	for i, alias := range actualAliases {
-		if alias != expectedAliases[i] {
-			t.Errorf("NewExecCmd().Aliases = %v, want %v", actualAliases, expectedAliases)
-			return
-		}
-	}
-
-	// Also explicitly assert that "x" is NOT present
-	for _, alias := range actualAliases {
-		if alias == "x" {
-			t.Errorf("NewExecCmd().Aliases should NOT contain 'x', but found it in %v", actualAliases)
-		}
-	}
-}
-
-func TestValidInstallCommandStringRegex(t *testing.T) {
-	regex := regexp.MustCompile(cmd.VALID_INSTALL_COMMAND_STRING_RE)
-
-	t.Run("accepts valid commands with three or more words", func(t *testing.T) {
-		validCommands := []string{
-			"npm install -g npm",
-			"yarn global add yarn",
-			"pnpm add -g pnpm",
-			"bun install -g bun",
-			"deno install --allow-net deno",
-			"sudo apt-get install nodejs",
-			"brew install pnpm",
-			"winget install Microsoft.VisualStudioCode",
-			"choco install nodejs",
-			"dnf install yarn",
-			"yum install nodejs",
-			"zypper install pnpm",
-			"apk add deno",
-			"nix-env -iA nixpkgs.nodejs",
-			"nix profile install nixpkgs#yarn",
-			"pacman -S git",
-			"apt install curl wget zip",
-			"brew cask install docker",
-		}
-
-		for _, command := range validCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("rejects commands with insufficient words", func(t *testing.T) {
-		invalidCommands := []string{
-			"npm install",  // only two words
-			"install yarn", // only two words
-			"deno",         // single word
-			"nix profile",  // only two words
-			"yarn",         // single word
-			"pnpm",         // single word
-			"brew install", // only two words
-			"sudo apt-get", // only two words
-			"",             // empty string
-		}
-
-		for _, command := range invalidCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.False(t, regex.MatchString(command),
-					"Command '%s' should not match the regex", command)
-			})
-		}
-	})
-
-	t.Run("accepts commands with complex arguments", func(t *testing.T) {
-		complexCommands := []string{
-			"npm install --save-dev typescript @types/node",
-			"yarn add --dev jest @testing-library/react",
-			"pnpm install --global --force typescript",
-			"deno install --allow-net --allow-read https://deno.land/std/http/file_server.ts",
-			"sudo apt-get install --yes --quiet nodejs npm",
-			"brew install --cask --verbose docker",
-			"winget install --id Microsoft.VisualStudioCode --exact",
-			"nix-env --install --attr nixpkgs.nodejs",
-		}
-
-		for _, command := range complexCommands {
-			t.Run(command, func(t *testing.T) {
-				assert.True(t, regex.MatchString(command),
-					"Complex command '%s' should match the regex", command)
-			})
-		}
-	})
-
-	t.Run("handles edge cases", func(t *testing.T) {
-		testCases := []struct {
-			command  string
-			expected bool
-			reason   string
-		}{
-			{"a b c", true, "minimal three-word command"},
-			{"a   b   c", true, "command with extra spaces"},
-			{"npm\tinstall\tpackage", true, "command with tabs"},
-			{"npm  install  package", true, "command with multiple spaces"},
-			{" npm install package ", false, "command with leading/trailing spaces should fail"},
-		}
-
-		for _, testCase := range testCases {
-			t.Run(testCase.command, func(t *testing.T) {
-				result := regex.MatchString(testCase.command)
-				assert.Equal(t, testCase.expected, result,
-					"Command '%s' %s", testCase.command, testCase.reason)
-			})
-		}
-	})
-}
-
-func TestWriteToFile(t *testing.T) {
-	t.Run("writes content to file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-			content := "test content\nline 2"
-
-			err := writeToFile(filePath, content)
-			assert.NoError(t, err)
-
-			// Verify file exists and has correct content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, content, string(fileContent))
-		})
-	})
-
-	t.Run("returns error when trying to write to directory", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			// Try to write to the directory path itself
-			err := writeToFile(tempDir, "content")
-			assert.Error(t, err)
-			// Error should be about permissions or that it's a directory
-		})
-	})
-
-	t.Run("overwrites existing file", func(t *testing.T) {
-		makeTempDir(t, func(tempDir string) {
-			filePath := filepath.Join(tempDir, "test.txt")
-
-			// Write initial content
-			err := writeToFile(filePath, "initial")
-			assert.NoError(t, err)
-
-			// Overwrite with new content
-			newContent := "overwritten content"
-			err = writeToFile(filePath, newContent)
-			assert.NoError(t, err)
-
-			// Verify new content
-			fileContent, err := os.ReadFile(filePath)
-			assert.NoError(t, err)
-			assert.Equal(t, newContent, string(fileContent))
-		})
-	})
-
-}
-
-// Mock structures for --cwd integration tests (merged from root_cwd_integration_test.go)
-type MockFileSystemCwd struct {
-	files map[string]bool
-	cwd   string
-}
-
-func (m *MockFileSystemCwd) Exists(path string) bool {
-	return m.files[path]
-}
-
-func (m *MockFileSystemCwd) Getwd() (string, error) {
-	if m.cwd != "" {
-		return m.cwd, nil
-	}
-	return os.Getwd()
-}
-
-func (m *MockFileSystemCwd) Stat(name string) (os.FileInfo, error) {
-	if m.files[name] {
-		// Return a mock FileInfo for existing files
-		return &mockFileInfo{name: filepath.Base(name)}, nil
-	}
-	return nil, os.ErrNotExist
-}
-
-// mockFileInfo implements os.FileInfo for testing
-type mockFileInfo struct {
-	name string
-}
-
-func (m *mockFileInfo) Name() string       { return m.name }
-func (m *mockFileInfo) Size() int64        { return 0 }
-func (m *mockFileInfo) Mode() os.FileMode  { return 0644 }
-func (m *mockFileInfo) ModTime() time.Time { return time.Now() }
-func (m *mockFileInfo) IsDir() bool        { return false }
-func (m *mockFileInfo) Sys() interface{}   { return nil }
-
-type MockPathLookupCwd struct {
-	paths map[string]bool
-}
-
-func (m *MockPathLookupCwd) LookPath(executable string) (string, error) {
-	if m.paths[executable] {
-		return "/usr/bin/" + executable, nil
-	}
-	return "", fmt.Errorf("executable file not found in $PATH")
-}
-
-type FakeCommandRunnerCwd struct {
-	lastCommand string
-	lastArgs    []string
-	lastWorkDir string
-}
-
-func (f *FakeCommandRunnerCwd) Command(name string, arg ...string) {
-	f.lastCommand = name
-	f.lastArgs = arg
-}
-
-func (f *FakeCommandRunnerCwd) SetTargetDir(dir string) error {
-	f.lastWorkDir = dir
-	return nil
-}
-
-func (f *FakeCommandRunnerCwd) Run() error {
-	return nil
-}
-
-type MockYarnVersionOutputterCwd struct {
-	version string
-}
-
-func (m *MockYarnVersionOutputterCwd) Output() (string, error) {
-	return m.version, nil
-}
-
-type mockCommandTextUICwd struct {
-	lockfile string
-	value    string
-}
-
-func (m *mockCommandTextUICwd) Run() error {
-	m.value = "npm install -g pnpm" // Default valid command
-	return nil
-}
-
-func (m *mockCommandTextUICwd) Value() string {
-	return m.value
-}
-
-func newMockCommandTextUICwd(lockfile string) cmd.CommandUITexter {
-	return &mockCommandTextUICwd{lockfile: lockfile}
-}
-
-type mockPackageMultiSelectUICwd struct{}
-
-func (m *mockPackageMultiSelectUICwd) Run() error {
-	return nil
-}
-
-func (m *mockPackageMultiSelectUICwd) Values() []string {
-	return []string{"test-package@1.0.0"}
-}
-
-func newMockPackageMultiSelectUICwd(packageInfos []services.PackageInfo) cmd.MultiUISelecter {
-	return &mockPackageMultiSelectUICwd{}
-}
-
-type mockTaskSelectorUICwd struct {
-	value string
-}
-
-func (m *mockTaskSelectorUICwd) Run() error {
-	m.value = "dev" // Default task selection
-	return nil
-}
-
-func (m *mockTaskSelectorUICwd) Value() string {
-	return m.value
-}
-
-func newMockTaskSelectorUICwd(options []string) cmd.TaskUISelector {
-	return &mockTaskSelectorUICwd{}
-}
-
-type mockDependencyMultiSelectUICwd struct {
-	values []string
-}
-
-func (m *mockDependencyMultiSelectUICwd) Run() error {
-	m.values = []string{"lodash@4.17.21"} // Default dependency selection
-	return nil
-}
-
-func (m *mockDependencyMultiSelectUICwd) Values() []string {
-	return m.values
-}
-
-func newMockDependencyMultiSelectUICwd(options []string) cmd.DependencyUIMultiSelector {
-	return &mockDependencyMultiSelectUICwd{}
-}
-
-type mockDebugExecutorCwd struct{}
-
-func (m *mockDebugExecutorCwd) ExecuteIfDebugIsTrue(cb func())                                  {}
-func (m *mockDebugExecutorCwd) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...interface{}) {}
-func (m *mockDebugExecutorCwd) LogJSCommandIfDebugIsTrue(name string, args ...string)           {}
-
-func newMockDebugExecutorCwd(debug bool) cmd.DebugExecutor {
-	return &mockDebugExecutorCwd{}
-}
