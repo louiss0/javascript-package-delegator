@@ -500,6 +500,7 @@ Available commands:
 	// Add all subcommands
 	cmd.AddCommand(NewInstallCmd(deps.DetectVolta, deps.NewPackageMultiSelectUI))
 	cmd.AddCommand(NewRunCmd(deps.NewTaskSelectorUI))
+	cmd.AddCommand(NewStartCmd())
 	cmd.AddCommand(NewExecCmd())
 	cmd.AddCommand(NewDlxCmd())
 	// Defensive: default to real service if test deps didn’t set NewCreateAppSearcher

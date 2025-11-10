@@ -3964,7 +3964,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(10, userCommands)
+			assert.Equal(11, userCommands)
 		})
 	})
 
