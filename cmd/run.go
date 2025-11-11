@@ -315,40 +315,12 @@ Examples:
 						}
 					}
 
-				} else if pm == "deno" {
-					// Deno import accessibility checks
-					importValues, err := deps.ExtractImportsFromDenoJSON(baseDir)
-					if err == nil && len(importValues) > 0 {
-						// Check first few imports to avoid excessive process spawning
-						const maxImportChecks = 5
-						checksToRun := importValues
-						if len(checksToRun) > maxImportChecks {
-							checksToRun = checksToRun[:maxImportChecks]
-						}
-
-						missingImports := 0
-						for _, importURL := range checksToRun {
-							de.LogJSCommandIfDebugIsTrue("deno", "info", "--json", importURL)
-
-							// Check if import is resolvable
-							infoCmd := cmdRunner
-							infoCmd.Command("deno", "info", "--json", importURL)
-							if err := infoCmd.Run(); err != nil {
-								// Import is not resolvable/cached
-								missingImports++
-							}
-						}
-
-						if missingImports > 0 {
-							shouldInstall = true
-							installReason.WriteString(fmt.Sprintf("%d unresolvable imports; ", missingImports))
-
-							if goEnv.IsDevelopmentMode() {
-								de.LogDebugMessageIfDebugIsTrue("Import check", "checked", len(checksToRun), "missing", missingImports)
-							}
-						}
+				} else {
+					if goEnv.IsDevelopmentMode() {
+						de.LogDebugMessageIfDebugIsTrue(
+							"Skipping Deno auto-install; handled by start command",
+						)
 					}
-
 				}
 
 				// Perform installation if needed
@@ -389,19 +361,6 @@ Examples:
 									de.LogDebugMessageIfDebugIsTrue("Updated dependency hash", "hash", hashShort)
 								}
 							}
-						}
-					} else {
-						// Deno cache/install
-						de.LogJSCommandIfDebugIsTrue("deno", "cache", "deno.json")
-						cmdRunner.Command("deno", "cache", "deno.json")
-						if err := cmdRunner.Run(); err != nil {
-							// Don't fail hard on deno cache errors, just log
-							if goEnv.IsDevelopmentMode() {
-								de.LogDebugMessageIfDebugIsTrue("Deno cache failed, continuing", "error", err)
-							}
-						} else {
-							// Update hash after successful caching
-							// Nothing to persist for Deno; rely on Deno's cache directory instead
 						}
 					}
 				}

@@ -552,6 +552,33 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.NoError(err)
 			assert.Equal(currentHash, retrievedHash)
 		})
+
+		It("should return empty Deno hash when storage file is absent", func() {
+			tempDir := GinkgoT().TempDir()
+
+			storedHash, err := deps.ReadStoredDenoDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Empty(storedHash)
+		})
+
+		It("should persist and read back the Deno imports hash", func() {
+			tempDir := GinkgoT().TempDir()
+
+			denoJSON := `{ "imports": { "fmt": "https://deno.land/std@0.208.0/fmt/mod.ts" } }`
+			err := os.WriteFile(filepath.Join(tempDir, "deno.json"), []byte(denoJSON), 0644)
+			assert.NoError(err)
+
+			currentHash, err := deps.ComputeDenoImportsHash(tempDir)
+			assert.NoError(err)
+			assert.NotEmpty(currentHash)
+
+			err = deps.WriteStoredDenoDepsHash(tempDir, currentHash)
+			assert.NoError(err)
+
+			storedHash, err := deps.ReadStoredDenoDepsHash(tempDir)
+			assert.NoError(err)
+			assert.Equal(currentHash, storedHash)
+		})
 	})
 
 	Context("Extractors", func() {

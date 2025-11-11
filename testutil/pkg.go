@@ -101,6 +101,18 @@ func (m *debugExecutorExpectationManager) ExpectAnyDebugMessages() {
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
+	m.DebugExecutor.On(
+		"LogDebugMessageIfDebugIsTrue",
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+		tmock.Anything,
+	).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything, tmock.Anything).Return().Maybe()
 	m.DebugExecutor.On("LogDebugMessageIfDebugIsTrue", tmock.Anything).Return().Maybe()

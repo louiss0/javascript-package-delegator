@@ -23,6 +23,7 @@ import (
 	"github.com/louiss0/javascript-package-delegator/cmd"
 	"github.com/louiss0/javascript-package-delegator/detect"
 	"github.com/louiss0/javascript-package-delegator/env"
+	"github.com/louiss0/javascript-package-delegator/internal/deps"
 	"github.com/louiss0/javascript-package-delegator/mock" // Import the mock package
 	"github.com/louiss0/javascript-package-delegator/services"
 	"github.com/louiss0/javascript-package-delegator/testutil"
@@ -2189,6 +2190,134 @@ var _ = Describe("JPD Commands", func() {
 					mockCommandRunner.HasCommand("npm", "run", "dev") ||
 					mockCommandRunner.HasCommand("npm", "run", "test")
 				assert.True(hasCommand)
+			})
+		})
+	})
+
+	const StartCommand = "Start Command"
+	Describe(StartCommand, func() {
+
+		var startCmd *cobra.Command
+
+		BeforeEach(func() {
+			startCmd, _ = getSubCommandWithName(rootCmd, "start")
+		})
+
+		It("should show help", func() {
+			output, err := executeCmd(rootCmd, "start", "--help")
+			assert.NoError(err)
+			assert.Contains(output, "Start projects with optional preflight")
+			assert.Contains(output, "jpd start")
+		})
+
+		It("should have correct aliases", func() {
+			assert.Contains(startCmd.Aliases, "s")
+		})
+
+		Context("deno", func() {
+			writeDenoProject := func(dir string) {
+				denoJSON := `{ "imports": { "fmt": "https://deno.land/std@0.208.0/fmt/mod.ts" }, "tasks": { "start": "deno run start.ts" } }`
+				err := os.WriteFile(filepath.Join(dir, "deno.json"), []byte(denoJSON), 0644)
+				assert.NoError(err)
+			}
+
+			It("should warm the Deno cache when no hash is stored", func() {
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					_ = os.Chdir(originalDir)
+				})
+
+				writeDenoProject(testDir)
+
+				denoRootCmd := factory.CreateDenoAsDefault(nil)
+
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "cache", "deno.json")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "task", "start")
+
+				_, err = executeCmd(denoRootCmd, "start")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "task", "start"))
+
+				info, err := os.Stat(filepath.Join(testDir, deps.DenoDepsHashFile))
+				assert.NoError(err)
+				assert.False(info.IsDir())
+			})
+
+			It("should reuse the cached hash when unchanged", func() {
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					_ = os.Chdir(originalDir)
+				})
+
+				writeDenoProject(testDir)
+
+				hash, err := deps.ComputeDenoImportsHash(testDir)
+				assert.NoError(err)
+				err = deps.WriteStoredDenoDepsHash(testDir, hash)
+				assert.NoError(err)
+
+				infoBefore, err := os.Stat(filepath.Join(testDir, deps.DenoDepsHashFile))
+				assert.NoError(err)
+
+				denoRootCmd := factory.CreateDenoAsDefault(nil)
+
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "task", "start")
+
+				_, err = executeCmd(denoRootCmd, "start")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "task", "start"))
+
+				infoAfter, err := os.Stat(filepath.Join(testDir, deps.DenoDepsHashFile))
+				assert.NoError(err)
+				assert.Equal(infoBefore.ModTime(), infoAfter.ModTime())
+			})
+
+			It("should force a reload of the cache when requested", func() {
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					_ = os.Chdir(originalDir)
+				})
+
+				writeDenoProject(testDir)
+
+				hash, err := deps.ComputeDenoImportsHash(testDir)
+				assert.NoError(err)
+				err = deps.WriteStoredDenoDepsHash(testDir, hash)
+				assert.NoError(err)
+
+				infoBefore, err := os.Stat(filepath.Join(testDir, deps.DenoDepsHashFile))
+				assert.NoError(err)
+
+				denoRootCmd := factory.CreateDenoAsDefault(nil)
+
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.DENO, detect.DENO_JSON)
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "cache", "--reload", "deno.json")
+				DebugExecutorExpectationManager.ExpectJSCommandLog("deno", "task", "start")
+
+				_, err = executeCmd(denoRootCmd, "start", "--reload-cache")
+				assert.NoError(err)
+				assert.True(mockCommandRunner.HasCommand("deno", "task", "start"))
+
+				infoAfter, err := os.Stat(filepath.Join(testDir, deps.DenoDepsHashFile))
+				assert.NoError(err)
+				assert.False(infoAfter.ModTime().Before(infoBefore.ModTime()))
 			})
 		})
 	})
@@ -4426,7 +4555,7 @@ var _ = Describe("JPD Commands", func() {
 					userCommands++
 				}
 			}
-			assert.Equal(10, userCommands)
+			assert.Equal(11, userCommands)
 		})
 	})
 

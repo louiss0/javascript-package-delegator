@@ -13,6 +13,9 @@ import (
 // DepsHashFile is the filename for storing the computed dependency hash
 const DepsHashFile = ".jpd-deps-hash"
 
+// DenoDepsHashFile stores the computed Deno import hash alongside deno.json.
+const DenoDepsHashFile = ".jpd-deno-deps-hash"
+
 // ErrHashStorageUnavailable indicates that the dependency hash cannot be persisted
 // for the given project (for example, when node_modules is absent as in Deno projects).
 var ErrHashStorageUnavailable = errors.New("dependency hash storage unavailable")
@@ -65,5 +68,28 @@ func WriteStoredDepsHash(cwd, hash string) error {
 	// Write hash with trailing newline for better file handling
 	content := hash + "\n"
 
+	return os.WriteFile(hashFilePath, []byte(content), 0644)
+}
+
+// ReadStoredDenoDepsHash loads the stored Deno imports hash from the project root.
+// If the file does not exist, an empty string is returned.
+func ReadStoredDenoDepsHash(cwd string) (string, error) {
+	hashFilePath := filepath.Join(cwd, DenoDepsHashFile)
+
+	data, err := os.ReadFile(hashFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return strings.TrimSpace(string(data)), nil
+}
+
+// WriteStoredDenoDepsHash persists the Deno imports hash in the project root.
+func WriteStoredDenoDepsHash(cwd, hash string) error {
+	hashFilePath := filepath.Join(cwd, DenoDepsHashFile)
+	content := hash + "\n"
 	return os.WriteFile(hashFilePath, []byte(content), 0644)
 }
