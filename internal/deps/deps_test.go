@@ -369,8 +369,39 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			})
 		})
 
+		Context("Deno hash storage", func() {
+			It("should return empty string when Deno hash file doesn't exist", func() {
+				tempDir := GinkgoT().TempDir()
+
+				hash, err := deps.ReadStoredDenoDepsHash(tempDir)
+				assert.NoError(err)
+				assert.Empty(hash)
+			})
+
+			It("should write and read Deno hash in project root", func() {
+				tempDir := GinkgoT().TempDir()
+				expectedHash := "deno-hash-123"
+
+				err := deps.WriteStoredDenoDepsHash(tempDir, expectedHash)
+				assert.NoError(err)
+
+				hash, err := deps.ReadStoredDenoDepsHash(tempDir)
+				assert.NoError(err)
+				assert.Equal(expectedHash, hash)
+
+				hashFilePath := filepath.Join(tempDir, deps.DenoDepsHashFile)
+				content, err := os.ReadFile(hashFilePath)
+				assert.NoError(err)
+				assert.Equal(expectedHash+"\n", string(content))
+			})
+		})
+
 		It("should verify DepsHashFile constant", func() {
 			assert.Equal(".jpd-deps-hash", deps.DepsHashFile)
+		})
+
+		It("should verify DenoDepsHashFile constant", func() {
+			assert.Equal(".jpd-deno-deps-hash", deps.DenoDepsHashFile)
 		})
 	})
 
@@ -420,11 +451,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 		It("should handle complete Deno import workflow", func() {
 			tempDir := GinkgoT().TempDir()
 			denoJSON := `{
-				"imports": {
-					"lodash": "https://deno.land/x/lodash@4.17.21/mod.ts",
-					"react": "https://esm.sh/react@18.2.0"
-				}
-			}`
+                                "imports": {
+                                        "lodash": "https://deno.land/x/lodash@4.17.21/mod.ts",
+                                        "react": "https://esm.sh/react@18.2.0"
+                                }
+                        }`
 
 			// Create deno.json
 			denoJSONPath := filepath.Join(tempDir, "deno.json")
@@ -436,17 +467,12 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.NoError(err)
 			assert.NotEmpty(hash1)
 
-			// Create node_modules directory first
-			nodeModulesPath := filepath.Join(tempDir, "node_modules")
-			err = os.MkdirAll(nodeModulesPath, 0755)
-			assert.NoError(err)
-
-			// Store the hash
-			err = deps.WriteStoredDepsHash(tempDir, hash1)
+			// Store the hash in the Deno-specific file
+			err = deps.WriteStoredDenoDepsHash(tempDir, hash1)
 			assert.NoError(err)
 
 			// Read it back and verify
-			storedHash, err := deps.ReadStoredDepsHash(tempDir)
+			storedHash, err := deps.ReadStoredDenoDepsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(hash1, storedHash)
 
@@ -454,6 +480,11 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			hash2, err := deps.ComputeDenoImportsHash(tempDir)
 			assert.NoError(err)
 			assert.Equal(hash1, hash2, "Hash should be consistent")
+
+			// Verify config resolution returns the created file
+			configPath, err := deps.DenoConfigPath(tempDir)
+			assert.NoError(err)
+			assert.Equal(denoJSONPath, configPath)
 		})
 
 		It("should verify auto-install detection works after WriteStoredDepsHash fix", func() {
@@ -605,7 +636,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			err = os.WriteFile("deno.jsonc", []byte(denoJSONC), 0644)
 			assert.NoError(err)
 
-			vals, err := deps.ExtractImportsFromDenoJSON()
+			vals, err := deps.ExtractImportsFromDenoJSON(tempDir)
 			assert.NoError(err)
 			assert.ElementsMatch([]string{"https://deno.land/x/lodash@4.17.21/mod.ts"}, vals)
 		})
@@ -620,7 +651,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			_, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
 			assert.Error(err)
 
-			_, err = deps.ExtractImportsFromDenoJSON()
+			_, err = deps.ExtractImportsFromDenoJSON(tempDir)
 			assert.Error(err)
 		})
 	})

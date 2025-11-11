@@ -50,27 +50,14 @@ func ExtractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 // ExtractImportsFromDenoJSON reads deno.json (or deno.jsonc if deno.json doesn't exist)
 // and extracts import values from the "imports" field.
 // Returns a slice of import URLs/paths.
-func ExtractImportsFromDenoJSON() ([]string, error) {
+func ExtractImportsFromDenoJSON(cwd string) ([]string, error) {
 	type DenoJSONDependencies struct {
 		Imports map[string]string `json:"imports"`
 	}
 
-	cwd, err := os.Getwd()
+	denoFilePath, err := DenoConfigPath(cwd)
 	if err != nil {
 		return nil, err
-	}
-
-	// Try deno.json first, then deno.jsonc
-	var denoFilePath string
-	denoJSONPath := filepath.Join(cwd, "deno.json")
-	denoJSONCPath := filepath.Join(cwd, "deno.jsonc")
-
-	if _, err := os.Stat(denoJSONPath); err == nil {
-		denoFilePath = denoJSONPath
-	} else if _, err := os.Stat(denoJSONCPath); err == nil {
-		denoFilePath = denoJSONCPath
-	} else {
-		return nil, fmt.Errorf("failed to find deno.json or deno.jsonc")
 	}
 
 	data, err := os.ReadFile(denoFilePath)
@@ -92,4 +79,20 @@ func ExtractImportsFromDenoJSON() ([]string, error) {
 	importValues := lo.Values(pkg.Imports)
 
 	return importValues, nil
+}
+
+// DenoConfigPath returns the path to deno.json (preferring it over deno.jsonc) for the
+// provided working directory.
+func DenoConfigPath(cwd string) (string, error) {
+	denoJSONPath := filepath.Join(cwd, "deno.json")
+	if _, err := os.Stat(denoJSONPath); err == nil {
+		return denoJSONPath, nil
+	}
+
+	denoJSONCPath := filepath.Join(cwd, "deno.jsonc")
+	if _, err := os.Stat(denoJSONCPath); err == nil {
+		return denoJSONCPath, nil
+	}
+
+	return "", fmt.Errorf("failed to find deno.json or deno.jsonc in %s", cwd)
 }

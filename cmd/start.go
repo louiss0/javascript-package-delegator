@@ -266,7 +266,7 @@ func autoInstallDependenciesIfNeeded(
 			}
 		}
 	} else {
-		importValues, err := deps.ExtractImportsFromDenoJSON()
+		importValues, err := deps.ExtractImportsFromDenoJSON(baseDir)
 		if err == nil && len(importValues) > 0 {
 			const maxImportChecks = 5
 			checksToRun := importValues
@@ -296,7 +296,7 @@ func autoInstallDependenciesIfNeeded(
 
 		currentHash, err := deps.ComputeDenoImportsHash(baseDir)
 		if err == nil {
-			storedHash, err := deps.ReadStoredDepsHash(baseDir)
+			storedHash, err := deps.ReadStoredDenoDepsHash(baseDir)
 			if err == nil {
 				hashMismatch := storedHash == "" || currentHash != storedHash
 				if hashMismatch {
@@ -370,15 +370,20 @@ func autoInstallDependenciesIfNeeded(
 			}
 		}
 	} else {
-		de.LogJSCommandIfDebugIsTrue("deno", "cache", "deno.json")
-		cmdRunner.Command("deno", "cache", "deno.json")
+		denoConfigPath, err := deps.DenoConfigPath(baseDir)
+		if err != nil {
+			return fmt.Errorf("failed to locate Deno config for caching: %w", err)
+		}
+
+		de.LogJSCommandIfDebugIsTrue("deno", "cache", denoConfigPath)
+		cmdRunner.Command("deno", "cache", denoConfigPath)
 		if err := cmdRunner.Run(); err != nil {
 			if goEnv.IsDevelopmentMode() {
 				de.LogDebugMessageIfDebugIsTrue("Deno cache failed, continuing", "error", err)
 			}
 		} else {
 			if newHash, err := deps.ComputeDenoImportsHash(baseDir); err == nil {
-				if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
+				if err := deps.WriteStoredDenoDepsHash(baseDir, newHash); err == nil {
 					if goEnv.IsDevelopmentMode() {
 						hashShort := ""
 						if len(newHash) >= 8 {

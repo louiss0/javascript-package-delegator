@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -56,6 +57,17 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
 
+			targetDir, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to parse --%s flag: %w", _CWD_FLAG, err)
+			}
+			if targetDir == "" {
+				targetDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to determine working directory: %w", err)
+				}
+			}
+
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
@@ -86,7 +98,7 @@ Examples:
 
 				if packageIsDeno {
 
-					dependencies, err = deps.ExtractImportsFromDenoJSON()
+					dependencies, err = deps.ExtractImportsFromDenoJSON(targetDir)
 					if err != nil {
 						return err
 					}
