@@ -172,12 +172,15 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'docs/pnpm-lock.yaml'
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: "docs/pnpm-lock.yaml"
 
       - name: Verify pnpm availability
         run: pnpm --version
+
+      - name: Install patch-package CLI (Rollup postinstall dependency)
+        run: npm install -g patch-package@8
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
