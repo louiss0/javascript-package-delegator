@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -394,36 +393,4 @@ func autoInstallDependenciesIfNeeded(
 	}
 
 	return nil
-}
-
-// readPackageJSONAndUnmarshalScriptsFrom reads package.json from the specified directory.
-func readPackageJSONAndUnmarshalScriptsFrom(baseDir string) (*PackageJSONScripts, error) {
-	packageJSONPath := filepath.Join(baseDir, "package.json")
-	data, err := os.ReadFile(packageJSONPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read package.json: %w", err)
-	}
-
-	var pkg PackageJSONScripts
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, fmt.Errorf("failed to parse package.json: %w", err)
-	}
-
-	return &pkg, nil
-}
-
-// readDenoJSONFrom reads deno.json from the specified directory.
-func readDenoJSONFrom(baseDir string) (*DenoJSON, error) {
-	denoJSONPath := filepath.Join(baseDir, "deno.json")
-	data, err := os.ReadFile(denoJSONPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read deno.json: %w", err)
-	}
-
-	var pkg DenoJSON
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, fmt.Errorf("failed to parse deno.json: %w", err)
-	}
-
-	return &pkg, nil
 }

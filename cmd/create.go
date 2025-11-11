@@ -211,8 +211,36 @@ Examples:
 			for i := 0; i < len(args); i++ {
 				arg := args[i]
 				switch {
+				case strings.HasPrefix(arg, "--search="):
+					search = true
+					value := strings.TrimPrefix(arg, "--search=")
+					if value == "" {
+						return fmt.Errorf("flag needs an argument: --search")
+					}
+					if createAppQuery != "" {
+						return fmt.Errorf("when using the --search flag, you cannot pass any other arguments")
+					}
+					createAppQuery = value
+				case strings.HasPrefix(arg, "-s="):
+					search = true
+					value := strings.TrimPrefix(arg, "-s=")
+					if value == "" {
+						return fmt.Errorf("flag needs an argument: --search")
+					}
+					if createAppQuery != "" {
+						return fmt.Errorf("when using the --search flag, you cannot pass any other arguments")
+					}
+					createAppQuery = value
 				case arg == "--search" || arg == "-s":
 					search = true
+					if createAppQuery != "" {
+						return fmt.Errorf("when using the --search flag, you cannot pass any other arguments")
+					}
+					if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+						return fmt.Errorf("flag needs an argument: --search")
+					}
+					i++
+					createAppQuery = args[i]
 				case arg == "--size":
 					if i+1 < len(args) {
 						i++
@@ -250,6 +278,14 @@ Examples:
 			}
 
 			// Validate arguments
+			if search && createAppQuery == "" {
+				return fmt.Errorf("flag needs an argument: --search")
+			}
+
+			if search && len(packageArgs) > 0 {
+				return fmt.Errorf("when using the --search flag, you cannot pass any other arguments")
+			}
+
 			if !search && createAppQuery == "" {
 				return fmt.Errorf("requires at least 1 arg(s), only received 0")
 			}

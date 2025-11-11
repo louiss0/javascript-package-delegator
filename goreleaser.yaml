@@ -149,18 +149,7 @@ winget:
       #
       # Templates: allowed.
       name: winget-pkgs
-
-      # Repository branch.
-      #
-      # Templates: allowed.
-      branch: "{{.ProjectName}}-{{.Version}}"
-      pull_request:
-        enabled: true
-        base:
-          name: winget-pkgs
-          owner: microsoft
-          branch: master
-
+    
       # For uploading to git!
       git:
         url: git@github.com:louiss0/winget-pkgs.git

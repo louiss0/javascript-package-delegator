@@ -13,7 +13,7 @@ func NewUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [packages...]",
 		Short: "Update packages using the detected package manager",
-		Long: `Update packages using the appropriate package manager.
+		Long: `Update packages to their latest versions using the appropriate package manager.
 Equivalent to 'nup' command - detects npm, yarn, pnpm, or bun and runs the update command.
 
 Examples:
@@ -55,16 +55,7 @@ Examples:
 					cmdArgs = append(cmdArgs, "--global")
 				}
 				if latest {
-					// For npm, we need to use install with @latest
-					if len(args) > 0 {
-						cmdArgs = []string{"install"}
-						for _, pkg := range args {
-							cmdArgs = append(cmdArgs, pkg+"@latest")
-						}
-						if global {
-							cmdArgs = append(cmdArgs, "--global")
-						}
-					}
+					cmdArgs = append(cmdArgs, "--latest")
 				}
 
 			case "yarn":
@@ -131,27 +122,7 @@ Examples:
 				}
 
 			case "deno":
-				cmdArgs = []string{"outdated"}
-
-				if interactive {
-					cmdArgs = append(cmdArgs, "-i")
-				}
-
-				if global {
-					cmdArgs = append(cmdArgs, "--global")
-				}
-
-				if latest {
-					if len(args) > 0 {
-
-						cmdArgs = append(cmdArgs, "--latest")
-
-						cmdArgs = append(cmdArgs, args...)
-
-					} else {
-						cmdArgs = append(cmdArgs, "--latest")
-					}
-				}
+				return fmt.Errorf("deno does not support the update command")
 
 			default:
 				return fmt.Errorf("unsupported package manager: %s", pm)
@@ -171,7 +142,7 @@ Examples:
 	// Add flags
 	cmd.Flags().BoolP("interactive", "i", false, "Interactive update (where supported)")
 	cmd.Flags().BoolP("global", "g", false, "Update global packages")
-	cmd.Flags().Bool("latest", false, "Update to latest version (ignoring version ranges)")
+	cmd.Flags().BoolP("latest", "L", false, "Update to latest version (ignoring version ranges)")
 
 	return cmd
 }

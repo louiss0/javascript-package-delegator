@@ -61,6 +61,7 @@ type MockCommandRunner struct {
 	CommandCall     CommandCall
 	InvalidCommands []string
 	WorkingDir      string
+	commandHistory  []CommandCall
 }
 
 // CommandCall represents a single command call with its name and arguments
@@ -76,6 +77,7 @@ func NewMockCommandRunner() *MockCommandRunner {
 		CommandCall:     CommandCall{},
 		InvalidCommands: []string{},
 		WorkingDir:      "",
+		commandHistory:  []CommandCall{},
 	}
 }
 
@@ -122,6 +124,7 @@ func (m *MockCommandRunner) Command(name string, args ...string) {
 		Name: name,
 		Args: args,
 	}
+	m.commandHistory = append(m.commandHistory, m.CommandCall)
 }
 
 // SetTargetDir sets the target directory for command execution
@@ -203,6 +206,7 @@ func (m *MockCommandRunner) Reset() {
 	m.CommandCall = CommandCall{}
 	m.InvalidCommands = []string{}
 	m.WorkingDir = ""
+	m.commandHistory = []CommandCall{}
 	m.Mock = mock.Mock{}
 }
 
@@ -217,6 +221,29 @@ func (m *MockCommandRunner) LastCommand() (CommandCall, bool) {
 		return CommandCall{}, false
 	}
 	return m.CommandCall, true
+}
+
+// WasCommandCalled checks the full command history for a specific invocation.
+func (m *MockCommandRunner) WasCommandCalled(name string, args ...string) bool {
+	for _, call := range m.commandHistory {
+		if call.Name != name {
+			continue
+		}
+		if len(call.Args) != len(args) {
+			continue
+		}
+		match := true
+		for i, arg := range args {
+			if call.Args[i] != arg {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
 // MockYarnCommandVersionOutputer is a testify/mock implementation for yarn version commands

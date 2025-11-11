@@ -42,7 +42,7 @@ func NewUninstallCmd(newDependencySelectorUI func(options []string) DependencyUI
 	cmd := &cobra.Command{
 		Use:   "uninstall <packages...>",
 		Short: "Uninstall packages using the detected package manager",
-		Long: `Uninstall packages using thme appropriate package manager.
+		Long: `Remove packages from your project using the appropriate package manager.
 Equivalent to 'nun' command - detects npm, yarn, pnpm, or bun and runs the uninstall command.
 
 Examples:
@@ -50,18 +50,6 @@ Examples:
   javascript-package-delegator uninstall lodash react # Uninstall multiple packages
   javascript-package-delegator uninstall -g typescript # Uninstall global package`,
 		Aliases: []string{"un", "remove", "rm"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
-			if err != nil {
-				return err
-			}
-
-			return lo.Ternary(
-				!interactive,
-				cobra.MinimumNArgs(1)(cmd, args),
-				nil,
-			)
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 
@@ -78,6 +66,11 @@ Examples:
 			interactive, err := cmd.Flags().GetBool(_INTERACTIVE_FLAG)
 			if err != nil {
 				return err
+			}
+
+			// Validate args: require at least one unless interactive mode
+			if !interactive && len(args) == 0 {
+				return fmt.Errorf("requires at least 1 arg(s), only received 0")
 			}
 
 			var selectedPackages []string

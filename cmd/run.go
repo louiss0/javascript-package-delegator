@@ -43,6 +43,7 @@ type taskSelectorUI struct {
 }
 
 func newTaskSelectorUI(options []string) TaskUISelector {
+
 	return &taskSelectorUI{
 		selectUI: *huh.NewSelect[string]().
 			Title("Select a task").
@@ -79,13 +80,25 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
 
+			// Resolve target directory from --cwd flag, fallback to current working directory
+			targetDir, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to parse --%s flag: %w", _CWD_FLAG, err)
+			}
+			if targetDir == "" {
+				targetDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get current working directory: %w", err)
+				}
+			}
+
 			// If no script name provided, list available scripts
 
 			var selectedPackage string
 
 			if pm == "deno" {
 				if len(args) == 0 {
-					pkg, err := readDenoJSON()
+					pkg, err := readDenoJSONFrom(targetDir)
 					if err != nil {
 						return err
 					}
@@ -112,7 +125,7 @@ Examples:
 				}
 			} else {
 				if len(args) == 0 {
-					pkg, err := readPackageJSONAndUnmarshalScripts()
+					pkg, err := readPackageJSONAndUnmarshalScriptsFrom(targetDir)
 					if err != nil {
 						return err
 					}
@@ -122,11 +135,15 @@ Examples:
 					}
 
 					if goEnv.IsDevelopmentMode() {
-						_, _ = fmt.Fprintf(
+						_, err = fmt.Fprintf(
 							cmd.OutOrStdout(),
 							"Here are the scripts %s",
 							strings.Join(lo.Keys(pkg.Scripts), ","),
 						)
+					}
+
+					if err != nil {
+						return err
 					}
 
 					taskSelectorUI := newTaskSelectorUI(lo.Keys(pkg.Scripts))
@@ -159,7 +176,7 @@ Examples:
 			// Check if script exists when --if-present flag is used
 			ifPresent, _ := cmd.Flags().GetBool("if-present")
 			if ifPresent {
-				pkg, err := readPackageJSONAndUnmarshalScripts()
+				pkg, err := readPackageJSONAndUnmarshalScriptsFrom(targetDir)
 				if err != nil {
 					return err
 				}
@@ -174,6 +191,23 @@ Examples:
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
+
+			// Preflight: auto-install dependencies when missing and enabled
+			autoInstallFlag, err := cmd.Flags().GetBool("auto-install")
+			if err != nil {
+				return fmt.Errorf("failed to parse --auto-install flag: %w", err)
+			}
+			noVoltaFlag, err := cmd.Flags().GetBool("no-volta")
+			if err != nil {
+				return fmt.Errorf("failed to parse --no-volta flag: %w", err)
+			}
+
+			// Enhanced dependency detection and auto-install logic
+			if autoInstallFlag {
+				if err := autoInstallDependenciesIfNeeded(pm, scriptName, targetDir, cmdRunner, goEnv, de, noVoltaFlag); err != nil {
+					return err
+				}
+			}
 
 			// Build command based on package manager
 			var cmdArgs []string
@@ -233,6 +267,8 @@ Examples:
 
 	// Add flags
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
+	cmd.Flags().Bool("auto-install", false, "Auto-install dependencies when missing or changed.\nTriggers on: missing node_modules, missing packages, unresolvable imports (Deno), or dependency changes (hash-based).\nHash stored in .jpd-deps-hash. Default: off (use the start command for dev/start auto installs).")
+	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
 
 	return cmd
 }
@@ -241,13 +277,9 @@ type PackageJSONScripts struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-func readPackageJSONAndUnmarshalScripts() (*PackageJSONScripts, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	packageJSONPath := filepath.Join(cwd, "package.json")
+// readPackageJSONAndUnmarshalScriptsFrom reads package.json from the specified directory
+func readPackageJSONAndUnmarshalScriptsFrom(baseDir string) (*PackageJSONScripts, error) {
+	packageJSONPath := filepath.Join(baseDir, "package.json")
 	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
@@ -265,13 +297,9 @@ type DenoJSON struct {
 	Tasks map[string]string `json:"tasks"`
 }
 
-func readDenoJSON() (*DenoJSON, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	denoJSONPath := filepath.Join(cwd, "deno.json")
+// readDenoJSONFrom reads deno.json from the specified directory
+func readDenoJSONFrom(baseDir string) (*DenoJSON, error) {
+	denoJSONPath := filepath.Join(baseDir, "deno.json")
 	data, err := os.ReadFile(denoJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read deno.json: %w", err)

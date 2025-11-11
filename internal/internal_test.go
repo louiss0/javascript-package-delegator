@@ -300,6 +300,7 @@ var _ = Describe("Carapace Spec Generator", func() {
 			expectedCommands := []string{
 				"install:",
 				"run:",
+				"start:",
 				"exec:",
 				"dlx:",
 				"update:",
@@ -379,6 +380,16 @@ var _ = Describe("Carapace Spec Generator", func() {
 			// Check for completion command flags
 			assert.Contains(GinkgoT(), result, "completion:\n        description: Generate shell completion scripts\n        flags:\n            filename:\n                shorthand: f\n                description: Output completion script to file", "Expected completion command to have filename flag with shorthand")
 			assert.Contains(GinkgoT(), result, "with-shorthand:\n                shorthand: s\n                description: Include shorthand alias functions", "Expected completion command to have with-shorthand flag with shorthand")
+		})
+
+		It("should include the start command flags", func() {
+			result, err := generator.GenerateYAMLSpec(mockCmd)
+
+			assert.NoError(GinkgoT(), err, "Expected no error generating YAML spec")
+
+			assert.Contains(GinkgoT(), result, "start:\n        description: Run dev/start scripts with dependency preflight", "Expected start command description")
+			assert.Contains(GinkgoT(), result, "script:\n                description: Script name to run instead of automatic detection", "Expected start command script flag")
+			assert.Contains(GinkgoT(), result, "no-volta:\n                description: Disable Volta integration during auto-install", "Expected start command no-volta flag")
 		})
 
 		It("should include integrate command and its nested commands with flags", func() {
@@ -543,6 +554,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 			expectedWorkflows := []string{
 				"JPD Install",
 				"JPD Run",
+				"JPD Start",
 				"JPD Exec",
 				"JPD DLX",
 				"JPD Create",
@@ -599,6 +611,7 @@ var _ = Describe("Warp Workflow Generator", func() {
 			expectedFiles := []string{
 				"jpd-install.yaml",
 				"jpd-run.yaml",
+				"jpd-start.yaml",
 				"jpd-exec.yaml",
 				"jpd-dlx.yaml",
 				"jpd-create.yaml",
@@ -719,8 +732,8 @@ var _ = Describe("Warp Workflow Generator", func() {
 
 			// Count document separators
 			separatorCount := strings.Count(result, "---")
-			// Should have separators between documents (9 workflows = 8 separators + 1 at start)
-			assert.True(GinkgoT(), separatorCount >= 8, "Expected at least 8 document separators, got %d", separatorCount)
+			// Should have separators between documents (10 workflows = 9 separators + 1 at start)
+			assert.True(GinkgoT(), separatorCount >= 9, "Expected at least 9 document separators, got %d", separatorCount)
 		})
 	})
 })

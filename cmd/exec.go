@@ -90,8 +90,9 @@ func BuildExecCommand(pm, yarnVersion, bin string, args []string) (program strin
 func NewExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exec <bin> [args...]",
-		Short: "Execute local dependencies using package manager exec",
-		Long: `Execute local dependencies using the appropriate package manager's exec command.
+		Short: "Execute packages from the local project or a remote URL",
+		Long: `Execute packages from the local project or a remote URL.
+Execute local dependencies using the appropriate package manager's exec command.
 This runs binaries from locally installed packages in your project.
 
 Examples:

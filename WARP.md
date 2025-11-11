@@ -357,6 +357,7 @@ ginkgo -cover --skip-package build_info,test_util,mock
 ### Package Structure Constraints
 
 - **One Test File**: Each package must have exactly one `*_suite_test.go` file that sets up the Ginkgo test suite
+- **Test File Consolidation**: There must be only one test file per package unless the file size limit is hit (consolidate tests from multiple files into a single test file)
 - **Single Folder Depth**: Go packages can only have one level of folders (no nested packages)
 - **Test Organization**: Group related tests in the same package's test files
 

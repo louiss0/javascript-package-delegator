@@ -150,12 +150,17 @@ type DependencyUIMultiSelector interface {
 	Run() error
 }
 
+// PackageMultiSelectUI is a type alias for backwards compatibility with test code
+type PackageMultiSelectUI = MultiUISelecter
+type TaskSelectorUI = TaskUISelector
+type DependencyMultiSelectUI = DependencyUIMultiSelector
+
 type Dependencies struct {
 	CommandRunnerGetter                   func() CommandRunner
 	DetectJSPackageManagerBasedOnLockFile func(detectedLockFile string) (packageManager string, err error)
 	YarnCommandVersionOutputter           detect.YarnCommandVersionOutputter
 	NewCommandTextUI                      func(lockfile string) CommandUITexter
-	DetectLockfile                        func() (lockfile string, err error)
+	DetectLockfile                        func(targetDir string) (lockfile string, err error)
 	DetectJSPackageManager                func() (string, error)
 	DetectVolta                           func() bool
 	NewPackageMultiSelectUI               func([]services.PackageInfo) MultiUISelecter
@@ -347,13 +352,155 @@ Available commands:
 			})
 
 			persistentFlags := c.Flags()
+
+			// Determine the target directory from cwd flag or use current working directory
+			targetDir := cwdFlag.String()
+			if targetDir == "" {
+				cwd, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				targetDir = cwd
+			}
+
+			// Always run detection logic first (for --cwd support)
+			var detectedPM string
+			lockFile, err := deps.DetectLockfile(targetDir)
+			if err != nil {
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
+
+				pm, err := deps.DetectJSPackageManager()
+				if err != nil {
+
+					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")
+
+					// Check if agent flag or env var is set before prompting for install
+					agent, err := persistentFlags.GetString(AGENT_FLAG)
+					if err != nil {
+						return err
+					}
+					if agent == "" {
+						agent, _ = os.LookupEnv(JPD_AGENT_ENV_VAR)
+					}
+
+					if agent != "" {
+						// Agent specified, skip installation prompt
+						detectedPM = agent
+					} else {
+						// No agent specified and no PM detected, prompt for installation
+						commandTextUI := deps.NewCommandTextUI("")
+
+						if err := commandTextUI.Run(); err != nil {
+							return err
+						}
+
+						goEnv.ExecuteIfModeIsProduction(func() {
+							log.Info("Installing the package manager using ", "command", commandTextUI.Value())
+						})
+						// Split the command string into name and args consistently with how tests parse it
+						splitCommandString := strings.Fields(commandTextUI.Value())
+						if len(splitCommandString) == 0 {
+							return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
+						}
+
+						debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
+						commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
+
+						if err := commandRunner.Run(); err != nil {
+							return err
+						}
+						return nil
+					}
+				} else {
+					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager detected from path", "pm", pm)
+					detectedPM = pm
+				}
+			} else {
+				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is detected", "lockfile", lockFile)
+
+				// Package manager detection and potential installation logic
+				pm, err := deps.DetectJSPackageManagerBasedOnLockFile(lockFile) // Use injected detector
+				if err != nil {
+
+					if errors.Is(err, detect.ErrNoPackageManager) {
+						// The package manager indicated by the lock file is not installed
+						// Let's check if any other package manager is available in PATH
+						goEnv.ExecuteIfModeIsProduction(func() {
+							log.Warn("Package manager indicated by lock file is not installed")
+							log.Info("Checking for other available package managers...")
+						})
+
+						// Try to detect any available package manager from PATH
+						pm, err := deps.DetectJSPackageManager()
+						if err == nil {
+							// Found an alternative package manager!
+							goEnv.ExecuteIfModeIsProduction(func() {
+								log.Info("Found alternative package manager", "pm", pm)
+							})
+							detectedPM = pm
+						} else {
+							// Check if agent flag or env var is set before prompting for install
+							agent, err := persistentFlags.GetString(AGENT_FLAG)
+							if err != nil {
+								return err
+							}
+							if agent == "" {
+								agent, _ = os.LookupEnv(JPD_AGENT_ENV_VAR)
+							}
+
+							if agent != "" {
+								// Agent specified, use it
+								detectedPM = agent
+							} else {
+								// No package manager found at all, prompt for installation
+								goEnv.ExecuteIfModeIsProduction(func() {
+									log.Warn("No package manager found on the system")
+									log.Warn("You'll be asked to provide a command to install one")
+								})
+
+								commandTextUI := deps.NewCommandTextUI(lockFile)
+
+								if err := commandTextUI.Run(); err != nil {
+									return err
+								}
+
+								goEnv.ExecuteIfModeIsProduction(func() {
+									log.Info("Installing the package manager using ", "command", commandTextUI.Value())
+								})
+
+								// Split the command string into name and args consistently with how tests parse it
+								splitCommandString := strings.Fields(commandTextUI.Value())
+								if len(splitCommandString) == 0 {
+									return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
+								}
+
+								debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
+								commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
+
+								if err := commandRunner.Run(); err != nil {
+									return err
+								}
+
+								return nil
+							}
+						}
+					} else {
+						// Return any other errors as-is
+						return err
+					}
+				} else {
+					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is detected based on lock file", "pm", pm)
+					detectedPM = pm
+				}
+			}
+
+			// Now check for agent override after detection
 			agent, err := persistentFlags.GetString(AGENT_FLAG)
 			if err != nil {
 				return err
 			}
 
 			if agent != "" {
-
 				debugExecutor.LogDebugMessageIfDebugIsTrue(
 					"Agent flag is set",
 					"agent", agent,
@@ -386,112 +533,12 @@ Available commands:
 				_ = persistentFlags.Set(AGENT_FLAG, agent)
 				c.SetContext(c_ctx)
 				return nil
-
 			}
 
-			lockFile, err := deps.DetectLockfile()
-			if err != nil {
-				debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is not detected")
-
-				pm, err := deps.DetectJSPackageManager()
-				if err != nil {
-
-					debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is not detected from path")
-
-					commandTextUI := deps.NewCommandTextUI("")
-
-					if err := commandTextUI.Run(); err != nil {
-						return err
-					}
-
-					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
-					})
-					// Split the command string into name and args consistently with how tests parse it
-					splitCommandString := strings.Fields(commandTextUI.Value())
-					if len(splitCommandString) == 0 {
-						return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
-					}
-
-					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
-					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
-
-					if err := commandRunner.Run(); err != nil {
-						return err
-					}
-					return nil
-				}
-				debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager detected from path", "pm", pm)
-				_ = persistentFlags.Set(AGENT_FLAG, pm)
-				c.SetContext(c_ctx)
-				return nil
+			// Use detected package manager if no agent override
+			if detectedPM != "" {
+				_ = persistentFlags.Set(AGENT_FLAG, detectedPM)
 			}
-
-			debugExecutor.LogDebugMessageIfDebugIsTrue("Lock file is detected", "lockfile", lockFile)
-
-			// Package manager detection and potential installation logic
-			pm, err := deps.DetectJSPackageManagerBasedOnLockFile(lockFile) // Use injected detector
-			if err != nil {
-
-				if errors.Is(err, detect.ErrNoPackageManager) {
-					// The package manager indicated by the lock file is not installed
-					// Let's check if any other package manager is available in PATH
-					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Warn("Package manager indicated by lock file is not installed")
-						log.Info("Checking for other available package managers...")
-					})
-
-					// Try to detect any available package manager from PATH
-					pm, err := deps.DetectJSPackageManager()
-					if err == nil {
-						// Found an alternative package manager!
-						goEnv.ExecuteIfModeIsProduction(func() {
-							log.Info("Found alternative package manager", "pm", pm)
-						})
-						_ = persistentFlags.Set(AGENT_FLAG, pm)
-						c.SetContext(c_ctx)
-						return nil
-					}
-
-					// No package manager found at all, prompt for installation
-					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Warn("No package manager found on the system")
-						log.Warn("You'll be asked to provide a command to install one")
-					})
-
-					commandTextUI := deps.NewCommandTextUI(lockFile)
-
-					if err := commandTextUI.Run(); err != nil {
-						return err
-					}
-
-					goEnv.ExecuteIfModeIsProduction(func() {
-						log.Info("Installing the package manager using ", "command", commandTextUI.Value())
-					})
-
-					// Split the command string into name and args consistently with how tests parse it
-					splitCommandString := strings.Fields(commandTextUI.Value())
-					if len(splitCommandString) == 0 {
-						return fmt.Errorf(strings.Join(INVALID_COMMAND_STRUCTURE_ERROR_MESSAGE_STRUCTURE, "\n"), commandTextUI.Value())
-					}
-
-					debugExecutor.LogJSCommandIfDebugIsTrue(splitCommandString[0], splitCommandString[1:]...)
-					commandRunner.Command(splitCommandString[0], splitCommandString[1:]...)
-
-					if err := commandRunner.Run(); err != nil {
-						return err
-					}
-
-					return nil
-				}
-
-				// Return any other errors as-is
-				return err
-			}
-
-			debugExecutor.LogDebugMessageIfDebugIsTrue("Package manager is detected based on lock file", "pm", pm)
-
-			_ = persistentFlags.Set(AGENT_FLAG, pm)
 			c.SetContext(c_ctx)
 			return nil
 		},
@@ -550,8 +597,8 @@ func init() {
 			DetectVolta: func() bool {
 				return detect.DetectVolta(detect.RealPathLookup{})
 			},
-			DetectLockfile: func() (lockfile string, err error) {
-				return detect.DetectLockfile(detect.RealFileSystem{})
+			DetectLockfile: func(targetDir string) (lockfile string, err error) {
+				return detect.DetectLockfileIn(targetDir, detect.RealFileSystem{})
 			},
 			DetectJSPackageManager: func() (string, error) {
 				return detect.DetectJSPackageManager(detect.RealPathLookup{})
