@@ -2852,6 +2852,212 @@ var _ = Describe("JPD Commands", func() {
 		})
 	})
 
+	const StartCommand = "Start Command"
+	Describe(StartCommand, func() {
+
+		It("runs npm dev script and forwards extra arguments", func() {
+			rootCmd := factory.CreateNpmAsDefault(nil)
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{
+  "scripts": {
+    "dev": "echo dev",
+    "start": "echo start"
+  }
+}`), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+			assert.NoError(err)
+			err = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--", "--host", "0.0.0.0")
+			assert.NoError(err)
+
+			assert.True(mockCommandRunner.HasCommand("npm", "run", "dev", "--", "--host", "0.0.0.0"))
+		})
+
+		It("respects --script override for pnpm projects", func() {
+			rootCmd := factory.CreatePnpmAsDefault(nil)
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{
+  "scripts": {
+    "custom-start": "echo custom"
+  }
+}`), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, "pnpm-lock.yaml"), []byte(""), 0644)
+			assert.NoError(err)
+			err = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--script", "custom-start")
+			assert.NoError(err)
+
+			assert.True(mockCommandRunner.HasCommand("pnpm", "run", "custom-start"))
+		})
+
+		It("passes through args without double dash for yarn", func() {
+			rootCmd := factory.CreateYarnTwoAsDefault(nil)
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{
+  "scripts": {
+    "dev": "yarn dev"
+  }
+}`), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, "yarn.lock"), []byte(""), 0644)
+			assert.NoError(err)
+			err = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--", "--inspect")
+			assert.NoError(err)
+
+			assert.True(mockCommandRunner.HasCommand("yarn", "run", "dev", "--inspect"))
+		})
+
+		It("runs deno tasks via start command", func() {
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			rootCmd := factory.CreateDenoAsDefault(nil)
+			err = os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(`{
+  "tasks": {
+    "dev": "deno task dev"
+  },
+  "imports": {}
+}`), 0644)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--", "--port", "4321")
+			assert.NoError(err)
+
+			assert.True(mockCommandRunner.HasCommand("deno", "task", "dev", "--port", "4321"))
+		})
+
+		It("returns an error when deno start args contain --eval", func() {
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			rootCmd := factory.CreateDenoAsDefault(nil)
+
+			err = os.WriteFile(filepath.Join(testDir, "deno.json"), []byte(`{
+  "tasks": {
+    "dev": "deno task dev"
+  }
+}`), 0644)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--", "--eval")
+			assert.Error(err)
+			assert.Contains(err.Error(), "don't pass --eval here use the exec command instead")
+		})
+
+		It("executes bun run for dev scripts", func() {
+			rootCmd := factory.CreateBunAsDefault(nil)
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{
+  "scripts": {
+    "dev": "bun dev"
+  }
+}`), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, "bun.lockb"), []byte(""), 0644)
+			assert.NoError(err)
+			err = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start", "--", "--hot")
+			assert.NoError(err)
+			assert.True(mockCommandRunner.HasCommand("bun", "run", "dev", "--hot"))
+		})
+
+		It("returns an error when no dev/start script exists", func() {
+			rootCmd := factory.CreateNpmAsDefault(nil)
+			testDir := GinkgoT().TempDir()
+			originalDir, err := os.Getwd()
+			assert.NoError(err)
+			err = os.Chdir(testDir)
+			assert.NoError(err)
+			GinkgoT().Cleanup(func() {
+				if originalDir != "" {
+					_ = os.Chdir(originalDir)
+				}
+			})
+
+			err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{
+  "scripts": {
+    "lint": "eslint ."
+  }
+}`), 0644)
+			assert.NoError(err)
+			err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+			assert.NoError(err)
+			err = os.Mkdir(filepath.Join(testDir, "node_modules"), 0755)
+			assert.NoError(err)
+
+			_, err = executeCmd(rootCmd, "start")
+			assert.Error(err)
+			assert.Contains(err.Error(), "use --script")
+		})
+	})
+
 	Describe(ExecCommand, func() {
 		var execCmd *cobra.Command
 		BeforeEach(func() {
