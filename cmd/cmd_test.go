@@ -2607,7 +2607,7 @@ var _ = Describe("JPD Commands", func() {
 				assert.True(mockCommandRunner.HasCommand("npm", "run", "test"))
 			})
 
-			It("should auto-install with pnpm when node_modules is missing for dev", func() {
+			It("should not auto-install when node_modules is missing for dev (pnpm)", func() {
 				rootCmd := factory.CreatePnpmAsDefault(nil)
 				testDir := GinkgoT().TempDir()
 				originalDir, err := os.Getwd()
@@ -2630,10 +2630,10 @@ var _ = Describe("JPD Commands", func() {
 				_, err = executeCmd(rootCmd, "run", "dev")
 				assert.NoError(err)
 
-				// We only assert the final command (mock stores last call)
+				assert.False(mockCommandRunner.HasCommand("pnpm", "install"))
 				assert.True(mockCommandRunner.HasCommand("pnpm", "run", "dev"))
 			})
-			It("should auto-install with npm when node_modules is missing for start", func() {
+			It("should not auto-install for start scripts when using run (npm)", func() {
 				rootCmd := factory.CreateNpmAsDefault(nil)
 				testDir := GinkgoT().TempDir()
 				originalDir, err := os.Getwd()
@@ -2656,10 +2656,66 @@ var _ = Describe("JPD Commands", func() {
 				_, err = executeCmd(rootCmd, "run", "start")
 				assert.NoError(err)
 
-				// Only assert final command due to mock behavior
+				assert.False(mockCommandRunner.HasCommand("npm", "install"))
 				assert.True(mockCommandRunner.HasCommand("npm", "run", "start"))
 			})
 
+		})
+
+		Context("Auto Install for start command", func() {
+			It("should auto-install with pnpm when node_modules is missing for dev", func() {
+				rootCmd := factory.CreatePnpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"dev": "echo dev"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "pnpm-lock.yaml"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PNPM_LOCK_YAML)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.PNPM)
+				_, err = executeCmd(rootCmd, "start")
+				assert.NoError(err)
+
+				assert.True(mockCommandRunner.WasCommandCalled("pnpm", "install"))
+				assert.True(mockCommandRunner.HasCommand("pnpm", "run", "dev"))
+			})
+
+			It("should auto-install with npm when node_modules is missing for start", func() {
+				rootCmd := factory.CreateNpmAsDefault(nil)
+				testDir := GinkgoT().TempDir()
+				originalDir, err := os.Getwd()
+				assert.NoError(err)
+				err = os.Chdir(testDir)
+				assert.NoError(err)
+				GinkgoT().Cleanup(func() {
+					if originalDir != "" {
+						_ = os.Chdir(originalDir)
+					}
+				})
+
+				err = os.WriteFile(filepath.Join(testDir, "package.json"), []byte(`{"scripts": {"start": "echo start"}}`), 0644)
+				assert.NoError(err)
+				err = os.WriteFile(filepath.Join(testDir, "package-lock.json"), []byte(""), 0644)
+				assert.NoError(err)
+
+				DebugExecutorExpectationManager.ExpectLockfileDetected(detect.PACKAGE_LOCK_JSON)
+				DebugExecutorExpectationManager.ExpectPMDetectedFromLockfile(detect.NPM)
+				_, err = executeCmd(rootCmd, "start", "--script", "start")
+				assert.NoError(err)
+
+				assert.True(mockCommandRunner.WasCommandCalled("npm", "install"))
+				assert.True(mockCommandRunner.HasCommand("npm", "run", "start"))
+			})
 		})
 
 		Context("deno", func() {

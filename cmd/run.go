@@ -192,23 +192,6 @@ Examples:
 				log.Info("Using package manager", "pm", pm)
 			})
 
-			// Preflight: auto-install dependencies when missing and enabled
-			autoInstallFlag, err := cmd.Flags().GetBool("auto-install")
-			if err != nil {
-				return fmt.Errorf("failed to parse --auto-install flag: %w", err)
-			}
-			noVoltaFlag, err := cmd.Flags().GetBool("no-volta")
-			if err != nil {
-				return fmt.Errorf("failed to parse --no-volta flag: %w", err)
-			}
-
-			// Enhanced dependency detection and auto-install logic
-			if autoInstallFlag {
-				if err := autoInstallDependenciesIfNeeded(pm, scriptName, targetDir, cmdRunner, goEnv, de, noVoltaFlag); err != nil {
-					return err
-				}
-			}
-
 			// Build command based on package manager
 			var cmdArgs []string
 			switch pm {
@@ -267,8 +250,6 @@ Examples:
 
 	// Add flags
 	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
-	cmd.Flags().Bool("auto-install", false, "Auto-install dependencies when missing or changed.\nTriggers on: missing node_modules, missing packages, unresolvable imports (Deno), or dependency changes (hash-based).\nHash stored in .jpd-deps-hash. Default: off (use the start command for dev/start auto installs).")
-	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
 
 	return cmd
 }

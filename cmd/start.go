@@ -172,9 +172,8 @@ func findScriptByKeyword(keys []string, keyword string) string {
 	return ""
 }
 
-// autoInstallDependenciesIfNeeded performs the dependency install preflight that
-// previously lived in the run command. It is now shared by the run and start
-// commands so the behavior stays consistent in both entry points.
+// autoInstallDependenciesIfNeeded performs the dependency install preflight that backs the
+// start command. The helper stays reusable so future commands can opt-in to the same behavior.
 func autoInstallDependenciesIfNeeded(
 	pm string,
 	scriptName string,
