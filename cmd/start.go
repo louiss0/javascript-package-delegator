@@ -23,7 +23,8 @@ func NewStartCmd() *cobra.Command {
 		Long: `Start projects with optional preflight. For Deno projects this warms the cache
 based on deno.json imports before delegating to 'jpd run start'. Node-based projects are
 forwarded directly to the run command with the provided flags.`,
-		Aliases: []string{"s"},
+		Aliases:      []string{"s"},
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pm, _ := cmd.Flags().GetString(AGENT_FLAG)
 			cmdRunner := getCommandRunnerFromCommandContext(cmd)
@@ -54,9 +55,9 @@ forwarded directly to the run command with the provided flags.`,
 		},
 	}
 
-	cmd.Flags().Bool("auto-install", false, "Forward to run command to control auto-install behaviour")
-	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install (forwarded to run)")
-	cmd.Flags().Bool("if-present", false, "Run script only if it exists (forwarded to run command)")
+	cmd.Flags().Bool("auto-install", false, "Auto-install dependencies when missing.\nTriggers on: missing node_modules, missing packages, unresolvable imports (Deno), or dependency changes (hash-based).\nHash stored in .jpd-deps-hash. Effective default: true for 'dev'/'start' scripts; otherwise false.")
+	cmd.Flags().Bool("no-volta", false, "Disable Volta integration during auto-install")
+	cmd.Flags().Bool("if-present", false, "Run script only if it exists")
 	cmd.Flags().Bool("reload-cache", false, "Force Deno cache reload before executing the start task")
 
 	return cmd
