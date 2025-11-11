@@ -141,10 +141,7 @@ func selectScriptCandidate(scripts map[string]string, override string, label str
 		return override, nil
 	}
 
-	keys := make([]string, 0, len(scripts))
-	for name := range scripts {
-		keys = append(keys, name)
-	}
+	keys := lo.Keys(scripts)
 	sort.Strings(keys)
 
 	for _, candidate := range []string{"dev", "start"} {
@@ -164,12 +161,14 @@ func selectScriptCandidate(scripts map[string]string, override string, label str
 }
 
 func findScriptByKeyword(keys []string, keyword string) string {
-	for _, name := range keys {
-		if strings.Contains(strings.ToLower(name), keyword) {
-			return name
-		}
+	match, found := lo.Find(keys, func(name string) bool {
+		return strings.Contains(strings.ToLower(name), keyword)
+	})
+	if !found {
+		return ""
 	}
-	return ""
+
+	return match
 }
 
 // autoInstallDependenciesIfNeeded performs the dependency install preflight that backs the
@@ -223,10 +222,7 @@ func autoInstallDependenciesIfNeeded(
 					installReason.WriteString(fmt.Sprintf("%d missing packages; ", len(missing)))
 
 					if goEnv.IsDevelopmentMode() {
-						firstFew := missing
-						if len(firstFew) > 3 {
-							firstFew = firstFew[:3]
-						}
+						firstFew := lo.Slice(missing, 0, lo.Min(len(missing), 3))
 						de.LogDebugMessageIfDebugIsTrue("Missing packages", "count", len(missing), "examples", firstFew)
 					}
 				}
@@ -269,20 +265,19 @@ func autoInstallDependenciesIfNeeded(
 		importValues, err := deps.ExtractImportsFromDenoJSON(baseDir)
 		if err == nil && len(importValues) > 0 {
 			const maxImportChecks = 5
-			checksToRun := importValues
-			if len(checksToRun) > maxImportChecks {
-				checksToRun = checksToRun[:maxImportChecks]
-			}
+			checkLimit := lo.Min(len(importValues), maxImportChecks)
+			checksToRun := lo.Slice(importValues, 0, checkLimit)
 
-			missingImports := 0
-			for _, importURL := range checksToRun {
+			missingImports := lo.Reduce(checksToRun, func(acc int, importURL string, _ int) int {
 				de.LogJSCommandIfDebugIsTrue("deno", "info", "--json", importURL)
 				infoCmd := cmdRunner
 				infoCmd.Command("deno", "info", "--json", importURL)
 				if err := infoCmd.Run(); err != nil {
-					missingImports++
+					return acc + 1
 				}
-			}
+
+				return acc
+			}, 0)
 
 			if missingImports > 0 {
 				shouldInstall = true
