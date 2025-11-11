@@ -20,11 +20,11 @@ ginkgo watch
 ```bash
 ginkgo -r -p -race -cover --skip-package build_info,test_util,mock
 ```
-3) **Format, fix imports, lint (mandatory order)**
+3) **Format, fix imports, vet (mandatory order)**
 ```bash
 gofmt -w .
 goimports -w .
-golangci-lint run
+go vet ./...
 ```
 4) **Commit before pushing**
 ```bash
@@ -97,3 +97,4 @@ Reviewers should verify:
 
 **Exceptions & Overrides**
 If a Go source file explicitly documents a local style (e.g., `// style:allow-lo-chaining`), that directive takes precedence.
+

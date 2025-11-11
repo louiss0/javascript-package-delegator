@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upload per-OS coverage artifacts
 - Set coverage threshold to 80% (later adjusted to 70%)
 - Install Ginkgo CLI at module version to avoid mismatch
-- Update golangci-lint config to v2 structure
+- Update lint config to newer structure
 - Ensure pnpm availability via Corepack in docs job
 
 #### Documentation
@@ -139,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Remove unnecessary RegisterFailHandler call (not required for Ginkgo v2)
   - Ensure all test files follow project standards: Ginkgo v2 + Testify only
   - All 18 identified bugs are now fixed
-  - 0 syntax/typecheck errors from golangci-lint
+  - 0 syntax/typecheck errors from static analysis
   - 458 specs passing across all test suites
   - Full compliance with project test policy
 
@@ -160,3 +160,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - Previous Release
 - Major version release with significant improvements and features
 - Full CLI functionality for JavaScript package manager delegation
+

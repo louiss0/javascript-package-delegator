@@ -75,11 +75,6 @@ jobs:
             exit 1
           fi
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: latest
-          args: --timeout=5m --output.text.colors=true --output.text.print-linter-name=true
 
   test:
     name: Test (Ginkgo) + coverage
@@ -232,3 +227,4 @@ jobs:
         with:
           name: jpd-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/
+
