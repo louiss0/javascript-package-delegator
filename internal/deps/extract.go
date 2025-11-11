@@ -66,9 +66,11 @@ func ExtractImportsFromDenoJSON(cwd string) ([]string, error) {
 	}
 
 	// If this is a deno.jsonc file, normalize it to JSON
-	if filepath.Ext(denoFilePath) == ".jsonc" {
-		data = NormalizeJSONCToJSON(data)
-	}
+	data = lo.TernaryF(
+		filepath.Ext(denoFilePath) == ".jsonc",
+		func() []byte { return NormalizeJSONCToJSON(data) },
+		func() []byte { return data },
+	)
 
 	var pkg DenoJSONDependencies
 
