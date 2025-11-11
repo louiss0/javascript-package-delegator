@@ -1,0 +1,11 @@
+version: "2"
+linters:
+  settings:
+    revive:
+      rules:
+        - name: unexported-return
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+        - -ST1003
