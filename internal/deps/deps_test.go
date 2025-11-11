@@ -237,8 +237,7 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			It("should return error when neither deno.json nor deno.jsonc exist", func() {
 				tempDir := GinkgoT().TempDir()
 				_, err := deps.ComputeDenoImportsHash(tempDir)
-				assert.Error(err)
-				assert.Contains(err.Error(), "failed to find deno.json or deno.jsonc")
+				assert.ErrorIs(err, deps.ErrDenoConfigNotFound)
 			})
 
 			It("should produce consistent hash regardless of import order", func() {

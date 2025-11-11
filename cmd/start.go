@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -81,6 +82,9 @@ func resolveBaseDir(cmd *cobra.Command) (string, error) {
 func warmDenoCache(cmdRunner CommandRunner, goEnv env.GoEnv, de DebugExecutor, baseDir string, reloadCache bool) error {
 	currentHash, err := deps.ComputeDenoImportsHash(baseDir)
 	if err != nil {
+		if errors.Is(err, deps.ErrDenoConfigNotFound) {
+			return fmt.Errorf("no Deno configuration found in %s: %w", baseDir, err)
+		}
 		return fmt.Errorf("failed to compute Deno imports hash: %w", err)
 	}
 

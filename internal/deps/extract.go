@@ -76,7 +76,7 @@ func ExtractImportsFromDenoJSON(baseDir string) ([]string, error) {
 	} else if _, err := os.Stat(denoJSONCPath); err == nil {
 		denoFilePath = denoJSONCPath
 	} else {
-		return nil, fmt.Errorf("failed to find deno.json or deno.jsonc")
+		return nil, fmt.Errorf("%w: %s", ErrDenoConfigNotFound, baseDir)
 	}
 
 	data, err := os.ReadFile(denoFilePath)

@@ -71,7 +71,7 @@ func ComputeDenoImportsHash(cwd string) (string, error) {
 	} else if _, err := os.Stat(denoJSONCPath); err == nil {
 		denoFilePath = denoJSONCPath
 	} else {
-		return "", fmt.Errorf("failed to find deno.json or deno.jsonc")
+		return "", fmt.Errorf("%w: %s", ErrDenoConfigNotFound, cwd)
 	}
 
 	data, err := os.ReadFile(denoFilePath)

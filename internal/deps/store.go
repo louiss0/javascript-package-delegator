@@ -3,7 +3,6 @@
 package deps
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,10 +14,6 @@ const DepsHashFile = ".jpd-deps-hash"
 
 // DenoDepsHashFile stores the computed Deno import hash alongside deno.json.
 const DenoDepsHashFile = ".jpd-deno-deps-hash"
-
-// ErrHashStorageUnavailable indicates that the dependency hash cannot be persisted
-// for the given project (for example, when node_modules is absent as in Deno projects).
-var ErrHashStorageUnavailable = errors.New("dependency hash storage unavailable")
 
 // ReadStoredDepsHash reads the stored dependency hash from the node_modules directory.
 // If the storage directory does not exist, ErrHashStorageUnavailable is returned.
