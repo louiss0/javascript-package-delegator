@@ -65,43 +65,35 @@ auto-install behavior that previously lived in the run command.`,
 				return err
 			}
 
-			type commandArgsResult struct {
-				args []string
-				err  error
-			}
-
-			withScriptArgs := func(base []string, includeDoubleDash bool) commandArgsResult {
-				full := append([]string{}, base...)
+			var cmdArgs []string
+			switch pm {
+			case "npm":
+				cmdArgs = []string{"run", scriptName}
 				if len(args) > 0 {
-					if includeDoubleDash {
-						full = append(full, "--")
-					}
-					full = append(full, args...)
+					cmdArgs = append(cmdArgs, "--")
+					cmdArgs = append(cmdArgs, args...)
 				}
-
-				return commandArgsResult{args: full}
+			case "pnpm":
+				cmdArgs = []string{"run", scriptName}
+				if len(args) > 0 {
+					cmdArgs = append(cmdArgs, "--")
+					cmdArgs = append(cmdArgs, args...)
+				}
+			case "yarn":
+				cmdArgs = []string{"run", scriptName}
+				cmdArgs = append(cmdArgs, args...)
+			case "bun":
+				cmdArgs = []string{"run", scriptName}
+				cmdArgs = append(cmdArgs, args...)
+			case "deno":
+				if lo.Contains(args, "--eval") {
+					return fmt.Errorf("don't pass --eval here use the exec command instead")
+				}
+				cmdArgs = []string{"task", scriptName}
+				cmdArgs = append(cmdArgs, args...)
+			default:
+				return fmt.Errorf("start command does not support package manager %q", pm)
 			}
-
-			cmdResult := lo.Switch[string, commandArgsResult](pm).
-				Case("npm", withScriptArgs([]string{"run", scriptName}, true)).
-				Case("pnpm", withScriptArgs([]string{"run", scriptName}, true)).
-				Case("yarn", withScriptArgs([]string{"run", scriptName}, false)).
-				Case("bun", withScriptArgs([]string{"run", scriptName}, false)).
-				CaseF("deno", func() commandArgsResult {
-					if lo.Contains(args, "--eval") {
-						return commandArgsResult{err: fmt.Errorf("don't pass --eval here use the exec command instead")}
-					}
-
-					base := []string{"task", scriptName}
-					return commandArgsResult{args: append(base, args...)}
-				}).
-				Default(commandArgsResult{err: fmt.Errorf("start command does not support package manager %q", pm)})
-
-			if cmdResult.err != nil {
-				return cmdResult.err
-			}
-
-			cmdArgs := cmdResult.args
 
 			cmdRunner.Command(pm, cmdArgs...)
 			de.LogJSCommandIfDebugIsTrue(pm, cmdArgs...)
@@ -149,7 +141,10 @@ func selectScriptCandidate(scripts map[string]string, override string, label str
 		return override, nil
 	}
 
-	keys := lo.Keys(scripts)
+	keys := make([]string, 0, len(scripts))
+	for name := range scripts {
+		keys = append(keys, name)
+	}
 	sort.Strings(keys)
 
 	for _, candidate := range []string{"dev", "start"} {
@@ -169,14 +164,12 @@ func selectScriptCandidate(scripts map[string]string, override string, label str
 }
 
 func findScriptByKeyword(keys []string, keyword string) string {
-	match, found := lo.Find(keys, func(name string) bool {
-		return strings.Contains(strings.ToLower(name), keyword)
-	})
-	if !found {
-		return ""
+	for _, name := range keys {
+		if strings.Contains(strings.ToLower(name), keyword) {
+			return name
+		}
 	}
-
-	return match
+	return ""
 }
 
 // autoInstallDependenciesIfNeeded performs the dependency install preflight that backs the
@@ -230,7 +223,10 @@ func autoInstallDependenciesIfNeeded(
 					installReason.WriteString(fmt.Sprintf("%d missing packages; ", len(missing)))
 
 					if goEnv.IsDevelopmentMode() {
-						firstFew := lo.Slice(missing, 0, lo.Min(len(missing), 3))
+						firstFew := missing
+						if len(firstFew) > 3 {
+							firstFew = firstFew[:3]
+						}
 						de.LogDebugMessageIfDebugIsTrue("Missing packages", "count", len(missing), "examples", firstFew)
 					}
 				}
@@ -244,12 +240,22 @@ func autoInstallDependenciesIfNeeded(
 				hashMismatch := storedHash == "" || currentHash != storedHash
 				if hashMismatch {
 					shouldInstall = true
-					installReason.WriteString(lo.Ternary(storedHash == "", "no stored hash; ", "dependencies changed; "))
+					if storedHash == "" {
+						installReason.WriteString("no stored hash; ")
+					} else {
+						installReason.WriteString("dependencies changed; ")
+					}
 				}
 
 				if goEnv.IsDevelopmentMode() {
-					currentShort := lo.TernaryF(len(currentHash) >= 8, func() string { return currentHash[:8] }, func() string { return "" })
-					storedShort := lo.TernaryF(len(storedHash) >= 8, func() string { return storedHash[:8] }, func() string { return "" })
+					currentShort := ""
+					storedShort := ""
+					if len(currentHash) >= 8 {
+						currentShort = currentHash[:8]
+					}
+					if len(storedHash) >= 8 {
+						storedShort = storedHash[:8]
+					}
 					de.LogDebugMessageIfDebugIsTrue(
 						"Hash comparison",
 						"current", currentShort,
@@ -263,19 +269,20 @@ func autoInstallDependenciesIfNeeded(
 		importValues, err := deps.ExtractImportsFromDenoJSON(baseDir)
 		if err == nil && len(importValues) > 0 {
 			const maxImportChecks = 5
-			checkLimit := lo.Min(len(importValues), maxImportChecks)
-			checksToRun := lo.Slice(importValues, 0, checkLimit)
+			checksToRun := importValues
+			if len(checksToRun) > maxImportChecks {
+				checksToRun = checksToRun[:maxImportChecks]
+			}
 
-			missingImports := lo.Reduce(checksToRun, func(acc int, importURL string, _ int) int {
+			missingImports := 0
+			for _, importURL := range checksToRun {
 				de.LogJSCommandIfDebugIsTrue("deno", "info", "--json", importURL)
 				infoCmd := cmdRunner
 				infoCmd.Command("deno", "info", "--json", importURL)
 				if err := infoCmd.Run(); err != nil {
-					return acc + 1
+					missingImports++
 				}
-
-				return acc
-			}, 0)
+			}
 
 			if missingImports > 0 {
 				shouldInstall = true
@@ -294,12 +301,22 @@ func autoInstallDependenciesIfNeeded(
 				hashMismatch := storedHash == "" || currentHash != storedHash
 				if hashMismatch {
 					shouldInstall = true
-					installReason.WriteString(lo.Ternary(storedHash == "", "no stored hash; ", "imports changed; "))
+					if storedHash == "" {
+						installReason.WriteString("no stored hash; ")
+					} else {
+						installReason.WriteString("imports changed; ")
+					}
 				}
 
 				if goEnv.IsDevelopmentMode() {
-					currentShort := lo.TernaryF(len(currentHash) >= 8, func() string { return currentHash[:8] }, func() string { return "" })
-					storedShort := lo.TernaryF(len(storedHash) >= 8, func() string { return storedHash[:8] }, func() string { return "" })
+					currentShort := ""
+					storedShort := ""
+					if len(currentHash) >= 8 {
+						currentShort = currentHash[:8]
+					}
+					if len(storedHash) >= 8 {
+						storedShort = storedHash[:8]
+					}
 					de.LogDebugMessageIfDebugIsTrue(
 						"Deno hash comparison",
 						"current", currentShort,
@@ -344,7 +361,10 @@ func autoInstallDependenciesIfNeeded(
 		if newHash, err := deps.ComputeNodeDepsHash(baseDir); err == nil {
 			if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
 				if goEnv.IsDevelopmentMode() {
-					hashShort := lo.TernaryF(len(newHash) >= 8, func() string { return newHash[:8] }, func() string { return "" })
+					hashShort := ""
+					if len(newHash) >= 8 {
+						hashShort = newHash[:8]
+					}
 					de.LogDebugMessageIfDebugIsTrue("Updated dependency hash", "hash", hashShort)
 				}
 			}
@@ -365,7 +385,10 @@ func autoInstallDependenciesIfNeeded(
 			if newHash, err := deps.ComputeDenoImportsHash(baseDir); err == nil {
 				if err := deps.WriteStoredDenoDepsHash(baseDir, newHash); err == nil {
 					if goEnv.IsDevelopmentMode() {
-						hashShort := lo.TernaryF(len(newHash) >= 8, func() string { return newHash[:8] }, func() string { return "" })
+						hashShort := ""
+						if len(newHash) >= 8 {
+							hashShort = newHash[:8]
+						}
 						de.LogDebugMessageIfDebugIsTrue("Updated Deno imports hash", "hash", hashShort)
 					}
 				}

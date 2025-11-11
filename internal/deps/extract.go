@@ -87,14 +87,21 @@ func ExtractImportsFromDenoJSON(cwd string) ([]string, error) {
 // provided working directory.
 func DenoConfigPath(cwd string) (string, error) {
 	denoJSONPath := filepath.Join(cwd, "deno.json")
-	if _, err := os.Stat(denoJSONPath); err == nil {
-		return denoJSONPath, nil
-	}
-
 	denoJSONCPath := filepath.Join(cwd, "deno.jsonc")
-	if _, err := os.Stat(denoJSONCPath); err == nil {
-		return denoJSONCPath, nil
+
+	fileExists := func(path string) bool {
+		info, err := os.Stat(path)
+		return err == nil && !info.IsDir()
 	}
 
-	return "", fmt.Errorf("failed to find deno.json or deno.jsonc in %s", cwd)
+	selectedPath := lo.Switch[bool, string](true).
+		Case(fileExists(denoJSONPath), denoJSONPath).
+		Case(fileExists(denoJSONCPath), denoJSONCPath).
+		Default("")
+
+	if selectedPath == "" {
+		return "", fmt.Errorf("failed to find deno.json or deno.jsonc in %s", cwd)
+	}
+
+	return selectedPath, nil
 }
