@@ -3,6 +3,7 @@
 package deps
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,10 +13,23 @@ import (
 // DepsHashFile is the filename for storing the computed dependency hash
 const DepsHashFile = ".jpd-deps-hash"
 
+// ErrHashStorageUnavailable indicates that the dependency hash cannot be persisted
+// for the given project (for example, when node_modules is absent as in Deno projects).
+var ErrHashStorageUnavailable = errors.New("dependency hash storage unavailable")
+
 // ReadStoredDepsHash reads the stored dependency hash from the node_modules directory.
-// If the file does not exist, returns empty string and nil error (not an error condition).
+// If the storage directory does not exist, ErrHashStorageUnavailable is returned.
+// If the file itself does not exist, returns empty string and nil error (not an error condition).
 func ReadStoredDepsHash(cwd string) (string, error) {
 	nodeModulesPath := filepath.Join(cwd, "node_modules")
+
+	if _, err := os.Stat(nodeModulesPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", ErrHashStorageUnavailable
+		}
+		return "", err
+	}
+
 	hashFilePath := filepath.Join(nodeModulesPath, DepsHashFile)
 
 	data, err := os.ReadFile(hashFilePath)
@@ -39,8 +53,11 @@ func WriteStoredDepsHash(cwd, hash string) error {
 	nodeModulesPath := filepath.Join(cwd, "node_modules")
 
 	// Check if node_modules directory exists
-	if _, err := os.Stat(nodeModulesPath); os.IsNotExist(err) {
-		return fmt.Errorf("node_modules directory does not exist at %s", nodeModulesPath)
+	if _, err := os.Stat(nodeModulesPath); err != nil {
+		if os.IsNotExist(err) {
+			return ErrHashStorageUnavailable
+		}
+		return fmt.Errorf("failed to stat node_modules: %w", err)
 	}
 
 	hashFilePath := filepath.Join(nodeModulesPath, DepsHashFile)

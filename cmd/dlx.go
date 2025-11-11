@@ -50,15 +50,11 @@ func BuildDLXCommand(pm, yarnVersion, pkgOrURL string, args []string) (program s
 		argv = append([]string{"dlx", pkgOrURL}, args...)
 		return "pnpm", argv, nil
 	case "yarn":
-		yarnMajor := ParseYarnMajor(yarnVersion)
-		if yarnMajor >= 2 {
-			// Yarn v2+
+		if yarnSupportsDLX(yarnVersion) || yarnVersion == "" {
 			argv = append([]string{"dlx", pkgOrURL}, args...)
-		} else {
-			// Yarn v1 or unknown (default to v1)
-			argv = append([]string{pkgOrURL}, args...)
+			return "yarn", argv, nil
 		}
-		return "yarn", argv, nil
+		return "", nil, fmt.Errorf("yarn version %s does not support dlx", yarnVersion)
 	case "bun":
 		argv = append([]string{pkgOrURL}, args...)
 		return "bunx", argv, nil

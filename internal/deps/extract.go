@@ -14,18 +14,21 @@ import (
 // ExtractProdAndDevDependenciesFromPackageJSON reads package.json and extracts
 // both production and development dependencies with their versions.
 // Returns a slice of strings in format "name@version".
-func ExtractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
+func ExtractProdAndDevDependenciesFromPackageJSON(baseDir string) ([]string, error) {
 	type PackageJSONDependencies struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
+	if baseDir == "" {
+		var err error
+		baseDir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	packageJSONPath := filepath.Join(cwd, "package.json")
+	packageJSONPath := filepath.Join(baseDir, "package.json")
 	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read package.json: %w", err)
@@ -50,20 +53,23 @@ func ExtractProdAndDevDependenciesFromPackageJSON() ([]string, error) {
 // ExtractImportsFromDenoJSON reads deno.json (or deno.jsonc if deno.json doesn't exist)
 // and extracts import values from the "imports" field.
 // Returns a slice of import URLs/paths.
-func ExtractImportsFromDenoJSON() ([]string, error) {
+func ExtractImportsFromDenoJSON(baseDir string) ([]string, error) {
 	type DenoJSONDependencies struct {
 		Imports map[string]string `json:"imports"`
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
+	if baseDir == "" {
+		var err error
+		baseDir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Try deno.json first, then deno.jsonc
 	var denoFilePath string
-	denoJSONPath := filepath.Join(cwd, "deno.json")
-	denoJSONCPath := filepath.Join(cwd, "deno.jsonc")
+	denoJSONPath := filepath.Join(baseDir, "deno.json")
+	denoJSONCPath := filepath.Join(baseDir, "deno.jsonc")
 
 	if _, err := os.Stat(denoJSONPath); err == nil {
 		denoFilePath = denoJSONPath

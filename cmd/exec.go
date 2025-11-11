@@ -26,6 +26,7 @@ package cmd
 import (
 	// standard library
 	"fmt"
+	"strconv"
 	"strings"
 
 	// external
@@ -38,21 +39,85 @@ import (
 
 // ParseYarnMajor extracts the major version number from a yarn version string
 func ParseYarnMajor(version string) int {
-	if version == "" {
+	major, _, ok := parseYarnMajorMinor(version)
+	if !ok {
 		return 0
 	}
+	return major
+}
 
-	// Handle simple cases like "3" or "berry-3.1.0"
+func parseYarnMajorMinor(version string) (int, int, bool) {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return 0, 0, false
+	}
+
 	if after, ok := strings.CutPrefix(version, "berry-"); ok {
 		version = after
 	}
 
-	// Extract first character and convert to int
-	if len(version) > 0 && version[0] >= '1' && version[0] <= '9' {
-		return int(version[0] - '0')
+	// Skip any leading non-digit characters
+	start := -1
+	for i := 0; i < len(version); i++ {
+		if version[i] >= '0' && version[i] <= '9' {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		return 0, 0, false
 	}
 
-	return 0 // unknown
+	version = version[start:]
+	parts := strings.Split(version, ".")
+	if len(parts) == 0 {
+		return 0, 0, false
+	}
+
+	majorStr := leadingDigits(parts[0])
+	if majorStr == "" {
+		return 0, 0, false
+	}
+
+	major, err := strconv.Atoi(majorStr)
+	if err != nil {
+		return 0, 0, false
+	}
+
+	minor := 0
+	if len(parts) > 1 {
+		minorStr := leadingDigits(parts[1])
+		if minorStr != "" {
+			minor, err = strconv.Atoi(minorStr)
+			if err != nil {
+				return 0, 0, false
+			}
+		}
+	}
+
+	return major, minor, true
+}
+
+func leadingDigits(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func yarnSupportsDLX(version string) bool {
+	major, minor, ok := parseYarnMajorMinor(version)
+	if !ok {
+		return false
+	}
+	if major >= 2 {
+		return true
+	}
+	return major == 1 && minor >= 22
 }
 
 // isURL checks if a string is a valid HTTP or HTTPS URL

@@ -276,10 +276,10 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 
 	Context("Hash Storage", func() {
 		Context("Reading stored hash", func() {
-			It("should return empty string when hash file doesn't exist", func() {
+			It("should return sentinel error when storage directory is missing", func() {
 				tempDir := GinkgoT().TempDir()
 				hash, err := deps.ReadStoredDepsHash(tempDir)
-				assert.NoError(err)
+				assert.ErrorIs(err, deps.ErrHashStorageUnavailable)
 				assert.Empty(hash)
 			})
 
@@ -347,14 +347,13 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 				assert.Equal(testHash+"\n", string(content))
 			})
 
-			It("should return error when node_modules directory doesn't exist", func() {
+			It("should return sentinel error when node_modules directory doesn't exist", func() {
 				tempDir := GinkgoT().TempDir()
 				testHash := "abc123def456"
 
 				// Try to write hash without creating node_modules first
 				err := deps.WriteStoredDepsHash(tempDir, testHash)
-				assert.Error(err)
-				assert.Contains(err.Error(), "node_modules directory does not exist")
+				assert.ErrorIs(err, deps.ErrHashStorageUnavailable)
 			})
 
 			It("should handle write errors gracefully", func() {
@@ -486,15 +485,14 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 			assert.NoError(err)
 			assert.NotEmpty(currentHash)
 
-			// Try to read stored hash (should return empty string, no error)
+			// Try to read stored hash (storage unavailable while node_modules is missing)
 			storedHash, err := deps.ReadStoredDepsHash(tempDir)
-			assert.NoError(err)
+			assert.ErrorIs(err, deps.ErrHashStorageUnavailable)
 			assert.Empty(storedHash, "stored hash should be empty when node_modules doesn't exist")
 
 			// Verify that trying to write hash fails when node_modules doesn't exist
 			err = deps.WriteStoredDepsHash(tempDir, currentHash)
-			assert.Error(err)
-			assert.Contains(err.Error(), "node_modules directory does not exist")
+			assert.ErrorIs(err, deps.ErrHashStorageUnavailable)
 
 			// This simulates the auto-install logic:
 			// 1. node_modules missing -> shouldInstall = true
@@ -558,69 +556,57 @@ var _ = Describe("Deps Package", Label("integration", "unit"), func() {
 
 	Context("Extractors", func() {
 		It("should extract merged prod and dev dependencies from package.json", func() {
-			orig, _ := os.Getwd()
-			defer func() { _ = os.Chdir(orig) }()
-
 			tempDir := GinkgoT().TempDir()
-			_ = os.Chdir(tempDir)
 
 			packageJSON := `{
-			  "dependencies": {
-			    "react": "18.2.0"
-			  },
-			  "devDependencies": {
-			    "typescript": "5.4.0"
-			  }
-			}`
-			err := os.WriteFile("package.json", []byte(packageJSON), 0644)
+                          "dependencies": {
+                            "react": "18.2.0"
+                          },
+                          "devDependencies": {
+                            "typescript": "5.4.0"
+                          }
+                        }`
+			err := os.WriteFile(filepath.Join(tempDir, "package.json"), []byte(packageJSON), 0644)
 			assert.NoError(err)
 
-			out, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+			out, err := deps.ExtractProdAndDevDependenciesFromPackageJSON(tempDir)
 			assert.NoError(err)
 			// Order is not guaranteed; assert by elements
 			assert.ElementsMatch([]string{"react@18.2.0", "typescript@5.4.0"}, out)
 		})
 
 		It("should extract imports from deno.json and prefer deno.json over deno.jsonc", func() {
-			orig, _ := os.Getwd()
-			defer func() { _ = os.Chdir(orig) }()
-
 			tempDir := GinkgoT().TempDir()
-			_ = os.Chdir(tempDir)
 
 			// Create both files; function should prefer deno.json
 			denoJSON := `{
-			  "imports": {
-			    "lodash": "https://deno.land/x/lodash@4.17.21/mod.ts"
-			  }
-			}`
+                          "imports": {
+                            "lodash": "https://deno.land/x/lodash@4.17.21/mod.ts"
+                          }
+                        }`
 			denoJSONC := `{
-			  /* alt */
-			  "imports": {
-			    "react": "https://esm.sh/react@18.2.0"
-			  },
-			}`
-			err := os.WriteFile("deno.json", []byte(denoJSON), 0644)
+                          /* alt */
+                          "imports": {
+                            "react": "https://esm.sh/react@18.2.0"
+                          },
+                        }`
+			err := os.WriteFile(filepath.Join(tempDir, "deno.json"), []byte(denoJSON), 0644)
 			assert.NoError(err)
-			err = os.WriteFile("deno.jsonc", []byte(denoJSONC), 0644)
+			err = os.WriteFile(filepath.Join(tempDir, "deno.jsonc"), []byte(denoJSONC), 0644)
 			assert.NoError(err)
 
-			vals, err := deps.ExtractImportsFromDenoJSON()
+			vals, err := deps.ExtractImportsFromDenoJSON(tempDir)
 			assert.NoError(err)
 			assert.ElementsMatch([]string{"https://deno.land/x/lodash@4.17.21/mod.ts"}, vals)
 		})
 
 		It("should error when required files are missing for extractors", func() {
-			orig, _ := os.Getwd()
-			defer func() { _ = os.Chdir(orig) }()
-
 			tempDir := GinkgoT().TempDir()
-			_ = os.Chdir(tempDir)
 
-			_, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+			_, err := deps.ExtractProdAndDevDependenciesFromPackageJSON(tempDir)
 			assert.Error(err)
 
-			_, err = deps.ExtractImportsFromDenoJSON()
+			_, err = deps.ExtractImportsFromDenoJSON(tempDir)
 			assert.Error(err)
 		})
 	})

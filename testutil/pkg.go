@@ -479,6 +479,11 @@ func (f *RootCommandFactory) CreateYarnTwoAsDefault(err error) *cobra.Command {
 // CreateYarnOneAsDefault creates a root command with "yarn" (version 1) as the default detected package manager,
 // simulating detection via PATH and specific yarn version output.
 func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
+	return f.CreateYarnClassicWithVersion("1.0.0", err)
+}
+
+// CreateYarnClassicWithVersion creates a root command that simulates Yarn classic detection with a specific version string.
+func (f *RootCommandFactory) CreateYarnClassicWithVersion(version string, err error) *cobra.Command {
 	deps := f.baseDependencies()
 
 	deps.DetectLockfile = func(targetDir string) (string, error) {
@@ -495,7 +500,7 @@ func (f *RootCommandFactory) CreateYarnOneAsDefault(err error) *cobra.Command {
 		return false // Default to no Volta detected
 	}
 	// Override specific dependency for Yarn version output
-	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer("1.0.0")
+	deps.YarnCommandVersionOutputter = mock.NewMockYarnCommandVersionOutputer(version)
 	return cmd.NewRootCmdForTesting(deps)
 }
 

@@ -25,6 +25,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -261,7 +262,7 @@ Examples:
 					}
 
 					// Check individual package presence (for all Node PMs)
-					depsWithVersions, err := deps.ExtractProdAndDevDependenciesFromPackageJSON()
+					depsWithVersions, err := deps.ExtractProdAndDevDependenciesFromPackageJSON(baseDir)
 					if err == nil && len(depsWithVersions) > 0 {
 						names := ParsePackageNames(depsWithVersions)
 
@@ -309,12 +310,14 @@ Examples:
 								}
 								de.LogDebugMessageIfDebugIsTrue("Hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
 							}
+						} else if !errors.Is(err, deps.ErrHashStorageUnavailable) {
+							return err
 						}
 					}
 
 				} else if pm == "deno" {
 					// Deno import accessibility checks
-					importValues, err := deps.ExtractImportsFromDenoJSON()
+					importValues, err := deps.ExtractImportsFromDenoJSON(baseDir)
 					if err == nil && len(importValues) > 0 {
 						// Check first few imports to avoid excessive process spawning
 						const maxImportChecks = 5
@@ -346,34 +349,6 @@ Examples:
 						}
 					}
 
-					// Hash-based dependency change detection for Deno
-					currentHash, err := deps.ComputeDenoImportsHash(baseDir)
-					if err == nil {
-						storedHash, err := deps.ReadStoredDepsHash(baseDir)
-						if err == nil {
-							hashMismatch := storedHash == "" || currentHash != storedHash
-							if hashMismatch {
-								shouldInstall = true
-								if storedHash == "" {
-									installReason.WriteString("no stored hash; ")
-								} else {
-									installReason.WriteString("imports changed; ")
-								}
-							}
-
-							if goEnv.IsDevelopmentMode() {
-								currentShort := ""
-								storedShort := ""
-								if len(currentHash) >= 8 {
-									currentShort = currentHash[:8]
-								}
-								if len(storedHash) >= 8 {
-									storedShort = storedHash[:8]
-								}
-								de.LogDebugMessageIfDebugIsTrue("Deno hash comparison", "current", currentShort, "stored", storedShort, "mismatch", hashMismatch)
-							}
-						}
-					}
 				}
 
 				// Perform installation if needed
@@ -426,17 +401,7 @@ Examples:
 							}
 						} else {
 							// Update hash after successful caching
-							if newHash, err := deps.ComputeDenoImportsHash(baseDir); err == nil {
-								if err := deps.WriteStoredDepsHash(baseDir, newHash); err == nil {
-									if goEnv.IsDevelopmentMode() {
-										hashShort := ""
-										if len(newHash) >= 8 {
-											hashShort = newHash[:8]
-										}
-										de.LogDebugMessageIfDebugIsTrue("Updated Deno imports hash", "hash", hashShort)
-									}
-								}
-							}
+							// Nothing to persist for Deno; rely on Deno's cache directory instead
 						}
 					}
 				}

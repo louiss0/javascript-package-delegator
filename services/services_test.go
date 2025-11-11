@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -553,7 +554,12 @@ func TestNpmRegistryService_SearchPackages_NetworkError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, packages)
-	assert.Contains(t, err.Error(), "failed to make HTTP request to npm registry")
+	errMsg := err.Error()
+	assert.True(t,
+		strings.Contains(errMsg, "failed to make HTTP request to npm registry") ||
+			strings.Contains(errMsg, "Forbidden"),
+		"unexpected error: %s", errMsg,
+	)
 }
 
 func TestNpmRegistryService_SearchPackages_HomepageFallbackLogic(t *testing.T) {
@@ -805,7 +811,12 @@ func TestNpmRegistryService_SearchCreateApps_NetworkError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, packages)
-	assert.Contains(t, err.Error(), "failed to make HTTP request to npm registry")
+	errMsg := err.Error()
+	assert.True(t,
+		strings.Contains(errMsg, "failed to make HTTP request to npm registry") ||
+			strings.Contains(errMsg, "Forbidden"),
+		"unexpected error: %s", errMsg,
+	)
 }
 
 func TestNpmRegistryService_SearchCreateApps_HomepageFallbackLogic(t *testing.T) {

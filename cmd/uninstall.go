@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -75,6 +76,17 @@ Examples:
 
 			var selectedPackages []string
 
+			baseDir, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return err
+			}
+			if baseDir == "" {
+				baseDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get current working directory: %w", err)
+				}
+			}
+
 			if interactive {
 
 				packageIsDeno := pm == detect.DENO
@@ -86,13 +98,13 @@ Examples:
 
 				if packageIsDeno {
 
-					dependencies, err = deps.ExtractImportsFromDenoJSON()
+					dependencies, err = deps.ExtractImportsFromDenoJSON(baseDir)
 					if err != nil {
 						return err
 					}
 				} else {
 
-					dependencies, err = deps.ExtractProdAndDevDependenciesFromPackageJSON()
+					dependencies, err = deps.ExtractProdAndDevDependenciesFromPackageJSON(baseDir)
 					if err != nil {
 						return err
 					}
