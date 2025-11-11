@@ -61,17 +61,9 @@ func ComputeDenoImportsHash(cwd string) (string, error) {
 		Imports map[string]string `json:"imports"`
 	}
 
-	// Try deno.json first, then deno.jsonc
-	var denoFilePath string
-	denoJSONPath := filepath.Join(cwd, "deno.json")
-	denoJSONCPath := filepath.Join(cwd, "deno.jsonc")
-
-	if _, err := os.Stat(denoJSONPath); err == nil {
-		denoFilePath = denoJSONPath
-	} else if _, err := os.Stat(denoJSONCPath); err == nil {
-		denoFilePath = denoJSONCPath
-	} else {
-		return "", fmt.Errorf("failed to find deno.json or deno.jsonc")
+	denoFilePath, err := DenoConfigPath(cwd)
+	if err != nil {
+		return "", err
 	}
 
 	data, err := os.ReadFile(denoFilePath)
@@ -80,9 +72,11 @@ func ComputeDenoImportsHash(cwd string) (string, error) {
 	}
 
 	// If this is a deno.jsonc file, normalize it to JSON
-	if filepath.Ext(denoFilePath) == ".jsonc" {
-		data = NormalizeJSONCToJSON(data)
-	}
+	data = lo.TernaryF(
+		filepath.Ext(denoFilePath) == ".jsonc",
+		func() []byte { return NormalizeJSONCToJSON(data) },
+		func() []byte { return data },
+	)
 
 	var pkg DenoJSONDependencies
 	if err := json.Unmarshal(data, &pkg); err != nil {

@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -56,6 +57,17 @@ Examples:
 			goEnv := getGoEnvFromCommandContext(cmd)
 			de := getDebugExecutorFromCommandContext(cmd)
 
+			targetDir, err := cmd.Flags().GetString(_CWD_FLAG)
+			if err != nil {
+				return fmt.Errorf("failed to parse --%s flag: %w", _CWD_FLAG, err)
+			}
+			if targetDir == "" {
+				targetDir, err = os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to determine working directory: %w", err)
+				}
+			}
+
 			goEnv.ExecuteIfModeIsProduction(func() {
 				log.Info("Using package manager", "pm", pm)
 			})
@@ -86,7 +98,7 @@ Examples:
 
 				if packageIsDeno {
 
-					dependencies, err = deps.ExtractImportsFromDenoJSON()
+					dependencies, err = deps.ExtractImportsFromDenoJSON(targetDir)
 					if err != nil {
 						return err
 					}
@@ -113,50 +125,24 @@ Examples:
 			}
 
 			// Build command based on package manager and flags
-			var cmdArgs []string
-			switch pm {
-			case detect.NPM:
-				cmdArgs = []string{"uninstall"}
-				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
+			baseArgs := lo.Switch[string, []string](pm).
+				Case(detect.NPM, []string{"uninstall"}).
+				Case(detect.YARN, []string{"remove"}).
+				Case(detect.PNPM, []string{"remove"}).
+				Case(detect.BUN, []string{"remove"}).
+				CaseF(detect.DENO, func() []string {
+					return []string{lo.Ternary[string](global, "uninstall", "remove")}
+				}).
+				Default([]string{})
 
-				if global {
-					cmdArgs = append(cmdArgs, "--global")
-				}
-
-			case detect.YARN:
-				cmdArgs = []string{"remove"}
-				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
-
-				if global {
-					cmdArgs = append(cmdArgs, "--global")
-				}
-
-			case detect.PNPM:
-				cmdArgs = []string{"remove"}
-				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
-
-				if global {
-					cmdArgs = append(cmdArgs, "--global")
-				}
-
-			case detect.BUN:
-				cmdArgs = []string{"remove"}
-				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
-
-				if global {
-					cmdArgs = append(cmdArgs, "--global")
-				}
-
-			case detect.DENO:
-				if global {
-					cmdArgs = []string{"uninstall"}
-				} else {
-					cmdArgs = []string{"remove"}
-				}
-				cmdArgs = lo.Flatten([][]string{cmdArgs, selectedPackages, args})
-
-			default:
+			if len(baseArgs) == 0 {
 				return fmt.Errorf("unsupported package manager: %s", pm)
+			}
+
+			cmdArgs := lo.Flatten([][]string{baseArgs, selectedPackages, args})
+
+			if global && pm != detect.DENO {
+				cmdArgs = append(cmdArgs, "--global")
 			}
 
 			// Execute the command

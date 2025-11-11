@@ -45,10 +45,9 @@ func (m *MockDebugExecutor) LogDebugMessageIfDebugIsTrue(msg string, keyvals ...
 
 func (m *MockDebugExecutor) LogJSCommandIfDebugIsTrue(cmd string, args ...string) {
 	// Build the expected arguments slice for m.Called()
-	callArgs := []interface{}{cmd}
-	for _, arg := range args {
-		callArgs = append(callArgs, arg)
-	}
+	callArgs := append([]interface{}{cmd}, lo.Map(args, func(arg string, _ int) interface{} {
+		return arg
+	})...)
 	m.Called(callArgs...)
 }
 
@@ -83,35 +82,26 @@ func NewMockCommandRunner() *MockCommandRunner {
 
 // hasExpectation returns true if there is an explicit expectation set for the given method name.
 func (m *MockCommandRunner) hasExpectation(method string) bool {
-	for _, c := range m.ExpectedCalls {
-		if c.Method == method {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(m.ExpectedCalls, func(call *mock.Call) bool {
+		return call.Method == method
+	})
 }
 
 // hasExpectationWithArgLen returns true if there is an explicit expectation set for the given
 // method name AND the number of expected arguments matches the provided length. This helps avoid
 // testify panics when a different-arity expectation exists for the same method.
 func (m *MockCommandRunner) hasExpectationWithArgLen(method string, argLen int) bool {
-	for _, c := range m.ExpectedCalls {
-		if c.Method == method {
-			if len(c.Arguments) == argLen {
-				return true
-			}
-		}
-	}
-	return false
+	return lo.ContainsBy(m.ExpectedCalls, func(call *mock.Call) bool {
+		return call.Method == method && len(call.Arguments) == argLen
+	})
 }
 
 // Command records the command that would be executed
 func (m *MockCommandRunner) Command(name string, args ...string) {
 	// Build arguments for mock call
-	callArgs := []interface{}{name}
-	for _, arg := range args {
-		callArgs = append(callArgs, arg)
-	}
+	callArgs := append([]interface{}{name}, lo.Map(args, func(arg string, _ int) interface{} {
+		return arg
+	})...)
 	// Only invoke testify's Called if an expectation for Command is set with matching arity
 	if m.hasExpectationWithArgLen("Command", len(callArgs)) {
 		m.Called(callArgs...)
@@ -285,12 +275,9 @@ type MockCommandTextUI struct {
 
 // hasExpectation returns true if there is an explicit expectation set for the given method name.
 func (ui *MockCommandTextUI) hasExpectation(method string) bool {
-	for _, c := range ui.ExpectedCalls {
-		if c.Method == method {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(ui.ExpectedCalls, func(call *mock.Call) bool {
+		return call.Method == method
+	})
 }
 
 // Value returns the current value of the text UI
@@ -565,12 +552,9 @@ type MockFileSystem struct {
 
 // hasExpectation returns true if there is an explicit expectation set for the given method name.
 func (m *MockFileSystem) hasExpectation(method string) bool {
-	for _, c := range m.ExpectedCalls {
-		if c.Method == method {
-			return true
-		}
-	}
-	return false
+	return lo.ContainsBy(m.ExpectedCalls, func(call *mock.Call) bool {
+		return call.Method == method
+	})
 }
 
 // Stat implements FileSystem using the mock StatFn or testify expectations
