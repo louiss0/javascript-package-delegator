@@ -162,9 +162,7 @@ A compact overview of `jpd` commands. For detailed usage, flags, and examples, s
 .Integrations (see docs for full details):
 * `jpd integrate warp --output-dir ./workflows/` - Generate Warp workflow files
 * `jpd integrate warp` - Print workflows as multi-doc YAML
-* `jpd integrate carapace` - Install Carapace spec globally
-* `jpd integrate carapace --stdout` - Print spec to stdout
-* `jpd integrate carapace --output ./jpd.yaml` - Write spec to file
+* `jpd _carapace bash` - Print embedded Carapace completion bridge
 
 [[integrations]]
 === Integrations
@@ -176,11 +174,8 @@ Generate external tool integrations with the `integrate` command:
 # Warp workflows
 jpd integrate warp --output-dir ./workflows/
 jpd integrate warp  # print multi-doc YAML to stdout
-
-# Carapace spec
-jpd integrate carapace            # install globally (default)
-jpd integrate carapace --stdout   # print to stdout
-jpd integrate carapace --output ./jpd.yaml
+# Carapace completion bridge (hidden command)
+jpd _carapace bash
 ----
 
 For flags, precedence rules, and OS paths, see the https://louiss0.github.io/javascript-package-delegator/reference/commands/#integrate[Integrate command reference].
@@ -223,7 +218,7 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   ├── dlx.go          // 'dlx' command logic (dedicated package runner)
 │   ├── exec.go         // 'exec' command logic
 │   ├── install.go      // 'install' command logic
-│   ├── integrate.go    // 'integrate' command logic (warp, carapace)
+│   ├── integrate.go    // 'integrate' command logic (warp)
 │   ├── root.go         // Main Cobra root command setup and persistent logic
 │   ├── run.go          // 'run' command logic
 │   ├── uninstall.go    // 'uninstall' command logic
@@ -238,7 +233,7 @@ The project follows a modular structure to ensure maintainability and testabilit
 │   └── root.go
 ├── env                 // Environment-related utilities (e.g., Go environment checks)
 │   └── root.go
-├── internal/integrations // Generators for Warp workflows and Carapace spec
+├── internal            // Integration helpers and embedded completion assets
 ├── jpd-test            // Test utilities and helpers
 ├── ni                  // (Potentially deprecated or internal alias related to `ni` inspiration)
 ├── scripts             // Development and CI scripts for testing and cleanup

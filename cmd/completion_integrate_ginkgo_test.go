@@ -3,13 +3,11 @@ package cmd_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/louiss0/javascript-package-delegator/detect"
-	integrations "github.com/louiss0/javascript-package-delegator/internal"
 	"github.com/louiss0/javascript-package-delegator/mock"
 	"github.com/louiss0/javascript-package-delegator/testutil"
 )
@@ -226,8 +224,8 @@ var _ = Describe("Completion (Ginkgo conversion)", func() {
 	})
 })
 
-var _ = Describe("Integrate carapace (Ginkgo conversion)", func() {
-	It("writes to output file", func() {
+var _ = Describe("Embedded carapace integration (Ginkgo conversion)", func() {
+	It("integrate help lists warp and excludes legacy carapace target", func() {
 		mockRunner := mock.NewMockCommandRunner()
 		factory := testutil.NewRootCommandFactory(mockRunner)
 		factory.SetupBasicCommandRunnerExpectations()
@@ -238,19 +236,13 @@ var _ = Describe("Integrate carapace (Ginkgo conversion)", func() {
 		root := factory.CreateNpmAsDefault(nil)
 		testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 
-		tmp := GinkgoT().TempDir()
-		outPath := filepath.Join(tmp, "jpd_carapace.yaml")
-		_, err := executeCmd(root, "integrate", "carapace", "--output", outPath)
+		out, err := executeCmd(root, "integrate", "--help")
 		assert.NoError(GinkgoT(), err)
-
-		content, readErr := os.ReadFile(outPath)
-		assert.NoError(GinkgoT(), readErr)
-		s := string(content)
-		assert.NotEmpty(GinkgoT(), s)
-		assert.Contains(GinkgoT(), s, "Name: javascript-package-delegator")
+		assert.Contains(GinkgoT(), out, "warp")
+		assert.NotContains(GinkgoT(), out, "carapace")
 	})
 
-	It("prints to stdout", func() {
+	It("generates a carapace shell snippet via hidden _carapace command", func() {
 		mockRunner := mock.NewMockCommandRunner()
 		factory := testutil.NewRootCommandFactory(mockRunner)
 		factory.SetupBasicCommandRunnerExpectations()
@@ -261,55 +253,9 @@ var _ = Describe("Integrate carapace (Ginkgo conversion)", func() {
 		root := factory.CreateNpmAsDefault(nil)
 		testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
 
-		out, err := executeCmd(root, "integrate", "carapace", "--stdout")
+		out, err := executeCmd(root, "_carapace", "bash")
 		assert.NoError(GinkgoT(), err)
 		assert.NotEmpty(GinkgoT(), out)
-		assert.Contains(GinkgoT(), out, "Name: javascript-package-delegator")
-	})
-
-	It("default install respects XDG/APPDATA", func() {
-		mockRunner := mock.NewMockCommandRunner()
-		factory := testutil.NewRootCommandFactory(mockRunner)
-		factory.SetupBasicCommandRunnerExpectations()
-		factory.ResetDebugExecutor()
-		testutil.DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
-		factory.SetupBasicDebugExecutorExpectations()
-
-		root := factory.CreateNpmAsDefault(nil)
-		testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-
-		tmp := GinkgoT().TempDir()
-		if runtime.GOOS == "windows" {
-			_ = os.Setenv("APPDATA", tmp)
-		} else {
-			_ = os.Setenv("XDG_DATA_HOME", tmp)
-		}
-
-		specPath, err := integrations.DefaultCarapaceSpecPath()
-		assert.NoError(GinkgoT(), err)
-
-		_, err = executeCmd(root, "integrate", "carapace")
-		assert.NoError(GinkgoT(), err)
-
-		data, readErr := os.ReadFile(specPath)
-		assert.NoError(GinkgoT(), readErr)
-		assert.NotEmpty(GinkgoT(), data)
-	})
-
-	It("errors when parent directories are missing for output path", func() {
-		mockRunner := mock.NewMockCommandRunner()
-		factory := testutil.NewRootCommandFactory(mockRunner)
-		factory.SetupBasicCommandRunnerExpectations()
-		factory.ResetDebugExecutor()
-		testutil.DebugExecutorExpectationManager.DebugExecutor = factory.DebugExecutor()
-		factory.SetupBasicDebugExecutorExpectations()
-
-		root := factory.CreateNpmAsDefault(nil)
-		testutil.DebugExecutorExpectationManager.ExpectCommonPMDetectionFlow(detect.NPM, detect.PACKAGE_LOCK_JSON)
-
-		tmp := GinkgoT().TempDir()
-		outPath := filepath.Join(tmp, "nope", "nested", "carapace.yaml")
-		_, err := executeCmd(root, "integrate", "carapace", "--output", outPath)
-		assert.Error(GinkgoT(), err)
+		assert.Contains(GinkgoT(), out, "#!/bin/bash")
 	})
 })

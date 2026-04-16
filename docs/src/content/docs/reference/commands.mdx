@@ -896,7 +896,7 @@ jpd install --cwd ./my-app/  # ✅ OK always
 
 ## integrate
 
-Generate integration files for external tools like Warp terminal and Carapace.
+Generate integration files for external tools like Warp terminal.
 
 ### Usage
 
@@ -907,7 +907,6 @@ jpd integrate <target> [flags]
 ### Supported Targets
 
 - `warp` - Generate Warp terminal workflow files
-- `carapace` - Generate Carapace completion spec
 
 ### Warp Integration
 
@@ -931,36 +930,21 @@ Creates workflow files for:
 - `jpd-clean-install.yaml` - Clean installation
 - `jpd-agent.yaml` - Package manager detection
 
-### Carapace Integration
+### Carapace Bridge Command
 
-Generate spec file for [Carapace](https://carapace.sh/) universal completion:
+jpd also exposes a hidden bridge command used by [Carapace](https://carapace.sh/) tooling:
 
 ```bash
-# Install spec to global Carapace directory
-jpd integrate carapace
-
-# Write spec to custom file
-jpd integrate carapace --output ./jpd.yaml
-
-# Print spec to stdout
-jpd integrate carapace --stdout
+jpd _carapace bash
 ```
 
-#### Installation Locations
-
-| Platform | Default Path |
-|----------|-------------|
-| Linux/macOS | `~/.local/share/carapace/specs/javascript-package-delegator.yaml` |
-| Windows | `%APPDATA%\carapace\specs\javascript-package-delegator.yaml` |
-| Custom | Set `XDG_DATA_HOME` to override on Unix systems |
+Use this for advanced Carapace setups; most users should use `jpd completion <shell>`.
 
 ### Flags
 
 | Flag | Description | Applies To |
 |------|-------------|------------|
 | `--output-dir` | Output directory for workflow files | Warp |
-| `--output`, `-o` | Output file for spec | Carapace |
-| `--stdout` | Print spec to stdout instead of installing | Carapace |
 ---
 
 ## See Also

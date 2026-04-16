@@ -4681,13 +4681,18 @@ var _ = Describe("JPD Commands", func() {
 			assert.Contains(commandNames, "agent")
 			assert.Contains(commandNames, "integrate")
 			assert.Contains(commandNames, "start")
+			assert.Contains(commandNames, "_carapace")
+
+			carapaceCmd, hasCarapaceCmd := getSubCommandWithName(rootCmd, "_carapace")
+			assert.True(hasCarapaceCmd)
+			assert.True(carapaceCmd.Hidden)
 		})
 
 		It("should maintain command count", func() {
 			commands := rootCmd.Commands()
 			userCommands := 0
 			for _, cmd := range commands {
-				if cmd.Name() != "help" && cmd.Name() != "completion" {
+				if cmd.Name() != "help" && cmd.Name() != "completion" && !cmd.Hidden {
 					userCommands++
 				}
 			}

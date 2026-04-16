@@ -34,9 +34,11 @@ import (
 	"strings"
 
 	// external
+	"github.com/charmbracelet/fang"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
+	"github.com/rsteube/carapace"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
@@ -587,8 +589,10 @@ Available commands:
 	cmd.AddCommand(NewUninstallCmd(deps.NewDependencyMultiSelectUI))
 	cmd.AddCommand(NewCleanInstallCmd(deps.DetectVolta))
 	cmd.AddCommand(NewAgentCmd())
-	cmd.AddCommand(NewCompletionCmd())
-	cmd.AddCommand(NewIntegrateCmd())
+	completionCmd := NewCompletionCmd()
+	integrateCmd := NewIntegrateCmd()
+	cmd.AddCommand(completionCmd)
+	cmd.AddCommand(integrateCmd)
 
 	cmd.PersistentFlags().BoolP(_DEBUG_FLAG, "d", false, "Make commands run in debug mode")
 	cmd.Flags().BoolP("version", "v", false, "Show version for command")
@@ -600,6 +604,14 @@ Available commands:
 	_ = cmd.RegisterFlagCompletionFunc(
 		AGENT_FLAG,
 		cobra.FixedCompletions(detect.SupportedJSPackageManagers[:], cobra.ShellCompDirectiveNoFileComp),
+	)
+
+	carapace.Gen(cmd).FlagCompletion(carapace.ActionMap{
+		AGENT_FLAG: carapace.ActionValues(detect.SupportedJSPackageManagers[:]...),
+		_CWD_FLAG:  carapace.ActionDirectories(),
+	})
+	carapace.Gen(completionCmd).PositionalCompletion(
+		carapace.ActionValues(getSupportedShells()...),
 	)
 
 	return cmd
@@ -644,7 +656,12 @@ func init() {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.ExecuteContext(context.Background())
+	err := fang.Execute(
+		context.Background(),
+		rootCmd,
+		fang.WithoutCompletions(),
+		fang.WithVersion(build_info.CLI_VERSION.String()),
+	)
 	if err != nil {
 		os.Exit(1)
 	}
