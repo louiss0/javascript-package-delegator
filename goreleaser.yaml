@@ -91,7 +91,7 @@ winget:
     repository:
       owner: Sheltons-CLI-Projects
       name: winget-pkgs
-      branch: master
+      branch: "{{ .ProjectName }}-{{ .Version }}"
       git:
         url: git@github.com:Sheltons-CLI-Projects/winget-pkgs.git
         private_key: "{{ .Env.GORELEASER_WINGET_DEPLOY_KEY_PATH }}"
